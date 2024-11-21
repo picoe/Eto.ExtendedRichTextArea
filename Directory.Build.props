@@ -1,0 +1,15 @@
+<Project>
+
+  <PropertyGroup>
+    <LangVersion>10.0</LangVersion>
+
+		<BasePath>$(MSBuildThisFileDirectory)</BasePath>
+    <UseLocalEto Condition="$(SolutionName) == 'Eto.ExtendedRichTextArea.LocalEto'">True</UseLocalEto>
+    <LocalEtoPath>$(MSBuildThisFileDirectory)..\Eto\</LocalEtoPath>
+    
+    <BaseIntermediateOutputPath>$(BasePath)artifacts\obj\$(OSPlatform)\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(BasePath)artifacts\bin\$(MSBuildProjectName)</BaseOutputPath>
+    
+    
+  </PropertyGroup>
+</Project>

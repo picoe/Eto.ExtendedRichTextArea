@@ -1,3 +1,4 @@
+//#define UseDefaultRichTextArea
 using System;
 using Eto.Forms;
 using Eto.Drawing;
@@ -5,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Collections;
 using System.Linq;
+using Eto.ExtendedRichTextArea;
 
 namespace EtoTextDrawable
 {
@@ -15,25 +17,38 @@ namespace EtoTextDrawable
 			Title = "My Eto Form";
 			MinimumSize = new Size(200, 200);
 
-			var richTextArea = new NewRichTextArea { Size = new Size(400, 200) };
-			
+
+#if UseDefaultRichTextArea
+			var richTextArea = new RichTextArea { Size = new Size(700, 600) };
+#else
+			var richTextArea = new NewRichTextArea { Size = new Size(700, 600) };
+#endif
+
+			var initialText = LoremGenerator.GenerateLines(10, 10);
+
 			var fontSelector = new FontPicker();
-			fontSelector.ValueBinding.Bind(richTextArea, r => r.InsertionFont);
+			fontSelector.ValueBinding.Bind(richTextArea, r => r.SelectionFont);
 
 			var structure = new TreeGridView
 			{
-				Width = 200,
+				Size = new Size(200, 600),
 				ShowHeader = false,
 				Columns = {
 					new GridColumn { DataCell = new TextBoxCell(0) }
 				}
 			};
-			
-			richTextArea.Document.Changed += (sender, e) => {
+
+			IDocumentElement element = new Run();
+			element.Start = 0;
+#if !UseDefaultRichTextArea
+			var changeTimer = new UITimer { Interval = 1 };
+			changeTimer.Elapsed += (sender, e) =>
+			{
+				changeTimer.Stop();
 				var items = new TreeGridItemCollection();
 				foreach (var paragraph in richTextArea.Document)
 				{
-					var paragraphItem = new TreeGridItem { Expanded = true};
+					var paragraphItem = new TreeGridItem { Expanded = true };
 					paragraphItem.Values = new object[] { $"Paragraph: {paragraph.Start}:{paragraph.Length}" };
 					foreach (var run in paragraph)
 					{
@@ -50,7 +65,20 @@ namespace EtoTextDrawable
 					items.Add(paragraphItem);
 				}
 				structure.DataStore = items;
+
 			};
+
+
+			richTextArea.Document.Changed += (sender, e) =>
+			{
+				changeTimer.Start();
+			};
+
+			richTextArea.Document.Text = initialText;
+#else
+			richTextArea.Text = initialText;
+
+#endif
 
 
 			var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
@@ -66,9 +94,6 @@ namespace EtoTextDrawable
 
 			Content = layout;
 
-			// create a few commands that can be used for the menu and toolbar
-			var clickMe = new Command { MenuText = "Click Me!", ToolBarText = "Click Me!" };
-			clickMe.Executed += (sender, e) => MessageBox.Show(this, "I was clicked!");
 
 			var quitCommand = new Command { MenuText = "Quit", Shortcut = Application.Instance.CommonModifier | Keys.Q };
 			quitCommand.Executed += (sender, e) => Application.Instance.Quit();
@@ -82,7 +107,7 @@ namespace EtoTextDrawable
 				Items =
 				{
 					// File submenu
-					new SubMenuItem { Text = "&File", Items = { clickMe } },
+					// new SubMenuItem { Text = "&File", Items = { clickMe } },
 					// new SubMenuItem { Text = "&Edit", Items = { /* commands/items */ } },
 					// new SubMenuItem { Text = "&View", Items = { /* commands/items */ } },
 				},
@@ -95,11 +120,11 @@ namespace EtoTextDrawable
 				AboutItem = aboutCommand
 			};
 
-			// create toolbar			
-			ToolBar = new ToolBar { Items = { clickMe } };
-			
+
 			Shown += (sender, e) => richTextArea.Focus();
-			
+
+
+
 		}
 	}
 }

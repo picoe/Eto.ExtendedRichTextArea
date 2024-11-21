@@ -9,8 +9,12 @@
     <ProjectReference Include="..\EtoTextDrawable\EtoTextDrawable.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="$(UseLocalEto) != 'True'">
     <PackageReference Include="Eto.Platform.Wpf" Version="2.8.3" />
   </ItemGroup>
+
+	<ItemGroup Condition="$(UseLocalEto) == 'True'">
+		<ProjectReference Include="$(LocalEtoPath)src\Eto.Wpf\Eto.Wpf.csproj" />
+	</ItemGroup>
 
 </Project>

@@ -1,0 +1,31 @@
+﻿<Project>
+
+  <Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
+  
+  <Import Project="$(LocalEtoPath)\src\Eto.Mac\build\Mac.props" Condition="$(UseLocalEto) == 'True'" />
+	
+	
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+
+    <RuntimeIdentifiers>osx-x64;osx-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+	
+  <ItemGroup>
+    <ProjectReference Include="..\EtoTextDrawable\EtoTextDrawable.csproj" />
+  </ItemGroup>
+	
+  <ItemGroup Condition="$(UseLocalEto) != 'True'">
+    <PackageReference Include="Eto.Platform.Mac64" Version="2.8.3" />
+  </ItemGroup>
+
+	<ItemGroup Condition="$(UseLocalEto) == 'True'">
+		<ProjectReference Include="$(LocalEtoPath)src\Eto.Mac\Eto.Mac64.csproj" />
+	</ItemGroup>
+  <Import Project="$(LocalEtoPath)\src\Eto.Mac\build\Mac.targets" Condition="$(UseLocalEto) == 'True'" />
+	
+  <Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />
+  
+
+</Project>

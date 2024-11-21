@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+	
+	<ItemGroup>
+		<ProjectReference Include="..\Eto.ExtendedRichTextArea\Eto.ExtendedRichTextArea.csproj" />
+	</ItemGroup>
+
+  <ItemGroup Condition="$(UseLocalEto) != 'True'">
+    <PackageReference Include="Eto.Forms" Version="2.8.3" />
+  </ItemGroup>
+
+	<ItemGroup Condition="$(UseLocalEto) == 'True'">
+		<ProjectReference Include="$(LocalEtoPath)src\Eto\Eto.csproj" />
+	</ItemGroup>
+
+</Project>

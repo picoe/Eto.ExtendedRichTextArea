@@ -1,0 +1,91 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EtoTextDrawable", "src\EtoTextDrawable\EtoTextDrawable.csproj", "{C38CF4F1-B2F3-416C-BD83-90FD21536A84}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EtoTextDrawable.Gtk", "src\EtoTextDrawable.Gtk\EtoTextDrawable.Gtk.csproj", "{6FF150C6-BACF-4244-A471-ED17D2D7E645}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EtoTextDrawable.Mac", "src\EtoTextDrawable.Mac\EtoTextDrawable.Mac64.csproj", "{1920D562-659E-4908-A267-F9A6DA5478E9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EtoTextDrawable.Wpf", "src\EtoTextDrawable.Wpf\EtoTextDrawable.Wpf.csproj", "{AB1671B4-CF3F-4B41-B328-51D8B13B2C7B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7B6E5331-D861-43C3-AE66-D3AC55C98331}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		Directory.Build.props = Directory.Build.props
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Eto", "Eto", "{D991C162-F633-4F6E-95A4-E2AC595E6A57}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto", "..\Eto\src\Eto\Eto.csproj", "{0B0ACA0E-47E7-4EAB-B4CF-641B4DA767A0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.Mac64", "..\Eto\src\Eto.Mac\Eto.Mac64.csproj", "{84D6828D-E1AB-44F0-80CA-2CE22F0AE8DA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.macOS", "..\Eto\src\Eto.Mac\Eto.macOS.csproj", "{2F92448F-AE3C-4163-BFFD-DC6B0462615C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.Wpf", "..\Eto\src\Eto.Wpf\Eto.Wpf.csproj", "{63E5E6BA-BAFA-42EA-8359-FA2C7697E175}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.Gtk", "C:\Users\curti\Projects\Eto\src\Eto.Gtk\Eto.Gtk.csproj", "{E46797AE-4F1D-41BD-9491-31D92463CFA4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.ExtendedRichTextArea", "Eto.ExtendedRichTextArea\Eto.ExtendedRichTextArea.csproj", "{210AEFB5-31D6-400F-AFE0-0E440B852AA5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C38CF4F1-B2F3-416C-BD83-90FD21536A84}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C38CF4F1-B2F3-416C-BD83-90FD21536A84}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C38CF4F1-B2F3-416C-BD83-90FD21536A84}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C38CF4F1-B2F3-416C-BD83-90FD21536A84}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6FF150C6-BACF-4244-A471-ED17D2D7E645}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6FF150C6-BACF-4244-A471-ED17D2D7E645}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6FF150C6-BACF-4244-A471-ED17D2D7E645}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6FF150C6-BACF-4244-A471-ED17D2D7E645}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1920D562-659E-4908-A267-F9A6DA5478E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1920D562-659E-4908-A267-F9A6DA5478E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1920D562-659E-4908-A267-F9A6DA5478E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1920D562-659E-4908-A267-F9A6DA5478E9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB1671B4-CF3F-4B41-B328-51D8B13B2C7B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB1671B4-CF3F-4B41-B328-51D8B13B2C7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB1671B4-CF3F-4B41-B328-51D8B13B2C7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB1671B4-CF3F-4B41-B328-51D8B13B2C7B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B0ACA0E-47E7-4EAB-B4CF-641B4DA767A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B0ACA0E-47E7-4EAB-B4CF-641B4DA767A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B0ACA0E-47E7-4EAB-B4CF-641B4DA767A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B0ACA0E-47E7-4EAB-B4CF-641B4DA767A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{84D6828D-E1AB-44F0-80CA-2CE22F0AE8DA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{84D6828D-E1AB-44F0-80CA-2CE22F0AE8DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{84D6828D-E1AB-44F0-80CA-2CE22F0AE8DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{84D6828D-E1AB-44F0-80CA-2CE22F0AE8DA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2F92448F-AE3C-4163-BFFD-DC6B0462615C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F92448F-AE3C-4163-BFFD-DC6B0462615C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F92448F-AE3C-4163-BFFD-DC6B0462615C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2F92448F-AE3C-4163-BFFD-DC6B0462615C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{63E5E6BA-BAFA-42EA-8359-FA2C7697E175}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{63E5E6BA-BAFA-42EA-8359-FA2C7697E175}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{63E5E6BA-BAFA-42EA-8359-FA2C7697E175}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{63E5E6BA-BAFA-42EA-8359-FA2C7697E175}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E46797AE-4F1D-41BD-9491-31D92463CFA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E46797AE-4F1D-41BD-9491-31D92463CFA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E46797AE-4F1D-41BD-9491-31D92463CFA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E46797AE-4F1D-41BD-9491-31D92463CFA4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{210AEFB5-31D6-400F-AFE0-0E440B852AA5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{210AEFB5-31D6-400F-AFE0-0E440B852AA5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{210AEFB5-31D6-400F-AFE0-0E440B852AA5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{210AEFB5-31D6-400F-AFE0-0E440B852AA5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0B0ACA0E-47E7-4EAB-B4CF-641B4DA767A0} = {D991C162-F633-4F6E-95A4-E2AC595E6A57}
+		{84D6828D-E1AB-44F0-80CA-2CE22F0AE8DA} = {D991C162-F633-4F6E-95A4-E2AC595E6A57}
+		{2F92448F-AE3C-4163-BFFD-DC6B0462615C} = {D991C162-F633-4F6E-95A4-E2AC595E6A57}
+		{63E5E6BA-BAFA-42EA-8359-FA2C7697E175} = {D991C162-F633-4F6E-95A4-E2AC595E6A57}
+		{E46797AE-4F1D-41BD-9491-31D92463CFA4} = {D991C162-F633-4F6E-95A4-E2AC595E6A57}
+	EndGlobalSection
+EndGlobal
