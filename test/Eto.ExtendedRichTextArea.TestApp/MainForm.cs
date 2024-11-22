@@ -28,8 +28,12 @@ namespace Eto.ExtendedRichTextArea.TestApp
 
 			var fontSelector = new FontPicker();
 			fontSelector.ValueBinding.Bind(richTextArea, r => r.SelectionFont);
-			
+			fontSelector.GotFocus += (sender, e) => richTextArea.Focus();
+			fontSelector.ValueChanged += (sender, e) => richTextArea.Focus();
+
 			var colorSelector = new ColorPicker { AllowAlpha = true };
+			// TODO: This doesn't work on Wpf to set the focus to the richTextArea so you have to click first.
+			colorSelector.ValueChanged += (sender, e) => Application.Instance.AsyncInvoke(richTextArea.Focus);
 			colorSelector.ValueBinding.Bind(richTextArea, 
 				Binding.Property((ExtendedRichTextArea r) => r.SelectionBrush)
 				.Convert(r => r is SolidBrush brush ? brush.Color : Colors.Black, r => new SolidBrush(r)));

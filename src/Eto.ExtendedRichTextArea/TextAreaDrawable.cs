@@ -127,7 +127,7 @@ namespace Eto.ExtendedRichTextArea
 
 		private void _parentScrollable_Scroll(object sender, ScrollEventArgs e)
 		{
-			//Invalidate();
+			Invalidate(false);
 		}
 
 		protected override void OnPaint(PaintEventArgs e)
@@ -146,8 +146,15 @@ namespace Eto.ExtendedRichTextArea
 			var clip = e.ClipRectangle;
 			if (_parentScrollable != null && Loaded)
 			{
-				var rect = _parentScrollable.RectangleToScreen(new RectangleF(_parentScrollable.ClientSize));
-				clip.Intersect(RectangleFromScreen(rect));
+				try
+				{
+					var rect = _parentScrollable.RectangleToScreen(new RectangleF(_parentScrollable.ClientSize));
+					clip.Intersect(RectangleFromScreen(rect));
+				}
+				catch
+				{
+					// Eto.Wps currently has an issue getting client size before loaded during a drawing operation, so ignore for now.
+				}
 			}
 			_selection?.Paint(e.Graphics);
 

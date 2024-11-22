@@ -65,24 +65,24 @@ namespace Eto.ExtendedRichTextArea
 			_textArea.LostFocus += TextArea_LostFocus;
 		}
 
-		private void TextArea_LostFocus(object sender, EventArgs e)
+		private void TextArea_LostFocus(object? sender, EventArgs e)
 		{
 			_caretTimer ??= new UITimer(OnCaretTimer) { Interval = 0.5 };
 			_caretTimer.Start();
 		}
 
-		private void TextArea_Load(object sender, EventArgs e)
+		private void TextArea_Load(object? sender, EventArgs e)
 		{
 			CalculateCaretBounds();
 		}
 
-		private void TextArea_GotFocus(object sender, EventArgs e)
+		private void TextArea_GotFocus(object? sender, EventArgs e)
 		{
 			_caretTimer ??= new UITimer(OnCaretTimer) { Interval = 0.5 };
 			_caretTimer.Start();
 		}
 
-		private void OnCaretTimer(object sender, EventArgs e)
+		private void OnCaretTimer(object? sender, EventArgs e)
 		{
 			_caretVisible = !_caretVisible;
 			InvalidateCaret();
