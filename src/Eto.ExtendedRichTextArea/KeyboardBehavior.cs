@@ -1,3 +1,4 @@
+using Eto.ExtendedRichTextArea.Model;
 using Eto.Forms;
 using System;
 
@@ -14,13 +15,66 @@ namespace Eto.ExtendedRichTextArea
 		{
 			_caret = caret;
 			_textArea = textArea;
+			_textArea.TextInput += TextArea_TextInput;
 			_textArea.KeyDown += TextArea_KeyDown;
-			if (Eto.Platform.Current.IsMac)
-			{
+			if (Eto.Platform.Instance.IsMac)
 				_textArea.KeyDown += TextArea_KeyDown_Mac;
+			else
+				_textArea.KeyDown += TextArea_KeyDown_Generic;
+		}
+
+		private void TextArea_TextInput(object sender, TextInputEventArgs e)
+		{
+			Document.Insert(_caret.Index, e.Text, _textArea.SelectionFont, _textArea.SelectionBrush);
+			_caret.Index += e.Text.Length;
+			e.Cancel = true;
+		}
+
+		private void TextArea_KeyDown_Generic(object sender, KeyEventArgs e)
+		{
+			switch (e.KeyData)
+			{
+				case Keys.PageUp:
+					_caret.Index = 0;
+					e.Handled = true;
+					break;
+				case Keys.PageDown:
+					_caret.Index = _textArea.Document.Length;
+					e.Handled = true;
+					break;
+				case Keys.Home:
+					_caret.Navigate(DocumentNavigationMode.BeginningOfLine);
+					e.Handled = true;
+					break;
+				case Keys.End:
+					_caret.Navigate(DocumentNavigationMode.EndOfLine);
+					e.Handled = true;
+					break;
 			}
 		}
-		
+
+		private void TextArea_KeyDown_Mac(object sender, KeyEventArgs e)
+		{
+			switch (e.KeyData)
+			{
+				case Keys.Application | Keys.Up:
+					_caret.Index = 0;
+					e.Handled = true;
+					break;
+				case Keys.Application | Keys.Down:
+					_caret.Index = _textArea.Document.Length;
+					e.Handled = true;
+					break;
+				case Keys.Application | Keys.Left:
+					_caret.Navigate(DocumentNavigationMode.BeginningOfLine);
+					e.Handled = true;
+					break;
+				case Keys.Application | Keys.Right:
+					_caret.Navigate(DocumentNavigationMode.EndOfLine);
+					e.Handled = true;
+					break;
+			}
+		}
 
 		private void TextArea_KeyDown(object sender, KeyEventArgs e)
 		{

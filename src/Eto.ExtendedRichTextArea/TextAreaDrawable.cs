@@ -1,17 +1,18 @@
 using Eto.Forms;
 using Eto.Drawing;
 using System;
+using Eto.ExtendedRichTextArea.Model;
 
 namespace Eto.ExtendedRichTextArea
 {
-	public class TextAreaDrawable : Drawable
+	class TextAreaDrawable : Drawable
 	{
-		Document _document;
-		CaretBehavior _caret;
-		KeyboardBehavior _keyboard;
-		MouseBehavior _mouse;
+		Document? _document;
+		readonly CaretBehavior _caret;
+		readonly KeyboardBehavior _keyboard;
+		readonly MouseBehavior _mouse;
 		bool _isValid = true;
-		Scrollable _parentScrollable;
+		Scrollable? _parentScrollable;
 
 		public event EventHandler CaretIndexChanged
 		{
@@ -37,43 +38,67 @@ namespace Eto.ExtendedRichTextArea
 
 		private void Document_Changed(object sender, EventArgs e)
 		{
-			Size = Size.Ceiling(_document.Size);
+			Size = Size.Ceiling(Document.Size);
 #if DEBUG
-			_isValid = _document.GetIsValid();
+			_isValid = Document.GetIsValid();
 #endif
 			Invalidate();
 		}
 
-		Font _selectionFont = SystemFonts.Default();
+		Font? _selectionFont;
 
 		public Font SelectionFont
 		{
-			get => _selectionFont;
+			get => _selectionFont ?? Document.DefaultFont;
 			set
 			{
-				_selectionFont = value ?? _document.DefaultFont;
+				_selectionFont = value;
 				_caret.CalculateCaretBounds();
 				SelectionFontChanged?.Invoke(this, EventArgs.Empty);
 			}
 		}
 
-		public event EventHandler<EventArgs> SelectionFontChanged;
+		public event EventHandler<EventArgs>? SelectionFontChanged;
 
-		public TextAreaDrawable(NewRichTextArea textArea) : base(false)
+		Brush? _selectionBrush;
+
+		public Brush SelectionBrush
+		{
+			get => _selectionBrush ?? Document.DefaultBrush;
+			set
+			{
+				_selectionBrush = value;
+				SelectionBrushChanged?.Invoke(this, EventArgs.Empty);
+			}
+		}
+
+		public event EventHandler<EventArgs>? SelectionBrushChanged;
+
+		public TextAreaDrawable(ExtendedRichTextArea textArea) : base(false)
 		{
 			_caret = new CaretBehavior(this);
 			_keyboard = new KeyboardBehavior(this, _caret);
 			_mouse = new MouseBehavior(this, _caret);
 			CanFocus = true;
 		}
-
-		protected override void OnTextInput(TextInputEventArgs e)
+		
+		DocumentRange? _selection;
+		
+		public DocumentRange? Selection
 		{
-			base.OnTextInput(e);
-			_document.Insert(_caret.Index, e.Text, _selectionFont);
-			_caret.Index += e.Text.Length;
-			e.Cancel = true;
+			get => _selection;
+			set
+			{
+				_selection = value;
+				if (_selection != null)
+				{
+					_selection.Document = Document;
+					_selection.CalculateBounds();
+				}
+				Invalidate(false);
+			}
 		}
+		
 
 		protected override void OnSizeChanged(EventArgs e)
 		{
@@ -109,6 +134,7 @@ namespace Eto.ExtendedRichTextArea
 		{
 			base.OnPaint(e);
 
+#if DEBUG
 			if (!_isValid)
 			{
 				using var invalidText = new FormattedText { Text = "INVALID", Font = SystemFonts.Bold(), ForegroundBrush = Brushes.Red };
@@ -116,19 +142,16 @@ namespace Eto.ExtendedRichTextArea
 				var point = new PointF(Size.Width - size.Width, 0);
 				e.Graphics.DrawText(invalidText, point);
 			}
+#endif
 			var clip = e.ClipRectangle;
 			if (_parentScrollable != null && Loaded)
 			{
-				try
-				{
-					clip.Intersect(_parentScrollable.VisibleRect);
-				}
-				catch (Exception ex)
-				{
-				}
+				var rect = _parentScrollable.RectangleToScreen(new RectangleF(_parentScrollable.ClientSize));
+				clip.Intersect(RectangleFromScreen(rect));
 			}
+			_selection?.Paint(e.Graphics);
 
-			_document.Paint(e.Graphics, clip);
+			Document.Paint(e.Graphics, clip);
 			_caret.Paint(e);
 		}
 

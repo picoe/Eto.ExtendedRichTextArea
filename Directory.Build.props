@@ -8,7 +8,7 @@
     <LocalEtoPath>$(MSBuildThisFileDirectory)..\Eto\</LocalEtoPath>
     
     <BaseIntermediateOutputPath>$(BasePath)artifacts\obj\$(OSPlatform)\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
-    <BaseOutputPath>$(BasePath)artifacts\bin\$(MSBuildProjectName)</BaseOutputPath>
+    <BaseOutputPath>$(BasePath)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
     
     
   </PropertyGroup>

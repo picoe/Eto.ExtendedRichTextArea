@@ -21,13 +21,18 @@ namespace EtoTextDrawable
 #if UseDefaultRichTextArea
 			var richTextArea = new RichTextArea { Size = new Size(700, 600) };
 #else
-			var richTextArea = new NewRichTextArea { Size = new Size(700, 600) };
+			var richTextArea = new ExtendedRichTextArea { Size = new Size(700, 600) };
 #endif
 
-			var initialText = LoremGenerator.GenerateLines(10, 10);
+			var initialText = LoremGenerator.GenerateLines(200, 20);
 
 			var fontSelector = new FontPicker();
 			fontSelector.ValueBinding.Bind(richTextArea, r => r.SelectionFont);
+			
+			var colorSelector = new ColorPicker { AllowAlpha = true };
+			colorSelector.ValueBinding.Bind(richTextArea, 
+				Binding.Property((ExtendedRichTextArea r) => r.SelectionBrush)
+				.Convert(r => r is SolidBrush brush ? brush.Color : Colors.Black, r => new SolidBrush(r)));
 
 			var structure = new TreeGridView
 			{
@@ -38,8 +43,6 @@ namespace EtoTextDrawable
 				}
 			};
 
-			IDocumentElement element = new Run();
-			element.Start = 0;
 #if !UseDefaultRichTextArea
 			var changeTimer = new UITimer { Interval = 1 };
 			changeTimer.Elapsed += (sender, e) =>
@@ -83,7 +86,7 @@ namespace EtoTextDrawable
 
 			var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
 
-			layout.AddSeparateRow(fontSelector, null);
+			layout.AddSeparateRow(fontSelector, colorSelector, null);
 
 			layout.BeginVertical();
 			layout.BeginHorizontal();

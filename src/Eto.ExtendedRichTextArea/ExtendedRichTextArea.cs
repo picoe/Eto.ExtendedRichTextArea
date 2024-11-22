@@ -1,12 +1,13 @@
 using Eto.Forms;
 using Eto.Drawing;
 using System;
+using Eto.ExtendedRichTextArea.Model;
 
 namespace Eto.ExtendedRichTextArea
 {
-    public class NewRichTextArea : Scrollable
+    public class ExtendedRichTextArea : Scrollable
 	{
-		TextAreaDrawable _drawable;
+		readonly TextAreaDrawable _drawable;
 		
 		public Document Document
 		{
@@ -19,15 +20,21 @@ namespace Eto.ExtendedRichTextArea
 			get => _drawable.SelectionFont;
 			set => _drawable.SelectionFont = value;
 		}
+
+		public Brush SelectionBrush
+		{
+			get => _drawable.SelectionBrush;
+			set => _drawable.SelectionBrush = value;
+		}
 		
-		public event EventHandler<EventArgs> SelectionFontChanged;
+		public event EventHandler<EventArgs>? SelectionFontChanged;
 
         public override void Focus()
         {
             _drawable.Focus();
         }
 
-        public NewRichTextArea()
+        public ExtendedRichTextArea()
 		{
 			Size = new Size(200, 100);
 			_drawable = new TextAreaDrawable(this);

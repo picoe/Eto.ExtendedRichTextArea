@@ -1,22 +1,20 @@
 using System;
 using Eto.Forms;
 using Eto.Drawing;
+using Eto.ExtendedRichTextArea.Model;
 
 namespace Eto.ExtendedRichTextArea
 {
 	class CaretBehavior
 	{
+		readonly TextAreaDrawable _textArea;
 		int _caretIndex;
-		UITimer _caretTimer;
+		UITimer? _caretTimer;
 		bool _caretVisible;
 		RectangleF _caretBounds;
-		private TextAreaDrawable _textArea;
-
-		float Scale => _textArea.Scale;
-
 		Document Document => _textArea.Document;
 
-		public event EventHandler IndexChanged;
+		public event EventHandler? IndexChanged;
 
 		public int Index
 		{
@@ -36,6 +34,7 @@ namespace Eto.ExtendedRichTextArea
 					InvalidateCaret();
 					IndexChanged?.Invoke(_textArea, EventArgs.Empty);
 					_textArea.SelectionFont = Document.GetFont(_caretIndex);
+					// _textArea.SelectionBrush = Document.GetBrush(_caretIndex);
 				}
 			}
 		}
@@ -81,7 +80,6 @@ namespace Eto.ExtendedRichTextArea
 		{
 			_caretTimer ??= new UITimer(OnCaretTimer) { Interval = 0.5 };
 			_caretTimer.Start();
-
 		}
 
 		private void OnCaretTimer(object sender, EventArgs e)
