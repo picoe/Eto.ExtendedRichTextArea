@@ -8,7 +8,7 @@ using System.Collections;
 using System.Linq;
 using Eto.ExtendedRichTextArea;
 
-namespace EtoTextDrawable
+namespace Eto.ExtendedRichTextArea.TestApp
 {
 	public partial class MainForm : Form
 	{

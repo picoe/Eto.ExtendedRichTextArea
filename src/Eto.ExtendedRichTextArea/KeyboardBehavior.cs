@@ -17,10 +17,78 @@ namespace Eto.ExtendedRichTextArea
 			_textArea = textArea;
 			_textArea.TextInput += TextArea_TextInput;
 			_textArea.KeyDown += TextArea_KeyDown;
+			_textArea.KeyDown += TextArea_KeyDown_Navigation;
+			_textArea.KeyDown += TextArea_KeyDown_Selection;
 			if (Eto.Platform.Instance.IsMac)
 				_textArea.KeyDown += TextArea_KeyDown_Mac;
 			else
 				_textArea.KeyDown += TextArea_KeyDown_Generic;
+		}
+
+		private void TextArea_KeyDown_Selection(object sender, KeyEventArgs e)
+		{
+			switch (e.KeyData)
+			{
+				case Keys.Control | Keys.A:
+					_textArea.Selection = new DocumentRange(0, _textArea.Document.Length);
+					e.Handled = true;
+					break;
+			}
+		}
+
+		private void TextArea_KeyDown_Navigation(object sender, KeyEventArgs e)
+		{
+			var extendSelection = e.Modifiers == Keys.Shift;
+			if (!extendSelection && e.Modifiers != Keys.None)
+				return;
+			var lastCaretIndex = _caret.Index;
+			switch (e.Key)
+			{
+				case Keys.PageUp:
+					_caret.Index = 0;
+					e.Handled = true;
+					break;
+				case Keys.PageDown:
+					_caret.Index = _textArea.Document.Length;
+					e.Handled = true;
+					break;
+				case Keys.Home:
+					_caret.Navigate(DocumentNavigationMode.BeginningOfLine);
+					e.Handled = true;
+					break;
+				case Keys.End:
+					_caret.Navigate(DocumentNavigationMode.EndOfLine);
+					e.Handled = true;
+					break;
+				case Keys.Left:
+					_caret.Index = Math.Max(0, _caret.Index - 1);
+					e.Handled = true;
+					break;
+				case Keys.Right:
+					_caret.Index = Math.Min(_textArea.Document.Length, _caret.Index + 1);
+					e.Handled = true;
+					break;
+				case Keys.Up:
+					_caret.Navigate(DocumentNavigationMode.PreviousLine);
+					e.Handled = true;
+					break;
+				case Keys.Down:
+					_caret.Navigate(DocumentNavigationMode.NextLine);
+					e.Handled = true;
+					break;
+			}
+			if (e.Handled == true && extendSelection)
+			{
+				if (_textArea.Selection != null)
+				{
+					lastCaretIndex = _textArea.Selection.Start;
+				}
+				_textArea.Selection = new DocumentRange(lastCaretIndex, _caret.Index);
+			}
+			else if (e.Handled == true)
+			{
+				_textArea.Selection = null;
+			}
 		}
 
 		private void TextArea_TextInput(object sender, TextInputEventArgs e)
@@ -78,40 +146,8 @@ namespace Eto.ExtendedRichTextArea
 
 		private void TextArea_KeyDown(object sender, KeyEventArgs e)
 		{
-			switch (e.KeyData)
+			switch (e.Key)
 			{
-				case Keys.PageUp:
-					_caret.Index = 0;
-					e.Handled = true;
-					break;
-				case Keys.PageDown:
-					_caret.Index = _textArea.Document.Length;
-					e.Handled = true;
-					break;
-				case Keys.Home:
-					_caret.Navigate(DocumentNavigationMode.BeginningOfLine);
-					e.Handled = true;
-					break;
-				case Keys.End:
-					_caret.Navigate(DocumentNavigationMode.EndOfLine);
-					e.Handled = true;
-					break;
-				case Keys.Left:
-					_caret.Index = Math.Max(0, _caret.Index - 1);
-					e.Handled = true;
-					break;
-				case Keys.Right:
-					_caret.Index = Math.Min(_textArea.Document.Length, _caret.Index + 1);
-					e.Handled = true;
-					break;
-				case Keys.Up:
-					_caret.Navigate(DocumentNavigationMode.PreviousLine);
-					e.Handled = true;
-					break;
-				case Keys.Down:
-					_caret.Navigate(DocumentNavigationMode.NextLine);
-					e.Handled = true;
-					break;
 				case Keys.Backspace:
 					if (_caret.Index > 0)
 					{

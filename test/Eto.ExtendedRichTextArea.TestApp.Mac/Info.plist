@@ -3,9 +3,9 @@
 <plist version="1.0">
   <dict>
     <key>CFBundleName</key>
-    <string>EtoTextDrawable</string>
+    <string>Eto.ExtendedRichTextArea.TestApp</string>
     <key>CFBundleIdentifier</key>
-    <string>com.example.EtoTextDrawable</string>
+    <string>com.example.Eto.ExtendedRichTextArea.TestApp</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0</string>
     <key>LSMinimumSystemVersion</key>

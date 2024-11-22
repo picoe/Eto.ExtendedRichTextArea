@@ -6,7 +6,7 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <ProjectReference Include="..\EtoTextDrawable\EtoTextDrawable.csproj" />
+    <ProjectReference Include="..\Eto.ExtendedRichTextArea.TestApp\Eto.ExtendedRichTextArea.TestApp.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="$(UseLocalEto) != 'True'">

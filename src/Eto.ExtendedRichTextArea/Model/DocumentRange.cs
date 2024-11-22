@@ -6,45 +6,48 @@ namespace Eto.ExtendedRichTextArea.Model
 	{
 		internal Document? Document { get; set; }
 		public int Start { get; }
-		public int Length { get; }
-		public int End => Start + Length;
+		public int Length => Math.Abs(End - Start);
+		public int End { get; }
 
 		List<RectangleF>? _bounds;
 
 		public DocumentRange(int start, int end)
 		{
-			if (start <= end)
-			{
-				Start = start;
-				Length = end - start;
-			}
-			else
-			{
-				Start = end;
-				Length = start - end;
-			}
+			Start = start;
+			End = end;
 		}
 		
 		public void CalculateBounds()
 		{
 			if (Document == null)
 				return;
+			int start, end;
+			if (Start < End)
+			{
+				start = Start;
+				end = End;
+			}
+			else
+			{
+				start = End;
+				end = Start;
+			}
 			
 			_bounds ??= new List<RectangleF>();
 			_bounds.Clear();
 			RectangleF bounds = RectangleF.Empty;
 			Span? lastSpan = null;
 			// TODO: trim mid spans for start/end
-			foreach (var span in Document.EnumerateSpans(Start, End))
+			foreach (var span in Document.EnumerateSpans(start, end))
 			{
 				var spanBounds = span.Bounds;
 				if (bounds.IsEmpty)
 				{
 					bounds = span.Bounds;
 					var documentIndex = span.DocumentIndex;
-					if (documentIndex < Start)
+					if (documentIndex < start)
 					{
-						var point = span.GetPointAtIndex(Start - documentIndex);
+						var point = span.GetPointAtIndex(start - documentIndex);
 						if (point != null)
 						{
 							bounds.Width -= point.Value.X - bounds.X;
@@ -70,9 +73,9 @@ namespace Eto.ExtendedRichTextArea.Model
 				if (lastSpan != null)
 				{
 					var documentIndex = lastSpan.DocumentIndex;
-					if (documentIndex + lastSpan.Length > End)
+					if (documentIndex + lastSpan.Length > end)
 					{
-						var point = lastSpan.GetPointAtIndex(End - documentIndex);
+						var point = lastSpan.GetPointAtIndex(end - documentIndex);
 						bounds.Width = point?.X - bounds.X ?? bounds.Width;
 					}
 				}

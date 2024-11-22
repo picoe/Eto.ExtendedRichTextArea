@@ -9,10 +9,12 @@ namespace Eto.ExtendedRichTextArea.Model
 {
 	public enum DocumentNavigationMode
 	{
-		PreviousLine,
 		NextLine,
+		PreviousLine,
+		BeginningOfLine,
 		EndOfLine,
-		BeginningOfLine
+		NextWord,
+		PreviousWord,
 	}
 	
 	public class Attributes
@@ -334,12 +336,29 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			return type switch
 			{
-				DocumentNavigationMode.PreviousLine => GetPreviousLine(index, caretLocation),
 				DocumentNavigationMode.NextLine => GetNextLine(index, caretLocation),
-				DocumentNavigationMode.EndOfLine => GetEndOfLine(index),
+				DocumentNavigationMode.PreviousLine => GetPreviousLine(index, caretLocation),
 				DocumentNavigationMode.BeginningOfLine => GetBeginningOfLine(index),
+				DocumentNavigationMode.EndOfLine => GetEndOfLine(index),
+				DocumentNavigationMode.NextWord => GetNextWord(index),
+				DocumentNavigationMode.PreviousWord => GetPreviousWord(index),
 				_ => index
 			};
+		}
+
+		private int GetPreviousWord(int index)
+		{
+			return index;
+		}
+
+
+		private int GetNextWord(int index)
+		{
+			var words = EnumerateWords(index, true);
+			var nextWord = words.Skip(1).FirstOrDefault();
+			if (nextWord.index >= 0)
+				return nextWord.index + Start;
+			return End;
 		}
 
 		private int GetBeginningOfLine(int index)

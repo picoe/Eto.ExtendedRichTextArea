@@ -18,7 +18,8 @@ namespace Eto.ExtendedRichTextArea.Model
 		int Remove(int index, int length);
 		void Recalculate(int index);
 		int GetIndexAtPoint(PointF point);
-		PointF? GetPointAtIndex(int index);		
+		PointF? GetPointAtIndex(int index);
+		IEnumerable<(string text, int index)> EnumerateWords(int start, bool forward);
 	}
 	
 	public abstract class DocumentElement<T> : IEnumerable<T>, IDocumentElement
@@ -135,16 +136,43 @@ namespace Eto.ExtendedRichTextArea.Model
 			return size;
 		}
 
-		internal T? Find(int index)
+		internal T? Find(int position)
 		{
-			foreach (var element in this)
+			for (int i = 0; i < _elements.Count; i++)
 			{
-				if (index <= element.Start + element.Length)
+				var element = _elements[i];
+				if (position <= element.Start + element.Length)
 					return element;
 			}
 			return null;
 		}
-		
+
+		public IEnumerable<(string text, int index)> EnumerateWords(int start, bool forward)
+		{
+			if (forward)
+			{
+				for (int i = 0; i < _elements.Count; i++)
+				{
+					var element = _elements[i];
+					foreach (var word in element.EnumerateWords(start, forward))
+					{
+						yield return (word.text, word.index + element.Start);
+					}
+				}
+			}
+			else
+			{
+				for (int i = _elements.Count - 1; i >= 0; i--)
+				{
+					var element = _elements[i];
+					foreach (var word in element.EnumerateWords(start, forward))
+					{
+						yield return (word.text, word.index + element.Start);
+					}
+				}
+			}
+		}
+
 		public void Insert(int index, T element)
 		{
 			element.Start = index;
@@ -202,7 +230,7 @@ namespace Eto.ExtendedRichTextArea.Model
 					break;
 					
 				var element = _elements[i];
-				var start = index - Start;
+				var start = index;
 				var end = start + length;
 				if (element.Start > end || element.End < start)
 					continue;
@@ -216,11 +244,11 @@ namespace Eto.ExtendedRichTextArea.Model
 				if (start < element.Start && end >= element.End)
 				{
 					var removeLength = element.Length - start;
-					length -= element.Remove(start, removeLength);
+					length -= element.Remove(start - element.Start, removeLength);
 				}
 				else if (start >= element.Start && end < element.End)
 				{
-					length -= element.Remove(start, length);
+					length -= element.Remove(start - element.Start, length);
 				}
 				else if (end > element.End && element is Paragraph paragraph)
 				{
@@ -256,7 +284,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				}
 				else
 				{
-					length -= element.Remove(start, length);
+					length -= element.Remove(start - element.Start, length);
 				}
 				if (element.Length == 0)
 				{

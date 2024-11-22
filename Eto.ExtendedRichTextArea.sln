@@ -3,13 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EtoTextDrawable", "src\EtoTextDrawable\EtoTextDrawable.csproj", "{C38CF4F1-B2F3-416C-BD83-90FD21536A84}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.ExtendedRichTextArea.TestApp", "test\Eto.ExtendedRichTextArea.TestApp\Eto.ExtendedRichTextArea.TestApp.csproj", "{C38CF4F1-B2F3-416C-BD83-90FD21536A84}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EtoTextDrawable.Gtk", "src\EtoTextDrawable.Gtk\EtoTextDrawable.Gtk.csproj", "{6FF150C6-BACF-4244-A471-ED17D2D7E645}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.ExtendedRichTextArea.TestApp.Gtk", "test\Eto.ExtendedRichTextArea.TestApp.Gtk\Eto.ExtendedRichTextArea.TestApp.Gtk.csproj", "{6FF150C6-BACF-4244-A471-ED17D2D7E645}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EtoTextDrawable.Mac", "src\EtoTextDrawable.Mac\EtoTextDrawable.Mac64.csproj", "{1920D562-659E-4908-A267-F9A6DA5478E9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.ExtendedRichTextArea.TestApp.Mac", "test\Eto.ExtendedRichTextArea.TestApp.Mac\Eto.ExtendedRichTextArea.TestApp.Mac64.csproj", "{1920D562-659E-4908-A267-F9A6DA5478E9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EtoTextDrawable.Wpf", "src\EtoTextDrawable.Wpf\EtoTextDrawable.Wpf.csproj", "{AB1671B4-CF3F-4B41-B328-51D8B13B2C7B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.ExtendedRichTextArea.TestApp.Wpf", "test\Eto.ExtendedRichTextArea.TestApp.Wpf\Eto.ExtendedRichTextArea.TestApp.Wpf.csproj", "{AB1671B4-CF3F-4B41-B328-51D8B13B2C7B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7B6E5331-D861-43C3-AE66-D3AC55C98331}"
 	ProjectSection(SolutionItems) = preProject

@@ -1,3 +1,4 @@
+
 using Eto.Drawing;
 
 namespace Eto.ExtendedRichTextArea.Model
@@ -140,6 +141,47 @@ namespace Eto.ExtendedRichTextArea.Model
 			var size = Font?.MeasureString(text) ?? SizeF.Empty;
 			return new PointF(Bounds.X + size.Width, Bounds.Y);
 
+		}
+
+		public IEnumerable<(string text, int index)> EnumerateWords(int start, bool forward)
+		{
+			var text = Text;
+			if (forward)
+			{
+				int last = -1;
+				for (int i = start; i < text.Length; i++)
+				{
+					if (char.IsWhiteSpace(text[i]))
+					{
+						if (last != -1)
+						{
+							yield return (text.Substring(last, i - last), last);
+							last = -1;
+						}
+						continue;
+					}
+					if (last == -1)
+						last = i;
+				}
+			}
+			else
+			{
+				int last = -1;
+				for (int i = start; i >= 0; i--)
+				{
+					if (char.IsWhiteSpace(text[i]))
+					{
+						if (last != text.Length)
+						{
+							yield return (text.Substring(last, i - last), i);
+							last = text.Length;
+						}
+						continue;
+					}
+					if (last == text.Length)
+						last = i;
+				}
+			}
 		}
 	}
 }

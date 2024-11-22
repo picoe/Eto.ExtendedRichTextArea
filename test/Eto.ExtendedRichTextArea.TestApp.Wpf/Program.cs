@@ -1,14 +1,14 @@
 ﻿using System;
 using Eto.Forms;
 
-namespace EtoTextDrawable.Mac
+namespace Eto.ExtendedRichTextArea.TestApp.Wpf
 {
 	class Program
 	{
 		[STAThread]
 		public static void Main(string[] args)
 		{
-			new Application(Eto.Platforms.Mac64).Run(new MainForm());
+			new Application(Eto.Platforms.Wpf).Run(new MainForm());
 		}
 	}
 }
