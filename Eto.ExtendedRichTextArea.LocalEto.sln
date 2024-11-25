@@ -33,6 +33,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.ExtendedRichTextArea", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.ExtendedRichTextArea.TestApp.macOS", "test\Eto.ExtendedRichTextArea.TestApp.Mac\Eto.ExtendedRichTextArea.TestApp.macOS.csproj", "{5DF2323B-4DB8-4642-B41E-C820B1F85D99}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eto.ExtendedRichTextArea.UnitTest", "test\Eto.ExtendedRichTextArea.UnitTest\Eto.ExtendedRichTextArea.UnitTest.csproj", "{A0BC2005-0433-4B65-8E46-5B19D546CE2F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,10 @@ Global
 		{5DF2323B-4DB8-4642-B41E-C820B1F85D99}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5DF2323B-4DB8-4642-B41E-C820B1F85D99}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5DF2323B-4DB8-4642-B41E-C820B1F85D99}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A0BC2005-0433-4B65-8E46-5B19D546CE2F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A0BC2005-0433-4B65-8E46-5B19D546CE2F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A0BC2005-0433-4B65-8E46-5B19D546CE2F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A0BC2005-0433-4B65-8E46-5B19D546CE2F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

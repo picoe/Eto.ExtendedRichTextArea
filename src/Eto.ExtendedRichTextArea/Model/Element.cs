@@ -1,10 +1,12 @@
 using Eto.Drawing;
+using Eto.ExtendedRichTextArea.Measure;
 
 using System.Collections;
+using System.Collections.ObjectModel;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
-	public interface IDocumentElement
+	public interface IElement
 	{
 		int Start { get; set; }
 		int Length { get; }
@@ -12,21 +14,23 @@ namespace Eto.ExtendedRichTextArea.Model
 		int DocumentIndex { get; }
 		RectangleF Bounds { get; }
 		string Text { get; internal set; }
-		IDocumentElement? Parent { get; set; }
-		IDocumentElement? Split(int index);
+		IElement? Parent { get; set; }
+		IElement? Split(int index);
 		SizeF Measure(SizeF availableSize, PointF location);
-		int Remove(int index, int length);
+		int RemoveAt(int index, int length);
 		void Recalculate(int index);
 		int GetIndexAtPoint(PointF point);
 		PointF? GetPointAtIndex(int index);
 		IEnumerable<(string text, int index)> EnumerateWords(int start, bool forward);
+		IEnumerable<IInlineElement> EnumerateInlines(int start, int end);
+		void MeasureIfNeeded();
+		void Measure(Measurement measurement);
 	}
 	
-	public abstract class DocumentElement<T> : IEnumerable<T>, IDocumentElement
-		where T : class, IDocumentElement, new()
+	
+	public abstract class Element<T> : Collection<T>, IElement
+		where T : class, IElement
 	{
-		readonly List<T> _elements = new List<T>();
-		
 		public int Start { get; private set; }
 		public int Length { get; private set; }
 		public int End => Start + Length;
@@ -34,34 +38,31 @@ namespace Eto.ExtendedRichTextArea.Model
 		public int DocumentIndex => Start + Parent?.DocumentIndex ?? 0;
 		
 		
-		protected IDocumentElement? Parent { get; private set; }
+		public IElement? Parent { get; private set; }
 		
-		protected IDocumentElement? TopParent
+		protected static IElement? GetTopParent(IElement element)
 		{
-			get
+			var parent = element.Parent;
+			while (parent?.Parent != null)
 			{
-				var parent = Parent;
-				while (parent?.Parent != null)
-				{
-					parent = parent.Parent;
-				}
-				return parent;
+				parent = parent.Parent;
 			}
+			return parent;
 		}
 		
-		IDocumentElement? IDocumentElement.Parent
+		IElement? IElement.Parent
 		{
 			get => Parent;
 			set => Parent = value;
 		}
 
-		protected IList<T> Children => _elements;
-
 		protected virtual string? Separator => null;
+
+		// protected abstract void OffsetElement(ref PointF location);
 
 		protected abstract void OffsetElement(ref PointF location, ref SizeF size, SizeF elementSize);
 
-		int IDocumentElement.Start
+		int IElement.Start
 		{
 			get => Start;
 			set => Start = value;
@@ -72,12 +73,13 @@ namespace Eto.ExtendedRichTextArea.Model
 			get
 			{
 				if (Separator != null)
-					return string.Join(Separator, _elements.Select(r => r.Text));
-				return string.Concat(_elements.Select(r => r.Text));
+					return string.Join(Separator, this.Select(r => r.Text));
+				return string.Concat(this.Select(r => r.Text));
 			}
 			set
 			{
-				_elements.Clear();
+				BeginEdit();
+				Clear();
 				if (!string.IsNullOrEmpty(value))
 				{
 					if (Separator != null)
@@ -85,28 +87,56 @@ namespace Eto.ExtendedRichTextArea.Model
 						var lines = value.Split(new[] { Separator }, StringSplitOptions.None);
 						foreach (var line in lines)
 						{
-							var element = new T();
+							var element = CreateElement();
 							element.Text = line;
 							element.Parent = this;
-							_elements.Add(element);
+							Add(element);
 						}
 					}
 					else
 					{
-						var element = new T();
+						var element = CreateElement();
 						element.Text = value;
 						element.Parent = this;
-						_elements.Add(element);
+						Add(element);
 					}
 				}
-				MeasureIfNeeded();
+				EndEdit();
 			}
 		}
 
-		internal abstract DocumentElement<T> Create();
+		protected override void ClearItems()
+		{
+			base.ClearItems();
+			Length = 0;
+			MeasureIfNeeded();
+		}
 
-		public IEnumerator<T> GetEnumerator() => _elements.GetEnumerator();
-		IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+		protected override void InsertItem(int index, T item)
+		{
+			base.InsertItem(index, item);
+			Adjust(index, item.Length);
+			MeasureIfNeeded();
+		}
+
+		protected override void RemoveItem(int index)
+		{
+			var element = this[index];
+			base.RemoveItem(index);
+			Adjust(index, -element.Length);
+			MeasureIfNeeded();
+		}
+
+		protected override void SetItem(int index, T item)
+		{
+			var old = this[index];
+			base.SetItem(index, item);
+			Adjust(index, item.Length - old.Length);
+			MeasureIfNeeded();
+		}
+
+		internal abstract Element<T> Create();
+		internal abstract T CreateElement();
 
 		public SizeF Measure(SizeF availableSize, PointF location)
 		{
@@ -114,18 +144,18 @@ namespace Eto.ExtendedRichTextArea.Model
 			Bounds = new RectangleF(location, size);
 			return size;
 		}
-
+		
 		protected virtual SizeF MeasureOverride(SizeF availableSize, PointF location)
 		{
 			SizeF size = SizeF.Empty;
 			int index = 0;
 			var separatorLength = Separator?.Length ?? 0;
 			PointF elementLocation = location;
-			for (int i = 0; i < _elements.Count; i++)
+			for (int i = 0; i < Count; i++)
 			{
 				if (i > 0)
 					index += separatorLength;
-				var element = _elements[i];
+				var element = this[i];
 				element.Start = index;
 				var elementSize = element.Measure(availableSize, elementLocation);
 
@@ -135,12 +165,52 @@ namespace Eto.ExtendedRichTextArea.Model
 			Length = index;
 			return size;
 		}
+		
+		public void Measure(Measurement measurement)
+		{
+			var location = measurement.CurrentLocation;
+			if (this is Paragraph paragraph)
+			{
+				measurement.CurrentParagraph = paragraph;
+				measurement.CurrentRun = null;
+				measurement.CurrentLine = null;
+			}
+			else if (this is Run run)
+			{
+				measurement.AddNewLine(run);
+			}
+			var size = MeasureOverride(measurement);
+			Bounds = new RectangleF(location, size);
+		}
+
+		protected virtual SizeF MeasureOverride(Measurement measurement)
+		{
+			SizeF size = SizeF.Empty;
+			int index = 0;
+			var separatorLength = Separator?.Length ?? 0;
+			for (int i = 0; i < Count; i++)
+			{
+				if (i > 0)
+					index += separatorLength;
+				var element = this[i];
+				element.Start = index;
+				element.Measure(measurement);
+				OffsetElement(measurement);
+				index += element.Length;
+			}
+			Length = index;
+			return size;
+		}
+
+		public virtual void OffsetElement(Measurement measurement)
+		{
+		}
 
 		internal T? Find(int position)
 		{
-			for (int i = 0; i < _elements.Count; i++)
+			for (int i = 0; i < Count; i++)
 			{
-				var element = _elements[i];
+				var element = this[i];
 				if (position <= element.Start + element.Length)
 					return element;
 			}
@@ -151,9 +221,9 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			if (forward)
 			{
-				for (int i = 0; i < _elements.Count; i++)
+				for (int i = 0; i < Count; i++)
 				{
-					var element = _elements[i];
+					var element = this[i];
 					foreach (var word in element.EnumerateWords(start, forward))
 					{
 						yield return (word.text, word.index + element.Start);
@@ -162,9 +232,9 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			else
 			{
-				for (int i = _elements.Count - 1; i >= 0; i--)
+				for (int i = Count - 1; i >= 0; i--)
 				{
-					var element = _elements[i];
+					var element = this[i];
 					foreach (var word in element.EnumerateWords(start, forward))
 					{
 						yield return (word.text, word.index + element.Start);
@@ -173,63 +243,44 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 
-		public void Insert(int index, T element)
+		public void InsertAt(int index, T element)
 		{
 			element.Start = index;
 			element.Parent = this;
-			for (int i = 0; i < _elements.Count; i++)
+			for (int i = 0; i < Count; i++)
 			{
-				if (_elements[i].Start >= index)
+				if (this[i].Start >= index)
 				{
-					_elements.Insert(i, element);
+					Insert(i, element);
 					Adjust(i, element.Length);
 					MeasureIfNeeded();
 					return;
 				}
 			}
-			_elements.Add(element);
+			Add(element);
 			Length += element.Length;
 			MeasureIfNeeded();
 		}
 
-		private void Adjust(int startIndex, int length)
+		public void Adjust(int startIndex, int length)
 		{
 			Length += length;
-			for (int j = startIndex + 1; j < _elements.Count; j++)
+			for (int j = startIndex + 1; j < Count; j++)
 			{
-				_elements[j].Start += length;
+				this[j].Start += length;
 			}
 		}
 
-		public virtual void Add(T element)
-		{
-			element.Start = Length;
-			element.Parent = this;
-			_elements.Add(element);
-			Length += element.Length;
-			MeasureIfNeeded();
-		}
-
-		public virtual void Remove(T element)
-		{
-			var index = _elements.IndexOf(element);
-			if (index == -1)
-				return;
-			_elements.Remove(element);
-			Adjust(index, -element.Length);
-			MeasureIfNeeded();
-		}
-
-		public int Remove(int index, int length)
+		public int RemoveAt(int index, int length)
 		{
 			var originalLength = length;
-			for (int i = 0; i < _elements.Count; i++)
+			for (int i = 0; i < Count; i++)
 			{
 				// if we've removed all the characters, we're done
 				if (length <= 0)
 					break;
 					
-				var element = _elements[i];
+				var element = this[i];
 				var start = index;
 				var end = start + length;
 				if (element.Start > end || element.End < start)
@@ -244,25 +295,25 @@ namespace Eto.ExtendedRichTextArea.Model
 				if (start < element.Start && end >= element.End)
 				{
 					var removeLength = element.Length - start;
-					length -= element.Remove(start - element.Start, removeLength);
+					length -= element.RemoveAt(start - element.Start, removeLength);
 				}
 				else if (start >= element.Start && end < element.End)
 				{
-					length -= element.Remove(start - element.Start, length);
+					length -= element.RemoveAt(start - element.Start, length);
 				}
 				else if (end > element.End && element is Paragraph paragraph)
 				{
 					// merge the next paragraph into this one
-					if (i + 1 < _elements.Count)
+					if (i + 1 < Count)
 					{
-						var nextElement = _elements[i + 1];
+						var nextElement = this[i + 1];
 						if (nextElement is Paragraph nextParagraph)
 						{
 							// merge first row of next paragraph into last row of this paragraph
-							var nextRow = nextParagraph.Children.FirstOrDefault();
+							var nextRow = nextParagraph.FirstOrDefault();
 							if (nextRow != null)
 							{
-								var row = paragraph.Children.LastOrDefault();
+								var row = paragraph.LastOrDefault();
 								if (row != null)
 								{
 									nextParagraph.Remove(nextRow);
@@ -277,14 +328,14 @@ namespace Eto.ExtendedRichTextArea.Model
 							{
 								paragraph.Add(row);
 							}
-							_elements.Remove(nextElement);
+							Remove(nextElement);
 							length--; // newline
 						}
 					}
 				}
 				else
 				{
-					length -= element.Remove(start - element.Start, length);
+					length -= element.RemoveAt(start - element.Start, length);
 				}
 				if (element.Length == 0)
 				{
@@ -300,28 +351,36 @@ namespace Eto.ExtendedRichTextArea.Model
 			return originalLength - length;
 		}
 
-		internal virtual void MeasureIfNeeded()
+		public virtual void BeginEdit()
 		{
 		}
 
-		IDocumentElement? IDocumentElement.Split(int index)
+		public virtual void EndEdit()
+		{
+		}
+
+		internal virtual void MeasureIfNeeded() => Parent?.MeasureIfNeeded();
+
+		void IElement.MeasureIfNeeded() => MeasureIfNeeded();
+
+		IElement? IElement.Split(int index)
 		{
 			if (index >= Length || Start == index)
 				return null;
-			DocumentElement<T> CreateNew()
+			Element<T> CreateNew()
 			{
 				var newElement = Create();
 				newElement.Parent = Parent;
 				return newElement;
 			}
 
-			DocumentElement<T>? newRun = null;
-			for (int i = 0; i < _elements.Count; i++)
+			Element<T>? newRun = null;
+			for (int i = 0; i < Count; i++)
 			{
-				var element = _elements[i];
+				var element = this[i];
 				if (element.Start >= index)
 				{
-					_elements.Remove(element);
+					Remove(element);
 					i--;
 					newRun ??= CreateNew();
 					element.Start = newRun.Length;
@@ -340,15 +399,15 @@ namespace Eto.ExtendedRichTextArea.Model
 			return newRun;
 		}
 
-		void IDocumentElement.Recalculate(int index) => Recalculate(index);
+		void IElement.Recalculate(int index) => Recalculate(index);
 		internal void Recalculate(int index)
 		{
 			Start = index;
-			for (int i = 0; i < _elements.Count; i++)
+			for (int i = 0; i < Count; i++)
 			{
 				if (i > 0)
 					index++; // newline
-				var element = _elements[i];
+				var element = this[i];
 				element.Recalculate(index);
 				index += element.Length;
 			}
@@ -368,9 +427,9 @@ namespace Eto.ExtendedRichTextArea.Model
 				return 0;
 			if (point.Y > Bounds.Bottom)
 				return Length;
-			for (int i= 0; i < _elements.Count; i++)
+			for (int i= 0; i < Count; i++)
 			{
-				var element = _elements[i];
+				var element = this[i];
 
 				// too far, break!
 				if (point.Y < element.Bounds.Top)
@@ -384,6 +443,56 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			return Length;
         }
+		
+		internal T? Next(T element)
+		{
+			var index = IndexOf(element);
+			return index < Count - 1 ? this[index + 1] : null;
+		}
+
+		internal T? Prev(T element)
+		{
+			var index = IndexOf(element);
+			return index > 0 ? this[index - 1] : null;
+		}
+
+		// public IEnumerable<IDocumentElement> Enumerate(int start, int end)
+		// {
+		// 	for (int i = 0; i < Count; i++)
+		// 	{
+		// 		var element = this[i];
+		// 		if (element.Start >= end)
+		// 			break;
+		// 		if (element.End <= start)
+		// 			continue;
+		// 		foreach (var child in element.Enumerate(start, end))
+		// 		{
+		// 			yield return child;
+		// 		}
+		// 	}
+		// }
+
+		public IEnumerable<IInlineElement> EnumerateInlines(int start, int end)
+		{
+			for (int i = 0; i < Count; i++)
+			{
+				var element = this[i];
+				if (element.Start >= end)
+					break;
+				if (element.End <= start)
+					continue;
+				foreach (var inline in element.EnumerateInlines(start, end))
+				{
+					yield return inline;
+				}
+			}
+		}
+		
+		public string GetText(int start, int length)
+		{
+			if (Separator != null) string.Join(Separator, EnumerateInlines(start, start + length));
+			return string.Concat(EnumerateInlines(start, length));
+		}
 		
 	}
 }

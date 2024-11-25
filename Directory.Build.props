@@ -10,4 +10,40 @@
     <BaseIntermediateOutputPath>$(BasePath)artifacts\obj\$(OSPlatform)\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
     <BaseOutputPath>$(BasePath)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
   </PropertyGroup>
+  
+  <PropertyGroup>
+    <!-- global nuget/assembly properties -->
+
+    <DevVersion>1.0.0</DevVersion>
+
+    <Version Condition="$(Version) == ''">1.0.0.0</Version>
+    <Company>Picoe Software Solutions</Company>
+    <Copyright>(c) 2024 by Curtis Wensley</Copyright>
+
+    <InformationalVersion Condition="$(SetVersion) != ''">$(SetVersion)</InformationalVersion>
+    <!-- set version from tag -->
+    <InformationalVersion Condition="$(InformationalVersion) == '' AND $(BuildBranch.StartsWith('refs/tags/'))">$(BuildBranch.Substring(10))</InformationalVersion>
+    <!-- set version for CI build -->
+    <InformationalVersion Condition="$(InformationalVersion) == '' AND $(BuildVersion) != ''">$(DevVersion)-ci-$([System.DateTime]::Now.ToString('yyyyMMdd')).$(BuildVersion)</InformationalVersion>
+    <!-- set version for development -->
+    <InformationalVersion Condition="$(InformationalVersion) == ''">$(DevVersion)-dev</InformationalVersion>
+
+    <PackageVersion>$(InformationalVersion)</PackageVersion>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+
+    <AssemblyVersionMajorMinor>$([System.Version]::Parse($([System.String]::Copy('$(Version)').Replace('.*', ''))).ToString(2))</AssemblyVersionMajorMinor>
+    <DaysSince2000>$([System.DateTime]::Today.Subtract($([System.DateTime]::Parse('2000-01-01T00:00:00Z'))).TotalDays.ToString('0'))</DaysSince2000>
+    <SecondsOfTodayHalved>$([MSBuild]::Divide($([System.DateTime]::Now.Subtract($([System.DateTime]::Today)).TotalSeconds), 2).ToString('0'))</SecondsOfTodayHalved>
+    <FileVersion>$(AssemblyVersionMajorMinor).$(DaysSince2000).$(SecondsOfTodayHalved)</FileVersion>
+    
+    <PackageProjectUrl>https://github.com/picoe/Eto.ExtendedRichTextArea</PackageProjectUrl>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>$(PackageProjectUrl).git</RepositoryUrl>
+
+    <!-- add git sha to informational version, after package version is set -->
+    <InformationalVersion Condition="$(GITHUB_SHA) != ''">$(InformationalVersion)+$(GITHUB_SHA)</InformationalVersion>
+
+  </PropertyGroup>
+  
 </Project>

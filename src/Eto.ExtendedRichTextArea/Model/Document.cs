@@ -4,6 +4,7 @@ using Eto.Drawing;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
+using Eto.ExtendedRichTextArea.Measure;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
@@ -16,37 +17,48 @@ namespace Eto.ExtendedRichTextArea.Model
 		NextWord,
 		PreviousWord,
 	}
-	
+
 	public class Attributes
 	{
 		public Font? Font { get; set; }
 		public Brush? Brush { get; set; }
-		
+
 		public bool Underline { get; set; }
 		public bool Strikethrough { get; set; }
-		
+
 		public float Offset { get; set; }
 	}
 
-	public class Document : DocumentElement<Paragraph>
+	public class Document : Element<Paragraph>
 	{
-		internal override DocumentElement<Paragraph> Create() => throw new InvalidOperationException();
-		
+		internal override Element<Paragraph> Create() => throw new InvalidOperationException();
+
+		internal override Paragraph CreateElement() => new Paragraph();
+
 		public float ParagraphSpacing { get; set; }
 
-        protected override string Separator => "\n";
+		protected override string Separator => "\n";
 
-        protected override void OffsetElement(ref PointF location, ref SizeF size, SizeF elementSize)
-        {
+		protected override void OffsetElement(ref PointF location, ref SizeF size, SizeF elementSize)
+		{
 			size.Width = Math.Max(size.Width, elementSize.Width);
-			
+
 			var height = ParagraphSpacing + elementSize.Height;
-			
+
 			size.Height += height;
 			location.Y += height;
-        }
+		}
+		
+		public override void OffsetElement(Measurement measurement)
+		{
+			// move next line below the current one
+			var location = measurement.CurrentLine?.Bounds.BottomLeft ?? measurement.CurrentParagraph?.Bounds.BottomLeft ?? PointF.Empty;
+			location.Y += ParagraphSpacing;
+			measurement.CurrentLocation = location;
+		}
+		
 
-        int _suspendMeasure;
+		int _suspendMeasure;
 
 		public event EventHandler? Changed;
 
@@ -55,15 +67,17 @@ namespace Eto.ExtendedRichTextArea.Model
 		public Font DefaultFont { get; set; } = SystemFonts.Default();
 		public Brush DefaultBrush { get; set; } = new SolidBrush(SystemColors.ControlText);
 
-        public WrapMode WrapMode { get; internal set; }
+		public WrapMode WrapMode { get; internal set; }
 
-        public void BeginEdit()
+		public override void BeginEdit()
 		{
+			base.BeginEdit();
 			_suspendMeasure++;
 		}
 
-		public void EndEdit()
+		public override void EndEdit()
 		{
+			base.EndEdit();
 			_suspendMeasure--;
 			if (_suspendMeasure == 0)
 			{
@@ -86,20 +100,20 @@ namespace Eto.ExtendedRichTextArea.Model
 			var run = paragraph?.Find(index - paragraph.Start);
 			if (run == null || paragraph == null) // prevent NRE warning, compiler isn't smart enough..
 				return DefaultFont;
-			var span = run?.Find(index - paragraph.Start - run.Start);
+			var span = run?.Find(index - paragraph.Start - run.Start) as Span;
 			return span?.Font ?? DefaultFont;
 		}
 
 		public void Replace(int index, int length, Span span)
 		{
 			BeginEdit();
-			Remove(index, length);
+			RemoveAt(index, length);
 			Insert(index, span);
 			EndEdit();
 		}
 
 
-		public void Insert(int index, string text, Font? font = null, Brush? brush = null)
+		public void InsertText(int index, string text, Font? font = null, Brush? brush = null)
 		{
 			Insert(index, new Span { Text = text, Font = font ?? DefaultFont, Brush = brush ?? DefaultBrush });
 		}
@@ -108,8 +122,6 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			if (paragraph == null)
 				return false;
-			if (insertSpan.Font == null)
-				insertSpan.Font = DefaultFont;
 			var text = insertSpan.Text;
 			var run = paragraph?.Find(index);
 			var span = run?.Find(index - run.Start);
@@ -123,17 +135,19 @@ namespace Eto.ExtendedRichTextArea.Model
 						throw new InvalidOperationException("State of document is invalid");
 
 					span.Text = span.Text.Insert(insertIndex, text);
+					run.Adjust(index - run.Start, text.Length);
 				}
 				else
 				{
 					var rightSpan = span.Split(index - run.Start - span.Start);
-					if (rightSpan != null)
+					if (rightSpan is IInlineElement rightElement)
 					{
-						run.Insert(index - run.Start, rightSpan);
+						run.InsertAt(index - run.Start, rightElement);
 					}
 
 					var newSpan = insertSpan.WithText(text);
-					run.Insert(index - run.Start, newSpan);
+					run.InsertAt(index - run.Start, newSpan);
+					paragraph.Adjust(index, text.Length);
 				}
 			}
 			else if (run != null && paragraph != null)
@@ -142,7 +156,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				if (rightRun != null)
 				{
 					// shouldn't happen?!
-					paragraph.Insert(index - paragraph.Start, rightRun);
+					paragraph.InsertAt(index - paragraph.Start, rightRun);
 				}
 				run.Add(insertSpan.WithText(text));
 			}
@@ -151,14 +165,57 @@ namespace Eto.ExtendedRichTextArea.Model
 				var rightParagraph = paragraph.Split(index - paragraph.Start);
 				if (rightParagraph != null)
 				{
-					var paragraphIndex = Children.IndexOf(paragraph);
-					Children.Insert(paragraphIndex + 1, rightParagraph);
+					var paragraphIndex = IndexOf(paragraph);
+					InsertAt(paragraphIndex + 1, rightParagraph);
 				}
 				var newRun = new Run { };
-				newRun.Insert(index - paragraph.Start, insertSpan.WithText(text));
-				paragraph.Insert(index - paragraph.Start, newRun);
+				newRun.InsertAt(index - paragraph.Start, insertSpan.WithText(text));
+				paragraph.InsertAt(index - paragraph.Start, newRun);
 			}
 			return true;
+		}
+
+		public void Insert(int index, IInlineElement element)
+		{
+			var paragraph = Find(index);
+			if (paragraph == null)
+				return;
+			var run = paragraph?.Find(index);
+			var span = run?.Find(index - run.Start);
+			if (span != null && run != null)
+			{
+				if (!span.Merge(index - run.Start - span.Start, element))
+				{
+					var rightSpan = span.Split(index - run.Start - span.Start);
+					if (rightSpan is IInlineElement rightElement)
+					{
+						run.InsertAt(index - run.Start, rightElement);
+					}
+					run.InsertAt(index - run.Start, element);
+				}
+			}
+			else if (run != null && paragraph != null)
+			{
+				var rightRun = run.Split(index - run.Start);
+				if (rightRun != null)
+				{
+					// shouldn't happen?!
+					paragraph.InsertAt(index - paragraph.Start, rightRun);
+				}
+				run.Add(element);
+			}
+			else if (paragraph != null)
+			{
+				var rightParagraph = paragraph.Split(index - paragraph.Start);
+				if (rightParagraph != null)
+				{
+					var paragraphIndex = IndexOf(paragraph);
+					InsertAt(paragraphIndex + 1, rightParagraph);
+				}
+				var newRun = new Run { };
+				newRun.InsertAt(index - paragraph.Start, element);
+				paragraph.InsertAt(index - paragraph.Start, newRun);
+			}
 		}
 
 		public void Insert(int index, Span insertSpan)
@@ -185,6 +242,11 @@ namespace Eto.ExtendedRichTextArea.Model
 					var newParagraph = new Paragraph();
 					newParagraph.Add(newRun);
 					Add(newParagraph);
+					index += line.Length + 1;
+				}
+				else
+				{
+					index += line.Length;
 				}
 			}
 
@@ -193,77 +255,29 @@ namespace Eto.ExtendedRichTextArea.Model
 			{
 				line = lines[i];
 
-				paragraph = Find(index);
-
-				// in the middle of a paragraph, split
-				var rightParagraph = paragraph?.Split(index - paragraph.Start);
-				if (rightParagraph != null && paragraph != null)
+				// newline, create a new paragraph
+				var newParagraph = new Paragraph();
+				if (line.Length > 0)
 				{
-					var rightParagraphIndex = Children.IndexOf(paragraph) + 1;
-					Children.Insert(rightParagraphIndex, rightParagraph);
-					// append any text to start of this paragraph
-					if (line.Length > 0)
-						InsertToParagraph(rightParagraph, 0, insertSpan.WithText(line));
+					var newRun = new Run();
+					newRun.Add(insertSpan.WithText(line));
+					newParagraph.Add(newRun);
 				}
-				else
-				{
-					// newline, create a new paragraph
-
-					var newParagraph = new Paragraph();
-					if (line.Length > 0)
-					{
-						var newRun = new Run();
-						newRun.Add(insertSpan.WithText(line));
-						newParagraph.Add(newRun);
-					}
-
-					Insert(index, newParagraph);
-				}
-
-				index += line.Length;
+				InsertAt(index, newParagraph);
+				index += line.Length + 1;
 			}
 			MeasureIfNeeded();
 		}
-		
-		internal IEnumerable<Span> EnumerateSpans(int start, int end)
-		{
-			var startOffset = 0;
-			var endOffset = 0;
-			for (int i = 0; i < Children.Count; i++)
-			{
-				var paragraph = Children[i];
-				if (paragraph.Start >= end)
-					break;
-				if (paragraph.End <= start)
-					continue;
-				var runStart = start - paragraph.Start;
-				var runEnd = end - paragraph.Start;
-				foreach (var run in paragraph)
-				{
-					if (run.Start >= runEnd)
-						break;
-					if (run.End <= runStart)
-						continue;
-					var spanStart = runStart - run.Start;
-					var spanEnd = runEnd - run.Start;
-					foreach (var span in run)
-					{
-						if (span.Start >= spanEnd)
-							break;
-						if (span.End <= spanStart)
-							continue;
-						if (span.Start < spanStart)
-							startOffset = spanStart - span.Start;
-						if (span.End > spanEnd)
-							endOffset = span.End - end;
-						yield return span;
-					}
-				}
-			}
-		}
 
-		internal void Paint(Graphics graphics, RectangleF clipBounds)
+		public void Paint(Graphics graphics, RectangleF clipBounds)
 		{
+			// if (_measurement == null)
+			// 	MeasureIfNeeded();
+				
+			// _measurement?.Paint(graphics, clipBounds);
+			
+			// /*
+			
 			foreach (var paragraph in this)
 			{
 				if (!paragraph.Bounds.Intersects(clipBounds))
@@ -272,7 +286,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				{
 					if (!run.Bounds.Intersects(clipBounds))
 						continue;
-						
+
 					foreach (var span in run)
 					{
 						if (!span.Bounds.Intersects(clipBounds))
@@ -281,32 +295,34 @@ namespace Eto.ExtendedRichTextArea.Model
 					}
 				}
 			}
+			// */
 		}
+		Measurement? _measurement;
+		
 		internal override void MeasureIfNeeded()
 		{
 			if (_suspendMeasure == 0)
 			{
+				// _measurement = new Measurement(this, SizeF.PositiveInfinity);
+				// _measurement.Measure();
+
+				// Size = _measurement.Bounds.Size;
+				
 				Size = Measure(SizeF.PositiveInfinity, PointF.Empty);
 				Changed?.Invoke(this, EventArgs.Empty);
 			}
 		}
 
-		public void Clear()
-		{
-			Children.Clear();
-			MeasureIfNeeded();
-		}
-
 		public bool GetIsValid()
 		{
 			var index = 0;
-			if (Children.Count == 0)
+			if (Count == 0)
 				return true;
-			for (int i = 0; i < Children.Count; i++)
+			for (int i = 0; i < Count; i++)
 			{
 				if (i > 0)
 					index++; // newline
-				var paragraph = Children[i];
+				var paragraph = this[i];
 				if (paragraph.Start != index)
 					return false;
 				var runIndex = 0;
@@ -379,6 +395,29 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		int GetNextLine(int index, PointF? caretLocation)
 		{
+			// var inlines = EnumerateInlines(index, Length);
+			// RectangleF? initialBounds = null;
+			// foreach (var inline in inlines)
+			// {
+			// 	if (initialBounds == null)
+			// 	{
+			// 		initialBounds = inline.Bounds;
+			// 	}
+			// 	else if (inline.Bounds.Y > initialBounds.Value.Y)
+			// 	{
+			// 		var point = inline.Bounds.Location;
+			// 		if (caretLocation != null)
+			// 		{
+			// 			point.X = caretLocation.Value.X;
+			// 		}
+			// 		this.GetIndexAtPoint(point);
+			// 		return inline.Start;
+			// 	}
+			// }
+
+
+
+
 			var paragraph = Find(index);
 			if (paragraph == null)
 				return Length;
@@ -413,7 +452,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			var paragraph = Find(index);
 			if (paragraph == null)
 				return 0;
-				
+
 			var row = paragraph.Find(index - paragraph.Start);
 			var span = row?.Find(index - paragraph.Start - row.Start);
 			if (span != null && row != null)

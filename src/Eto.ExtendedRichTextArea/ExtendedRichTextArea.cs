@@ -70,5 +70,9 @@ namespace Eto.ExtendedRichTextArea
 			
 			ScrollPosition = Point.Round(scrollPosition);
         }
-    }
+
+		public void InsertText(string text) => _drawable.InsertText(text);
+
+		public void Insert(IInlineElement imageElement) => _drawable.Insert(imageElement);
+	}
 }

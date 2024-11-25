@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 	
 	<ItemGroup>
@@ -14,6 +15,10 @@
 
 	<ItemGroup Condition="$(UseLocalEto) == 'True'">
 		<ProjectReference Include="$(LocalEtoPath)src\Eto\Eto.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+    <EmbeddedResource Include="EmbeddedResources\**\*.*" />
 	</ItemGroup>
 
 </Project>

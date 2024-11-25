@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <MacBuildBundle>false</MacBuildBundle>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="NUnit" Version="4.2.2" />
+    <PackageReference Include="NUnit.Analyzers" Version="4.4.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Eto.ExtendedRichTextArea\Eto.ExtendedRichTextArea.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(UseLocalEto) != 'True'">
+    <PackageReference Include="Eto.Platform.Mac64" Version="2.8.3" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(UseLocalEto) == 'True'">
+		<ProjectReference Include="$(LocalEtoPath)src\Eto.Mac\Eto.Mac64.csproj" />
+	</ItemGroup>
+  
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+</Project>

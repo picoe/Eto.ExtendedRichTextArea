@@ -10,6 +10,7 @@
     <TargetFramework>net8.0-macos</TargetFramework>
 
     <RuntimeIdentifiers>osx-x64;osx-arm64</RuntimeIdentifiers>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 	
   <ItemGroup>
@@ -17,11 +18,11 @@
   </ItemGroup>
 	
   <ItemGroup Condition="$(UseLocalEto) != 'True'">
-    <PackageReference Include="Eto.Platform.Mac64" Version="2.8.3" />
+    <PackageReference Include="Eto.Platform.macOS" Version="2.8.3" />
   </ItemGroup>
 
 	<ItemGroup Condition="$(UseLocalEto) == 'True'">
-		<ProjectReference Include="$(LocalEtoPath)src\Eto.Mac\Eto.Mac64.csproj" />
+		<ProjectReference Include="$(LocalEtoPath)src\Eto.Mac\Eto.macOS.csproj" />
 	</ItemGroup>
   <Import Project="$(LocalEtoPath)\src\Eto.Mac\build\Mac.targets" Condition="$(UseLocalEto) == 'True'" />
 	

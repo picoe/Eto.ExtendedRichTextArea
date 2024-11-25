@@ -8,6 +8,8 @@ namespace Eto.ExtendedRichTextArea.Model
 		public int Start { get; }
 		public int Length => Math.Abs(End - Start);
 		public int End { get; }
+		
+		public string Text => Document?.GetText(Start, Length) ?? string.Empty;
 
 		List<RectangleF>? _bounds;
 
@@ -36,9 +38,9 @@ namespace Eto.ExtendedRichTextArea.Model
 			_bounds ??= new List<RectangleF>();
 			_bounds.Clear();
 			RectangleF bounds = RectangleF.Empty;
-			Span? lastSpan = null;
+			IInlineElement? lastSpan = null;
 			// TODO: trim mid spans for start/end
-			foreach (var span in Document.EnumerateSpans(start, end))
+			foreach (var span in Document.EnumerateInlines(start, end))
 			{
 				var spanBounds = span.Bounds;
 				if (bounds.IsEmpty)

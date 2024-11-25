@@ -1,9 +1,19 @@
 
 using Eto.Drawing;
+using Eto.ExtendedRichTextArea.Measure;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
-	public class Span : IDocumentElement
+	public interface IInlineElement : IElement
+	{
+		void Paint(Graphics graphics, RectangleF clipBounds);
+		bool Matches(IInlineElement element);
+		bool Merge(int index, IInlineElement element);
+		void Paint(Chunk chunk, Graphics graphics, RectangleF clipBounds);
+		PointF? GetPointAt(Chunk chunk, int start);
+	}
+	
+	public class Span : IInlineElement
 	{
 		readonly FormattedText _text = new FormattedText();
 
@@ -20,9 +30,9 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 		
-		protected IDocumentElement? Parent { get; set; }
+		protected IElement? Parent { get; set; }
 		
-		IDocumentElement? IDocumentElement.Parent
+		IElement? IElement.Parent
 		{
 			get => Parent;
 			set => Parent = value;
@@ -63,7 +73,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			return newSpan;
 		}
 
-		IDocumentElement? IDocumentElement.Split(int index) => Split(index);
+		IElement? IElement.Split(int index) => Split(index);
 
 		public SizeF Measure(SizeF availableSize, PointF location)
 		{
@@ -76,14 +86,9 @@ namespace Eto.ExtendedRichTextArea.Model
 			return _measureSize.Value;
 		}
 
-		internal void Paint(Graphics graphics, RectangleF clipBounds)
+		public void Paint(Graphics graphics, RectangleF clipBounds)
 		{
 			graphics.DrawText(_text, Bounds.Location);
-		}
-
-		internal bool Matches(Span insertSpan)
-		{
-			return Font == insertSpan.Font && Brush == insertSpan.Brush;
 		}
 
 		internal Span WithText(string text)
@@ -94,7 +99,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			return span;
 		}
 
-		public int Remove(int index, int length)
+		public int RemoveAt(int index, int length)
 		{
 			var text = Text;
 			if (index < 0 || index >= text.Length)
@@ -140,7 +145,20 @@ namespace Eto.ExtendedRichTextArea.Model
 			var text = Text.Substring(0, len);
 			var size = Font?.MeasureString(text) ?? SizeF.Empty;
 			return new PointF(Bounds.X + size.Width, Bounds.Y);
-
+		}
+		
+		public PointF? GetPointAt(Chunk chunk, int start)
+		{
+			if (start < chunk.Start || start > chunk.Length)
+				return null;
+			if (start == Length)
+				return new PointF(chunk.Bounds.Right, chunk.Bounds.Y);
+			if (start == 0)
+				return new PointF(chunk.Bounds.X, chunk.Bounds.Y);
+			var len = start;
+			var text = Text.Substring(0, len);
+			var size = Font?.MeasureString(text) ?? SizeF.Empty;
+			return new PointF(chunk.Bounds.X + size.Width, chunk.Bounds.Y);
 		}
 
 		public IEnumerable<(string text, int index)> EnumerateWords(int start, bool forward)
@@ -182,6 +200,77 @@ namespace Eto.ExtendedRichTextArea.Model
 						last = i;
 				}
 			}
+		}
+
+		public void MeasureIfNeeded() => Parent?.MeasureIfNeeded();
+
+		public bool Matches(IInlineElement element)
+		{
+			if (element is not Span span)
+				return false;
+			if (Brush is SolidBrush brush && span.Brush is SolidBrush otherBrush)
+			{
+				if (brush.Color != otherBrush.Color)
+					return false;
+			}
+			return Font == span.Font;
+		}
+
+		public bool Merge(int index, IInlineElement element)
+		{
+			if (element is not Span span || index < 0 || index > Length)
+				return false;
+			Text = Text.Insert(index, span.Text);
+			return true;
+		}
+
+		public IEnumerable<IInlineElement> EnumerateInlines(int start, int end)
+		{
+			if (start < 0)
+			{
+				end += start;
+				start = 0;
+			}
+			if (start >= Length)
+				yield break;
+			if (end > Length)
+				end = Length;
+			if (end <= 0)
+				yield break;
+			if (start == 0 && end == Length)
+			{
+				yield return this;
+				yield break;
+			}
+			if (start == 0)
+			{
+				yield return new Span { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(0, end) };
+				yield break;
+			}
+			if (end == Length)
+			{
+				yield return new Span { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(start) };
+				yield break;
+			}
+			yield return new Span { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(start, end - start) };
+		}
+
+		public void Paint(Chunk chunk, Graphics graphics, RectangleF clipBounds)
+		{
+			graphics.DrawText(_text, chunk.Bounds.Location);
+		}
+
+		public void Measure(Measurement measurement)
+		{
+			if (_measureSize == null)
+			{
+				_measureSize = _text.Measure();
+			}
+			if (measurement.CurrentLocation.X + _measureSize.Value.Width > measurement.AvailableSize.Width)
+			{
+				measurement.AddNewLine();
+			}
+			measurement.AddChunk(this, 0, Length, _measureSize.Value);
 		}
 	}
 }

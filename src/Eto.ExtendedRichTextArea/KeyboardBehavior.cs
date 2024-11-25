@@ -1,14 +1,15 @@
 using Eto.ExtendedRichTextArea.Model;
 using Eto.Forms;
+
 using System;
 
 namespace Eto.ExtendedRichTextArea
 {
-    class KeyboardBehavior
+	class KeyboardBehavior
 	{
 		readonly TextAreaDrawable _textArea;
 		readonly CaretBehavior _caret;
-		
+
 		Document Document => _textArea.Document;
 
 		public KeyboardBehavior(TextAreaDrawable textArea, CaretBehavior caret)
@@ -18,21 +19,13 @@ namespace Eto.ExtendedRichTextArea
 			_textArea.TextInput += TextArea_TextInput;
 			_textArea.KeyDown += TextArea_KeyDown;
 			_textArea.KeyDown += TextArea_KeyDown_Navigation;
-			_textArea.KeyDown += TextArea_KeyDown_Selection;
 			if (Eto.Platform.Instance.IsMac)
-				_textArea.KeyDown += TextArea_KeyDown_Mac;
-			else
-				_textArea.KeyDown += TextArea_KeyDown_Generic;
-		}
-
-		private void TextArea_KeyDown_Selection(object sender, KeyEventArgs e)
-		{
-			switch (e.KeyData)
 			{
-				case Keys.Control | Keys.A:
-					_textArea.Selection = new DocumentRange(0, _textArea.Document.Length);
-					e.Handled = true;
-					break;
+				_textArea.KeyDown += TextArea_KeyDown_Mac;
+			}
+			else
+			{
+				_textArea.KeyDown += TextArea_KeyDown_Generic;
 			}
 		}
 
@@ -93,7 +86,7 @@ namespace Eto.ExtendedRichTextArea
 
 		private void TextArea_TextInput(object sender, TextInputEventArgs e)
 		{
-			Document.Insert(_caret.Index, e.Text, _textArea.SelectionFont, _textArea.SelectionBrush);
+			Document.InsertText(_caret.Index, e.Text, _textArea.SelectionFont, _textArea.SelectionBrush);
 			_caret.Index += e.Text.Length;
 			e.Cancel = true;
 		}
@@ -102,6 +95,10 @@ namespace Eto.ExtendedRichTextArea
 		{
 			switch (e.KeyData)
 			{
+				case Keys.Control | Keys.A:
+					_textArea.Selection = new DocumentRange(0, _textArea.Document.Length);
+					e.Handled = true;
+					break;
 				case Keys.PageUp:
 					_caret.Index = 0;
 					e.Handled = true;
@@ -125,6 +122,10 @@ namespace Eto.ExtendedRichTextArea
 		{
 			switch (e.KeyData)
 			{
+				case Keys.Application | Keys.A:
+					_textArea.Selection = new DocumentRange(0, _textArea.Document.Length);
+					e.Handled = true;
+					break;
 				case Keys.Application | Keys.Up:
 					_caret.Index = 0;
 					e.Handled = true;
@@ -149,22 +150,34 @@ namespace Eto.ExtendedRichTextArea
 			switch (e.Key)
 			{
 				case Keys.Backspace:
-					if (_caret.Index > 0)
+					if (_textArea.Selection != null)
 					{
-						_textArea.Document.Remove(_caret.Index - 1, 1);
+						_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
+						_caret.Index = _textArea.Selection.Start;
+						_textArea.Selection = null;
+					}
+					else if (_caret.Index > 0)
+					{
+						_textArea.Document.RemoveAt(_caret.Index - 1, 1);
 						_caret.Index--;
 					}
 					e.Handled = true;
 					break;
 				case Keys.Delete:
-					if (_caret.Index < _textArea.Document.Length)
+					if (_textArea.Selection != null)
 					{
-						_textArea.Document.Remove(_caret.Index, 1);
+						_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
+						_caret.Index = _textArea.Selection.Start;
+						_textArea.Selection = null;
+					}
+					else if (_caret.Index < _textArea.Document.Length)
+					{
+						_textArea.Document.RemoveAt(_caret.Index, 1);
 					}
 					e.Handled = true;
 					break;
 				case Keys.Enter:
-					_textArea.Document.Insert(_caret.Index, "\n", _textArea.SelectionFont);
+					_textArea.Document.InsertText(_caret.Index, "\n", _textArea.SelectionFont);
 					_caret.Index++;
 					e.Handled = true;
 					break;

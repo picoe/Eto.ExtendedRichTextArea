@@ -1,8 +1,11 @@
+using System.Security.Cryptography.X509Certificates;
+
 using Eto.Drawing;
+using Eto.ExtendedRichTextArea.Measure;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
-	public class Run : DocumentElement<Span>
+	public class Run : Element<IInlineElement>
 	{
         protected override void OffsetElement(ref PointF location, ref SizeF size, SizeF elementSize)
         {
@@ -12,8 +15,11 @@ namespace Eto.ExtendedRichTextArea.Model
 			location.X += elementSize.Width;
         }
 
-		internal override DocumentElement<Span> Create() => new Run();
 
-		internal Run? Split(int index) => (Run?)((IDocumentElement)this).Split(index);
+		internal override Element<IInlineElement> Create() => new Run();
+
+		internal override IInlineElement CreateElement() => new Span();
+
+		internal Run? Split(int index) => (Run?)((IElement)this).Split(index);
 	}
 }

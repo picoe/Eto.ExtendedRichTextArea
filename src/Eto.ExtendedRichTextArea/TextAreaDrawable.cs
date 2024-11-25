@@ -5,6 +5,30 @@ using Eto.ExtendedRichTextArea.Model;
 
 namespace Eto.ExtendedRichTextArea
 {
+	class CutCommand : Command
+	{
+		readonly TextAreaDrawable _textArea;
+		public CutCommand(TextAreaDrawable textArea)
+		{
+			_textArea = textArea;
+			_textArea.SelectionChanged += TextArea_SelectionChanged;
+		}
+
+		private void TextArea_SelectionChanged(object sender, EventArgs e)
+		{
+			Enabled = _textArea.Selection?.Length > 0;
+		}
+
+		protected override void OnExecuted(EventArgs e)
+		{
+			if (_textArea.Selection == null)
+				return;
+			var clip = new Clipboard(); 
+			clip.Text = _textArea.Selection.Text;
+			_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
+		}
+	}
+	
 	class TextAreaDrawable : Drawable
 	{
 		Document? _document;
@@ -12,7 +36,9 @@ namespace Eto.ExtendedRichTextArea
 		readonly KeyboardBehavior _keyboard;
 		readonly MouseBehavior _mouse;
 		bool _isValid = true;
-		Scrollable? _parentScrollable;
+		Scrollable? _parentScrollable;		
+		DocumentRange? _selection;
+		readonly Command _cutCommand;
 
 		public event EventHandler CaretIndexChanged
 		{
@@ -80,9 +106,15 @@ namespace Eto.ExtendedRichTextArea
 			_keyboard = new KeyboardBehavior(this, _caret);
 			_mouse = new MouseBehavior(this, _caret);
 			CanFocus = true;
+			
+			_cutCommand = new CutCommand(this);
+
+			if (Platform.IsMac)
+			{
+				MapPlatformCommand("cut", _cutCommand);
+			}
 		}
-		
-		DocumentRange? _selection;
+
 		
 		public DocumentRange? Selection
 		{
@@ -94,10 +126,13 @@ namespace Eto.ExtendedRichTextArea
 				{
 					_selection.Document = Document;
 					_selection.CalculateBounds();
+					SelectionChanged?.Invoke(this, EventArgs.Empty);
 				}
 				Invalidate(false);
 			}
 		}
+		
+		public event EventHandler SelectionChanged;
 		
 
 		protected override void OnSizeChanged(EventArgs e)
@@ -160,6 +195,22 @@ namespace Eto.ExtendedRichTextArea
 
 			Document.Paint(e.Graphics, clip);
 			_caret.Paint(e);
+		}
+
+		internal void InsertText(string text)
+		{
+			Document.InsertText(_caret.Index, text, SelectionFont, SelectionBrush);
+			_caret.Index += text.Length;
+			_caret.CalculateCaretBounds();
+			Invalidate();
+		}
+		
+		internal void Insert(IInlineElement element)
+		{
+			Document.Insert(_caret.Index, element);
+			_caret.Index += element.Length;
+			_caret.CalculateCaretBounds();
+			Invalidate();
 		}
 
 		internal float Scale => ParentWindow?.Screen.Scale ?? 1;
