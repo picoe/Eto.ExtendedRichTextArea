@@ -91,7 +91,7 @@ namespace Eto.ExtendedRichTextArea
 
 		public Brush SelectionBrush
 		{
-			get => _selectionBrush ?? Document.DefaultBrush;
+			get => _selectionBrush ?? Document.DefaultForegroundBrush;
 			set
 			{
 				_selectionBrush = value;
@@ -194,6 +194,8 @@ namespace Eto.ExtendedRichTextArea
 			}
 			_selection?.Paint(e.Graphics);
 
+			var screen = ParentWindow?.Screen ?? Screen.PrimaryScreen;	
+			Document.ScreenScale = screen.Scale;
 			Document.Paint(e.Graphics, clip);
 			_caret.Paint(e);
 		}

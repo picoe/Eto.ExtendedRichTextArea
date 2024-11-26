@@ -75,7 +75,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			return 0;
 		}
 
-		public SizeF Measure(SizeF availableSize, out float baseline)
+		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, out float baseline)
 		{
 			Size = Image?.Size ?? SizeF.Empty;
 			baseline = Size.Height;

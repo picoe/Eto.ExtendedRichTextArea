@@ -2,6 +2,12 @@ using Eto.Drawing;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
+	/// <summary>
+	/// A chunk is a piece of an IInlineElement (usually SpanElement) that is broken up into smaller pieces 
+	/// to fit within a line for wrapping.
+	/// Not all inline elements can be broken up. For instance, an ImageElement cannot be broken up currently
+	/// so it will only have a single chunk.
+	/// </summary>
 	public class Chunk
 	{
 		public IInlineElement Element { get; }

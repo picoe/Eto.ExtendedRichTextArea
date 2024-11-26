@@ -14,7 +14,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			return point ?? Bounds.Location;
 		}
 
-		protected override SizeF MeasureOverride(SizeF availableSize, PointF location)
+		protected override SizeF MeasureOverride(Attributes defaultAttributes, SizeF availableSize, PointF location)
 		{
 			SizeF size = SizeF.Empty;
 			int index = 0;
@@ -26,7 +26,7 @@ namespace Eto.ExtendedRichTextArea.Model
 					index += separatorLength;
 				var element = this[i];
 				element.Start = index;
-				var elementSize = element.Measure(availableSize, elementLocation);
+				var elementSize = element.Measure(defaultAttributes, availableSize, elementLocation);
 				
 				size.Width = Math.Max(size.Width, elementSize.Width);
 				size.Height += elementSize.Height;
@@ -35,9 +35,9 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			Length = index;
 
-			if (size.Height <= 0 && GetTopParent(this) is Document doc)
+			if (size.Height <= 0)
 			{
-				size.Height = doc.DefaultFont.LineHeight;
+				size.Height = defaultAttributes.Font?.LineHeight ?? SystemFonts.Default().LineHeight;
 			}
 			return size;
 		}

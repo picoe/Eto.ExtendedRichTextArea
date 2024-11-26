@@ -9,13 +9,26 @@ namespace Eto.ExtendedRichTextArea.Model
 	public interface IContainerElement : IElement
 	{
 		RectangleF Bounds { get; }
-		SizeF Measure(SizeF availableSize, PointF location);
+		SizeF Measure(Attributes defaultAttributes, SizeF availableSize, PointF location);
 		int GetIndexAt(PointF point);
 		PointF? GetPointAt(int start);
 		IEnumerable<Chunk> EnumerateChunks(int start, int end);
 		IEnumerable<Line> EnumerateLines(int start, bool forward = true);
 	}
 	
+	public static class ElementExtensions
+	{
+		public static Document? GetDocument(this IElement element)
+		{
+			var parent = element.Parent;
+			while (parent?.Parent != null)
+			{
+				parent = parent.Parent;
+			}
+			return parent as Document;
+		}
+		
+	}
 	
 	public abstract class ContainerElement<T> : Collection<T>, IContainerElement
 		where T : class, IElement
@@ -28,16 +41,6 @@ namespace Eto.ExtendedRichTextArea.Model
 		
 		
 		public IElement? Parent { get; private set; }
-		
-		protected static IElement? GetTopParent(IElement element)
-		{
-			var parent = element.Parent;
-			while (parent?.Parent != null)
-			{
-				parent = parent.Parent;
-			}
-			return parent;
-		}
 		
 		IElement? IElement.Parent
 		{
@@ -125,14 +128,14 @@ namespace Eto.ExtendedRichTextArea.Model
 		internal abstract ContainerElement<T> Create();
 		internal abstract T CreateElement();
 
-		public SizeF Measure(SizeF availableSize, PointF location)
+		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, PointF location)
 		{
-			var size = MeasureOverride(availableSize, location);
+			var size = MeasureOverride(defaultAttributes, availableSize, location);
 			Bounds = new RectangleF(location, size);
 			return size;
 		}
 
-		protected abstract SizeF MeasureOverride(SizeF availableSize, PointF location);
+		protected abstract SizeF MeasureOverride(Attributes defaultAttributes, SizeF availableSize, PointF location);
 		
 		internal T? Find(int position)
 		{
@@ -217,7 +220,9 @@ namespace Eto.ExtendedRichTextArea.Model
 			if (index < 0)
 				throw new ArgumentOutOfRangeException(nameof(index), "Index must be greater than or equal to zero");
 			var originalLength = length;
-			for (int i = 0; i < Count; i++)
+			var separatorLength = Separator?.Length ?? 0;
+			// go backwards so we don't have to update indexes as we remove
+			for (int i = Count - 1; i >= 0; i--)
 			{
 				// if we've removed all the characters, we're done
 				if (length <= 0)
@@ -231,7 +236,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				if (start <= element.Start && end >= element.End)
 				{
 					Remove(element);
-					length -= element.Length;
+					length -= element.Length + separatorLength;
 					continue;
 				}
 
@@ -272,23 +277,29 @@ namespace Eto.ExtendedRichTextArea.Model
 								paragraph.Add(row);
 							}
 							Remove(nextElement);
-							length--; // newline
+							length -= separatorLength;
+							i++; // process this paragraph again, now that it's been merged
 						}
 					}
 				}
 				else
 				{
-					length -= element.RemoveAt(start - element.Start, length);
+					var removeStart = start - element.Start;
+					var removeLength = length;
+					if (removeStart < 0)
+					{
+						removeLength += removeStart;
+						removeStart = 0;
+					}
+						
+					if (removeLength > 0)
+						length -= element.RemoveAt(removeStart, removeLength);
 				}
 				if (element.Length == 0)
 				{
 					Remove(element);
+					length -= separatorLength;
 				}
-				if (length > 0)
-				{
-					Recalculate(Start);
-				}
-
 			}
 			MeasureIfNeeded();
 			return originalLength - length;

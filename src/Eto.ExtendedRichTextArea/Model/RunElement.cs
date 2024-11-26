@@ -8,7 +8,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		List<Line>? _lines;
 
 		// protected override string? Separator => "\x2028"; // line separator
-		protected override SizeF MeasureOverride(SizeF availableSize, PointF location)
+		protected override SizeF MeasureOverride(Attributes defaultAttributes, SizeF availableSize, PointF location)
 		{
 			_lines ??= new List<Line>();
 			_lines.Clear();
@@ -29,7 +29,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				
 				// wrap if needed!
 				var available = availableSize - new SizeF(location.X, 0);
-				var elementSize = element.Measure(available, out var baseline);
+				var elementSize = element.Measure(defaultAttributes, available, out var baseline);
 
 				if (elementLocation.X + elementSize.Width > availableSize.Width)
 				{

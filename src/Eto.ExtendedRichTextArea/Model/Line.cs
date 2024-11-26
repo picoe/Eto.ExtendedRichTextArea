@@ -4,6 +4,10 @@ using Eto.Drawing;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
+	/// <summary>
+	/// A line is a single line of elements that can be rendered on the screen and is computed based on each Run.
+	/// Unline a Run, which can span multiple lines when wrapping is enabled.
+	/// </summary>
 	public class Line : Collection<Chunk>
 	{
 		public int DocumentStart { get; set; }

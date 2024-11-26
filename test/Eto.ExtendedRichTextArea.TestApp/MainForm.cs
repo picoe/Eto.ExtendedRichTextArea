@@ -141,6 +141,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 				changeTimer.Start();
 			};
 
+			richTextArea.Document.DefaultFont = Fonts.Monospace(SystemFonts.Default().Size);
 			richTextArea.Document.Text = "Hello\nWorld";
 			// richTextArea.Document.Text = initialText;
 

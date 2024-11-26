@@ -28,13 +28,47 @@ namespace Eto.ExtendedRichTextArea.Model
 		protected override string Separator => "\n";
 
 		int _suspendMeasure;
+		Attributes? _defaultAttributes;
+		float _screenScale = Screen.PrimaryScreen.Scale;
 
 		public event EventHandler? Changed;
 
 		public SizeF Size { get; internal set; }
+		
+		internal float ScreenScale
+		{
+			get => _screenScale;
+			set
+			{
+				if (_screenScale != value)
+				{
+					_screenScale = value;
+					MeasureIfNeeded();
+				}
+			}
+		}
+		
+		public Attributes DefaultAttributes
+		{
+			get => _defaultAttributes ??= new Attributes { Font = SystemFonts.Default(), ForegroundBrush = new SolidBrush(SystemColors.ControlText) };
+			set
+			{
+				_defaultAttributes = value;
+				MeasureIfNeeded();
+			}
+		}
 
-		public Font DefaultFont { get; set; } = SystemFonts.Default();
-		public Brush DefaultBrush { get; set; } = new SolidBrush(SystemColors.ControlText);
+		public Font DefaultFont
+		{
+			get => DefaultAttributes.Font ?? SystemFonts.Default();
+			set => DefaultAttributes.Font = value;
+		}
+		
+		public Brush DefaultForegroundBrush
+		{
+			get => DefaultAttributes.ForegroundBrush ?? new SolidBrush(SystemColors.ControlText);
+			set => DefaultAttributes.ForegroundBrush = value;
+		}
 
 		public WrapMode WrapMode { get; internal set; }
 
@@ -78,9 +112,9 @@ namespace Eto.ExtendedRichTextArea.Model
 			var paragraph = Find(start);
 			var run = paragraph?.Find(start - paragraph.Start);
 			if (run == null || paragraph == null) // prevent NRE warning, compiler isn't smart enough..
-				return DefaultBrush;
+				return DefaultForegroundBrush;
 			var span = run?.Find(start - paragraph.Start - run.Start) as SpanElement;
-			return span?.Brush ?? DefaultBrush;
+			return span?.ForegroundBrush ?? DefaultForegroundBrush;
 		}
 
 		public void Replace(int start, int length, SpanElement span)
@@ -94,7 +128,7 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public void InsertText(int start, string text, Font? font = null, Brush? brush = null)
 		{
-			InsertAt(start, new SpanElement { Text = text, Font = font ?? DefaultFont, Brush = brush ?? DefaultBrush });
+			InsertAt(start, new SpanElement { Text = text });
 		}
 
 		public void InsertAt(int start, IInlineElement element)
@@ -192,7 +226,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			if (_suspendMeasure == 0)
 			{
-				Size = Measure(SizeF.PositiveInfinity, PointF.Empty);
+				Size = Measure(DefaultAttributes, SizeF.PositiveInfinity, PointF.Empty);
 				Changed?.Invoke(this, EventArgs.Empty);
 			}
 		}
@@ -313,7 +347,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			return line.DocumentStart;
 		}
 
-		protected override SizeF MeasureOverride(SizeF availableSize, PointF location)
+		protected override SizeF MeasureOverride(Attributes defaultAttributes, SizeF availableSize, PointF location)
 		{
 			SizeF size = SizeF.Empty;
 			int start = 0;
@@ -325,7 +359,7 @@ namespace Eto.ExtendedRichTextArea.Model
 					start += separatorLength;
 				var element = this[i];
 				element.Start = start;
-				var elementSize = element.Measure(availableSize, elementLocation);
+				var elementSize = element.Measure(defaultAttributes, availableSize, elementLocation);
 
 				size.Width = Math.Max(size.Width, elementSize.Width);
 

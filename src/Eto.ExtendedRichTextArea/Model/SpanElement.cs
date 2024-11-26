@@ -3,54 +3,6 @@ using Eto.Drawing;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
-	public class Attributes
-	{
-		public Font? Font { get; set; }
-		public Brush? Brush { get; set; }
-		public bool Underline { get; set; }
-		public bool Strikethrough { get; set; }
-		public float Offset { get; set; }
-		
-		public Attributes Clone()
-		{
-			return new Attributes
-			{
-				Font = Font,
-				Brush = Brush,
-				Underline = Underline,
-				Strikethrough = Strikethrough,
-				Offset = Offset
-			};
-		}
-		
-		// override object.Equals
-		public override bool Equals(object? obj)
-		{
-			//
-			// See the full list of guidelines at
-			//   http://go.microsoft.com/fwlink/?LinkID=85237
-			// and also the guidance for operator== at
-			//   http://go.microsoft.com/fwlink/?LinkId=85238
-			//
-			if (obj == null || obj is not Attributes other)
-				return false;
-
-			if (ReferenceEquals(this, obj))
-				return true;
-				
-			return Font == other.Font 
-				&& Brush == other.Brush 
-				&& Underline == other.Underline 
-				&& Strikethrough == other.Strikethrough 
-				&& Offset == other.Offset;
-		}
-		
-		// override object.GetHashCode
-		public override int GetHashCode()
-		{
-			return HashCode.Combine(Font, Brush, Underline, Strikethrough, Offset);
-		}
-	}
 
 	public interface IInlineElement : IElement
 	{
@@ -59,22 +11,24 @@ namespace Eto.ExtendedRichTextArea.Model
 		void Paint(Chunk chunk, Graphics graphics, RectangleF clipBounds);
 		PointF? GetPointAt(Chunk chunk, int start);
 		int GetIndexAt(Chunk chunk, PointF point);
-		SizeF Measure(SizeF availableSize, out float baseline);
+		SizeF Measure(Attributes defaultAttributes, SizeF availableSize, out float baseline);
 	}
 	
 	public class SpanElement : IInlineElement
 	{
-		readonly FormattedText _text = new FormattedText();
+		FormattedText? _formattedText;
 
 		SizeF? _measureSize;
-		Brush? _brush;
+		string? _text;
 
-		public Font? Font
+		Attributes? _attributes;
+
+		public Attributes? Attributes
 		{
-			get => _text.Font;
+			get => _attributes;
 			set
 			{
-				_text.Font = value;
+				_attributes = value;
 				_measureSize = null;
 			}
 		}
@@ -87,12 +41,6 @@ namespace Eto.ExtendedRichTextArea.Model
 			set => Parent = value;
 		}
 
-		public Brush? Brush
-		{
-			get => _brush;
-			set => _brush = _text.ForegroundBrush = value;
-		}
-
 		public int Start { get; set; }
 		public int Length => Text.Length;
 		public int End => Start + Length;
@@ -101,10 +49,12 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public string Text
 		{
-			get => _text.Text;
+			get => _text ?? string.Empty;
 			set
 			{
-				_text.Text = value;
+				_text = value;
+				if (_formattedText != null)
+					_formattedText.Text = value;
 				_measureSize = null;
 			}
 		}
@@ -117,7 +67,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			Text = text.Substring(0, index);
 			if (index >= text.Length)
 				return null;
-			var newSpan = new SpanElement { Text = text.Substring(index), Font = Font };
+			var newSpan = new SpanElement { Text = text.Substring(index), Attributes = Attributes?.Clone() };
 			return newSpan;
 		}
 
@@ -127,7 +77,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			if (text == Text)
 				return this;
-			var span = new SpanElement { Font = Font, Brush = Brush, Text = text };
+			var span = new SpanElement { Text = text, Attributes = Attributes?.Clone() };
 			return span;
 		}
 
@@ -146,6 +96,9 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			// nothing to recalculate for this one
 		}
+		
+		public Font Font => Attributes?.Font ?? this.GetDocument()?.DefaultAttributes.Font ?? SystemFonts.Default();
+		public Brush ForegroundBrush => Attributes?.ForegroundBrush ?? this.GetDocument()?.DefaultAttributes.ForegroundBrush ?? new SolidBrush(SystemColors.ControlText);
 
         public int GetIndexAt(Chunk chunk, PointF point)
         {
@@ -155,9 +108,10 @@ namespace Eto.ExtendedRichTextArea.Model
 				return -1;
 			var spanX = chunk.Bounds.X;
 			var spanLength = Length;
+			var font = Font;
 			for (int i = 0; i < spanLength; i++)
 			{
-				var spanSize = Font?.MeasureString(Text.Substring(i, 1)) ?? SizeF.Empty;
+				var spanSize = font.MeasureString(Text.Substring(i, 1));
 				if (point.X < spanX + spanSize.Width / 2)
 					return i;
 				spanX += spanSize.Width;
@@ -225,12 +179,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			if (element is not SpanElement span)
 				return false;
-			if (Brush is SolidBrush brush && span.Brush is SolidBrush otherBrush)
-			{
-				if (brush.Color != otherBrush.Color)
-					return false;
-			}
-			return Font == span.Font;
+			return span.Attributes == Attributes;
 		}
 
 		public bool Merge(int index, IInlineElement element)
@@ -263,27 +212,31 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			if (start == 0)
 			{
-				yield return new SpanElement { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(0, end) };
+				yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(0, end) };
 				yield break;
 			}
 			if (end == Length)
 			{
-				yield return new SpanElement { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(start) };
+				yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start) };
 				yield break;
 			}
-			yield return new SpanElement { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(start, end - start) };
+			yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start, end - start) };
 		}
 
 		public void Paint(Chunk chunk, Graphics graphics, RectangleF clipBounds)
 		{
-			graphics.DrawText(_text, chunk.Bounds.Location);
+			graphics.DrawText(_formattedText, chunk.Bounds.Location);
 		}
 
-		public SizeF Measure(SizeF availableSize, out float baseline)
+		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, out float baseline)
 		{
+			_formattedText ??= new FormattedText { Text = Text };
+			defaultAttributes.Apply(_formattedText);
+			Attributes?.Apply(_formattedText);
+			
 			if (_measureSize == null)
 			{
-				_measureSize = _text.Measure();
+				_measureSize = _formattedText.Measure();
 			}
 			baseline = Font?.Baseline ?? 0;
 			return _measureSize.Value;
