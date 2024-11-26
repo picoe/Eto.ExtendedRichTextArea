@@ -27,26 +27,29 @@ namespace Eto.ExtendedRichTextArea.Model
 				var element = this[i];
 				element.Start = start;
 				
-				// wrap if needed!
 				var available = availableSize - new SizeF(location.X, 0);
 				var elementSize = element.Measure(defaultAttributes, available, out var baseline);
 
 				if (elementLocation.X + elementSize.Width > availableSize.Width)
 				{
+					// wrap if needed!
 					if (elementLocation.X <= availableSize.Width)
 					{
 						// split into possibly multiple lines here
 						var chunk = new Chunk(element, start, start + element.Length, new RectangleF(elementLocation, elementSize));
 						line.Add(chunk);
+						start += element.Length;
 					}
 
 					line.End = start;
 					line.Bounds = new RectangleF(location, size);
 					_lines.Add(line);
+
+					// new line for the rest of it!
 					line = new Line { Start = start, DocumentStart = docStart + start };
 					line.Baseline = Math.Max(line.Baseline, baseline);
 					location.Y += size.Height;
-					elementLocation = location;					
+					elementLocation = location;
 					size = SizeF.Empty;
 				}
 				else

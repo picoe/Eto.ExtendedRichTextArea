@@ -37,16 +37,27 @@ namespace Eto.ExtendedRichTextArea
 
         public ExtendedRichTextArea()
 		{
-			Size = new Size(200, 100);
 			_drawable = new TextAreaDrawable(this);
 			_drawable.CaretIndexChanged += Drawable_CaretIndexChanged;
 			_drawable.SelectionFontChanged += (sender, e) => SelectionFontChanged?.Invoke(this, e);
 			_drawable.SelectionBrushChanged += (sender, e) => SelectionBrushChanged?.Invoke(this, e);
+			
 			Content = _drawable;
+
 			BackgroundColor = SystemColors.ControlBackground;
+			Size = new Size(200, 100);
 		}
 
-        private void Drawable_CaretIndexChanged(object sender, EventArgs e)
+		protected override void OnSizeChanged(EventArgs e)
+		{
+			base.OnSizeChanged(e);
+			// When wrapping is enabled, we need to specify how much space we have
+			// It's not working just yet.
+			// if (_drawable != null)
+			// 	_drawable.Document.AvailableSize = ClientSize;
+		}
+
+		private void Drawable_CaretIndexChanged(object? sender, EventArgs e)
         {
 			var scrollSize = ClientSize;
 			PointF scrollPosition = ScrollPosition;

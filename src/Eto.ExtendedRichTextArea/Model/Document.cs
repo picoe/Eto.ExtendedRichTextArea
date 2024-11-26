@@ -47,6 +47,21 @@ namespace Eto.ExtendedRichTextArea.Model
 				}
 			}
 		}
+
+		SizeF _availableSize = SizeF.PositiveInfinity;
+		public SizeF AvailableSize
+		{
+			get => _availableSize;
+			set
+			{
+				if (_availableSize != value)
+				{
+					_availableSize = value;
+					MeasureIfNeeded();
+				}
+			}
+		}
+		
 		
 		public Attributes DefaultAttributes
 		{
@@ -226,7 +241,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			if (_suspendMeasure == 0)
 			{
-				Size = Measure(DefaultAttributes, SizeF.PositiveInfinity, PointF.Empty);
+				Size = Measure(DefaultAttributes, AvailableSize, PointF.Empty);
 				Changed?.Invoke(this, EventArgs.Empty);
 			}
 		}
