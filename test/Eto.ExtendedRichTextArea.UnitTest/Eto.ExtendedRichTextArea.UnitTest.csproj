@@ -1,12 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform(windows))">net8.0-windows</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform(osx))">net8.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <MacBuildBundle>false</MacBuildBundle>
     <EnableDynamicLoading>true</EnableDynamicLoading>
+    <DefineConstants Condition="$([MSBuild]::IsOSPlatform(osx))">MAC</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,11 +24,13 @@
   </ItemGroup>
 
   <ItemGroup Condition="$(UseLocalEto) != 'True'">
-    <PackageReference Include="Eto.Platform.Mac64" Version="2.8.3" />
+    <PackageReference Include="Eto.Platform.Mac64" Version="2.8.3" Condition="$([MSBuild]::IsOSPlatform(osx))" />
+    <PackageReference Include="Eto.Platform.Wpf" Version="2.8.3" Condition="$(TargetFramework) == 'net8.0-windows'"/>
   </ItemGroup>
 
   <ItemGroup Condition="$(UseLocalEto) == 'True'">
-		<ProjectReference Include="$(LocalEtoPath)src\Eto.Mac\Eto.Mac64.csproj" />
+    <ProjectReference Include="$(LocalEtoPath)src\Eto.Mac\Eto.Mac64.csproj" Condition="$([MSBuild]::IsOSPlatform(osx))" />
+    <ProjectReference Include="$(LocalEtoPath)src\Eto.Wpf\Eto.Wpf.csproj" Condition="$(TargetFramework) == 'net8.0-windows'" />
 	</ItemGroup>
   
   <ItemGroup>

@@ -1,19 +1,68 @@
 
 using Eto.Drawing;
-using Eto.ExtendedRichTextArea.Measure;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
+	public class Attributes
+	{
+		public Font? Font { get; set; }
+		public Brush? Brush { get; set; }
+		public bool Underline { get; set; }
+		public bool Strikethrough { get; set; }
+		public float Offset { get; set; }
+		
+		public Attributes Clone()
+		{
+			return new Attributes
+			{
+				Font = Font,
+				Brush = Brush,
+				Underline = Underline,
+				Strikethrough = Strikethrough,
+				Offset = Offset
+			};
+		}
+		
+		// override object.Equals
+		public override bool Equals(object? obj)
+		{
+			//
+			// See the full list of guidelines at
+			//   http://go.microsoft.com/fwlink/?LinkID=85237
+			// and also the guidance for operator== at
+			//   http://go.microsoft.com/fwlink/?LinkId=85238
+			//
+			if (obj == null || obj is not Attributes other)
+				return false;
+
+			if (ReferenceEquals(this, obj))
+				return true;
+				
+			return Font == other.Font 
+				&& Brush == other.Brush 
+				&& Underline == other.Underline 
+				&& Strikethrough == other.Strikethrough 
+				&& Offset == other.Offset;
+		}
+		
+		// override object.GetHashCode
+		public override int GetHashCode()
+		{
+			return HashCode.Combine(Font, Brush, Underline, Strikethrough, Offset);
+		}
+	}
+
 	public interface IInlineElement : IElement
 	{
-		void Paint(Graphics graphics, RectangleF clipBounds);
 		bool Matches(IInlineElement element);
 		bool Merge(int index, IInlineElement element);
 		void Paint(Chunk chunk, Graphics graphics, RectangleF clipBounds);
 		PointF? GetPointAt(Chunk chunk, int start);
+		int GetIndexAt(Chunk chunk, PointF point);
+		SizeF Measure(SizeF availableSize, out float baseline);
 	}
 	
-	public class Span : IInlineElement
+	public class SpanElement : IInlineElement
 	{
 		readonly FormattedText _text = new FormattedText();
 
@@ -47,9 +96,8 @@ namespace Eto.ExtendedRichTextArea.Model
 		public int Start { get; set; }
 		public int Length => Text.Length;
 		public int End => Start + Length;
-		public RectangleF Bounds { get; internal set; }
 		
-		public int DocumentIndex => Start + Parent?.DocumentIndex ?? 0;
+		public int DocumentStart => Start + Parent?.DocumentStart ?? 0;
 
 		public string Text
 		{
@@ -61,7 +109,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 
-		public Span? Split(int index)
+		public SpanElement? Split(int index)
 		{
 			if (index >= Length)
 				return null;
@@ -69,33 +117,17 @@ namespace Eto.ExtendedRichTextArea.Model
 			Text = text.Substring(0, index);
 			if (index >= text.Length)
 				return null;
-			var newSpan = new Span { Text = text.Substring(index), Font = Font };
+			var newSpan = new SpanElement { Text = text.Substring(index), Font = Font };
 			return newSpan;
 		}
 
 		IElement? IElement.Split(int index) => Split(index);
 
-		public SizeF Measure(SizeF availableSize, PointF location)
-		{
-			if (_measureSize == null)
-			{
-				_text.MaximumWidth = availableSize.Width;
-				_measureSize = _text.Measure();
-			}
-			Bounds = new RectangleF(location, _measureSize.Value);
-			return _measureSize.Value;
-		}
-
-		public void Paint(Graphics graphics, RectangleF clipBounds)
-		{
-			graphics.DrawText(_text, Bounds.Location);
-		}
-
-		internal Span WithText(string text)
+		internal SpanElement WithText(string text)
 		{
 			if (text == Text)
 				return this;
-			var span = new Span { Font = Font, Brush = Brush, Text = text };
+			var span = new SpanElement { Font = Font, Brush = Brush, Text = text };
 			return span;
 		}
 
@@ -115,13 +147,13 @@ namespace Eto.ExtendedRichTextArea.Model
 			// nothing to recalculate for this one
 		}
 
-        public int GetIndexAtPoint(PointF point)
+        public int GetIndexAt(Chunk chunk, PointF point)
         {
-			if (point.X > Bounds.Right || point.Y > Bounds.Bottom)
+			if (point.X > chunk.Bounds.Right || point.Y > chunk.Bounds.Bottom)
 				return -1;
-			if (point.X < Bounds.Left || point.Y < Bounds.Top)
+			if (point.X < chunk.Bounds.Left || point.Y < chunk.Bounds.Top)
 				return -1;
-			var spanX = Bounds.X;
+			var spanX = chunk.Bounds.X;
 			var spanLength = Length;
 			for (int i = 0; i < spanLength; i++)
 			{
@@ -132,36 +164,21 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			return -1;
         }
-
-		public PointF? GetPointAtIndex(int index)
-		{
-			if (index < 0 || index > Length)
-				return null;
-			if (index == Length)
-				return new PointF(Bounds.Right, Bounds.Y);
-			if (index == 0)
-				return new PointF(Bounds.X, Bounds.Y);
-			var len = index;
-			var text = Text.Substring(0, len);
-			var size = Font?.MeasureString(text) ?? SizeF.Empty;
-			return new PointF(Bounds.X + size.Width, Bounds.Y);
-		}
 		
 		public PointF? GetPointAt(Chunk chunk, int start)
 		{
-			if (start < chunk.Start || start > chunk.Length)
+			if (start < 0 || start > chunk.Length)
 				return null;
-			if (start == Length)
+			if (start == chunk.Length)
 				return new PointF(chunk.Bounds.Right, chunk.Bounds.Y);
 			if (start == 0)
 				return new PointF(chunk.Bounds.X, chunk.Bounds.Y);
-			var len = start;
-			var text = Text.Substring(0, len);
+			var text = Text.Substring(chunk.InlineIndex, start);
 			var size = Font?.MeasureString(text) ?? SizeF.Empty;
 			return new PointF(chunk.Bounds.X + size.Width, chunk.Bounds.Y);
 		}
 
-		public IEnumerable<(string text, int index)> EnumerateWords(int start, bool forward)
+		public IEnumerable<(string text, int start)> EnumerateWords(int start, bool forward)
 		{
 			var text = Text;
 			if (forward)
@@ -206,7 +223,7 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public bool Matches(IInlineElement element)
 		{
-			if (element is not Span span)
+			if (element is not SpanElement span)
 				return false;
 			if (Brush is SolidBrush brush && span.Brush is SolidBrush otherBrush)
 			{
@@ -218,7 +235,9 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public bool Merge(int index, IInlineElement element)
 		{
-			if (element is not Span span || index < 0 || index > Length)
+			if (element is not SpanElement span || index < 0 || index > Length)
+				return false;
+			if (!Matches(span))
 				return false;
 			Text = Text.Insert(index, span.Text);
 			return true;
@@ -244,15 +263,15 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			if (start == 0)
 			{
-				yield return new Span { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(0, end) };
+				yield return new SpanElement { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(0, end) };
 				yield break;
 			}
 			if (end == Length)
 			{
-				yield return new Span { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(start) };
+				yield return new SpanElement { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(start) };
 				yield break;
 			}
-			yield return new Span { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(start, end - start) };
+			yield return new SpanElement { Start = start, Font = Font, Brush = Brush, Text = Text.Substring(start, end - start) };
 		}
 
 		public void Paint(Chunk chunk, Graphics graphics, RectangleF clipBounds)
@@ -260,17 +279,15 @@ namespace Eto.ExtendedRichTextArea.Model
 			graphics.DrawText(_text, chunk.Bounds.Location);
 		}
 
-		public void Measure(Measurement measurement)
+		public SizeF Measure(SizeF availableSize, out float baseline)
 		{
 			if (_measureSize == null)
 			{
 				_measureSize = _text.Measure();
 			}
-			if (measurement.CurrentLocation.X + _measureSize.Value.Width > measurement.AvailableSize.Width)
-			{
-				measurement.AddNewLine();
-			}
-			measurement.AddChunk(this, 0, Length, _measureSize.Value);
+			baseline = Font?.Baseline ?? 0;
+			return _measureSize.Value;
 		}
+
 	}
 }

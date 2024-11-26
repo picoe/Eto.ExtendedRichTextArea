@@ -14,7 +14,7 @@ namespace Eto.ExtendedRichTextArea
 			_textArea.SelectionChanged += TextArea_SelectionChanged;
 		}
 
-		private void TextArea_SelectionChanged(object sender, EventArgs e)
+		private void TextArea_SelectionChanged(object? sender, EventArgs e)
 		{
 			Enabled = _textArea.Selection?.Length > 0;
 		}
@@ -26,6 +26,7 @@ namespace Eto.ExtendedRichTextArea
 			var clip = new Clipboard(); 
 			clip.Text = _textArea.Selection.Text;
 			_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
+			_textArea.Selection = null;
 		}
 	}
 	
@@ -62,7 +63,7 @@ namespace Eto.ExtendedRichTextArea
 			}
 		}
 
-		private void Document_Changed(object sender, EventArgs e)
+		private void Document_Changed(object? sender, EventArgs e)
 		{
 			Size = Size.Ceiling(Document.Size);
 #if DEBUG
@@ -132,7 +133,7 @@ namespace Eto.ExtendedRichTextArea
 			}
 		}
 		
-		public event EventHandler SelectionChanged;
+		public event EventHandler<EventArgs>? SelectionChanged;
 		
 
 		protected override void OnSizeChanged(EventArgs e)
@@ -146,7 +147,7 @@ namespace Eto.ExtendedRichTextArea
 			if (Parent is Scrollable scrollable)
 			{
 				_parentScrollable = scrollable;
-				_parentScrollable.Scroll += _parentScrollable_Scroll;
+				_parentScrollable.Scroll += parentScrollable_Scroll;
 			}
 		}
 
@@ -155,12 +156,12 @@ namespace Eto.ExtendedRichTextArea
 			base.OnUnLoad(e);
 			if (_parentScrollable != null)
 			{
-				_parentScrollable.Scroll -= _parentScrollable_Scroll;
+				_parentScrollable.Scroll -= parentScrollable_Scroll;
 				_parentScrollable = null;
 			}
 		}
 
-		private void _parentScrollable_Scroll(object sender, ScrollEventArgs e)
+		private void parentScrollable_Scroll(object? sender, ScrollEventArgs e)
 		{
 			Invalidate(false);
 		}
@@ -207,7 +208,7 @@ namespace Eto.ExtendedRichTextArea
 		
 		internal void Insert(IInlineElement element)
 		{
-			Document.Insert(_caret.Index, element);
+			Document.InsertAt(_caret.Index, element);
 			_caret.Index += element.Length;
 			_caret.CalculateCaretBounds();
 			Invalidate();

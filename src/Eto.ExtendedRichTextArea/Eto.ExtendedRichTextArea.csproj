@@ -5,6 +5,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="System.Memory" Version="4.6.0" />
+    <PackageReference Include="Microsoft.Bcl.HashCode" Version="6.0.0" />
+  </ItemGroup>
 	
   <ItemGroup Condition="$(UseLocalEto) != 'True'">
     <PackageReference Include="Eto.Forms" Version="2.8.3" />

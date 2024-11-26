@@ -28,6 +28,7 @@ namespace Eto.ExtendedRichTextArea
 		}
 		
 		public event EventHandler<EventArgs>? SelectionFontChanged;
+		public event EventHandler<EventArgs>? SelectionBrushChanged;
 
         public override void Focus()
         {
@@ -40,6 +41,7 @@ namespace Eto.ExtendedRichTextArea
 			_drawable = new TextAreaDrawable(this);
 			_drawable.CaretIndexChanged += Drawable_CaretIndexChanged;
 			_drawable.SelectionFontChanged += (sender, e) => SelectionFontChanged?.Invoke(this, e);
+			_drawable.SelectionBrushChanged += (sender, e) => SelectionBrushChanged?.Invoke(this, e);
 			Content = _drawable;
 			BackgroundColor = SystemColors.ControlBackground;
 		}

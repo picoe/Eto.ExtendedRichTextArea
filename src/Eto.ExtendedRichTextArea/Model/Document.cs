@@ -4,7 +4,6 @@ using Eto.Drawing;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
-using Eto.ExtendedRichTextArea.Measure;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
@@ -18,45 +17,15 @@ namespace Eto.ExtendedRichTextArea.Model
 		PreviousWord,
 	}
 
-	public class Attributes
+	public class Document : ContainerElement<ParagraphElement>
 	{
-		public Font? Font { get; set; }
-		public Brush? Brush { get; set; }
+		internal override ContainerElement<ParagraphElement> Create() => throw new InvalidOperationException();
 
-		public bool Underline { get; set; }
-		public bool Strikethrough { get; set; }
-
-		public float Offset { get; set; }
-	}
-
-	public class Document : Element<Paragraph>
-	{
-		internal override Element<Paragraph> Create() => throw new InvalidOperationException();
-
-		internal override Paragraph CreateElement() => new Paragraph();
+		internal override ParagraphElement CreateElement() => new ParagraphElement();
 
 		public float ParagraphSpacing { get; set; }
 
 		protected override string Separator => "\n";
-
-		protected override void OffsetElement(ref PointF location, ref SizeF size, SizeF elementSize)
-		{
-			size.Width = Math.Max(size.Width, elementSize.Width);
-
-			var height = ParagraphSpacing + elementSize.Height;
-
-			size.Height += height;
-			location.Y += height;
-		}
-		
-		public override void OffsetElement(Measurement measurement)
-		{
-			// move next line below the current one
-			var location = measurement.CurrentLine?.Bounds.BottomLeft ?? measurement.CurrentParagraph?.Bounds.BottomLeft ?? PointF.Empty;
-			location.Y += ParagraphSpacing;
-			measurement.CurrentLocation = location;
-		}
-		
 
 		int _suspendMeasure;
 
@@ -85,199 +54,125 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 
-		public RectangleF CalculateCaretBounds(int index, Font font, Screen? screen)
+		public RectangleF CalculateCaretBounds(int start, Font font, Screen? screen)
 		{
 			var scale = screen?.Scale ?? 1;
 			var lineHeight = font.LineHeight * scale;
 			var leading = (font.Baseline - font.Ascent) * scale;
-			var point = GetPointAtIndex(index) ?? Bounds.Location;
+			var point = GetPointAt(start) ?? Bounds.Location;
 			return new RectangleF(point.X, point.Y + leading, 1, lineHeight);
 		}
 
-		public Font GetFont(int index)
+		public Font GetFont(int start)
 		{
-			var paragraph = Find(index);
-			var run = paragraph?.Find(index - paragraph.Start);
+			var paragraph = Find(start);
+			var run = paragraph?.Find(start - paragraph.Start);
 			if (run == null || paragraph == null) // prevent NRE warning, compiler isn't smart enough..
 				return DefaultFont;
-			var span = run?.Find(index - paragraph.Start - run.Start) as Span;
+			var span = run?.Find(start - paragraph.Start - run.Start) as SpanElement;
 			return span?.Font ?? DefaultFont;
 		}
 
-		public void Replace(int index, int length, Span span)
+		public Brush GetBrush(int start)
+		{
+			var paragraph = Find(start);
+			var run = paragraph?.Find(start - paragraph.Start);
+			if (run == null || paragraph == null) // prevent NRE warning, compiler isn't smart enough..
+				return DefaultBrush;
+			var span = run?.Find(start - paragraph.Start - run.Start) as SpanElement;
+			return span?.Brush ?? DefaultBrush;
+		}
+
+		public void Replace(int start, int length, SpanElement span)
 		{
 			BeginEdit();
-			RemoveAt(index, length);
-			Insert(index, span);
+			RemoveAt(start, length);
+			InsertAt(start, span);
 			EndEdit();
 		}
 
 
-		public void InsertText(int index, string text, Font? font = null, Brush? brush = null)
+		public void InsertText(int start, string text, Font? font = null, Brush? brush = null)
 		{
-			Insert(index, new Span { Text = text, Font = font ?? DefaultFont, Brush = brush ?? DefaultBrush });
+			InsertAt(start, new SpanElement { Text = text, Font = font ?? DefaultFont, Brush = brush ?? DefaultBrush });
 		}
 
-		bool InsertToParagraph(Paragraph? paragraph, int index, Span insertSpan)
+		public void InsertAt(int start, IInlineElement element)
 		{
-			if (paragraph == null)
-				return false;
-			var text = insertSpan.Text;
-			var run = paragraph?.Find(index);
-			var span = run?.Find(index - run.Start);
-			if (span != null && run != null)
-			{
-				if (span.Matches(insertSpan))
-				{
-					// span matches! just insert the text
-					var insertIndex = index - run.Start - span.Start;
-					if (insertIndex < 0)
-						throw new InvalidOperationException("State of document is invalid");
+			start = Math.Min(start, Length);
 
-					span.Text = span.Text.Insert(insertIndex, text);
-					run.Adjust(index - run.Start, text.Length);
+			if (element is SpanElement insertSpan)
+			{
+				var text = insertSpan.Text;
+				var lines = text.Split(new[] { "\n" }, StringSplitOptions.None);
+				if (lines.Length == 0)
+					return;
+
+				// additional lines in new paragraphs
+				for (int i = 0; i < lines.Length; i++)
+				{
+					var line = lines[i];
+
+					var paragraph = Find(start);
+					var spanToInsert = insertSpan.WithText(line);
+					start = InsertElementAt(paragraph, start, i > 0, spanToInsert);
+				}
+				MeasureIfNeeded();
+				return;
+			}
+			else
+			{
+				var paragraph = Find(start);
+				InsertElementAt(paragraph, start, true, element);
+
+				MeasureIfNeeded();
+			}
+		}
+
+		private int InsertElementAt(ParagraphElement? paragraph, int start, bool splitParagraph, IInlineElement element)
+		{
+			if (paragraph != null)
+			{
+				if (splitParagraph)
+				{
+					var rightParagraph = paragraph.Split(start - paragraph.Start);
+					if (rightParagraph != null)
+					{
+						var paragraphIndex = IndexOf(paragraph);
+						Insert(paragraphIndex + 1, rightParagraph);
+						rightParagraph.InsertInParagraph(0, element);
+						start += element.Length + 1;
+						return start;
+					}
+				}
+				else if (element.Length > 0)
+				{
+					if (paragraph.InsertInParagraph(start - paragraph.Start, element))
+					{
+						Recalculate(Start);
+						start += element.Length;
+						return start;
+					}
 				}
 				else
-				{
-					var rightSpan = span.Split(index - run.Start - span.Start);
-					if (rightSpan is IInlineElement rightElement)
-					{
-						run.InsertAt(index - run.Start, rightElement);
-					}
-
-					var newSpan = insertSpan.WithText(text);
-					run.InsertAt(index - run.Start, newSpan);
-					paragraph.Adjust(index, text.Length);
-				}
+					return start;
 			}
-			else if (run != null && paragraph != null)
+
+			// create a new paragraph, couldn't insert in existing paragraph or split
+			var newParagraph = new ParagraphElement();
+			if (element.Length > 0)
 			{
-				var rightRun = run.Split(index - run.Start);
-				if (rightRun != null)
-				{
-					// shouldn't happen?!
-					paragraph.InsertAt(index - paragraph.Start, rightRun);
-				}
-				run.Add(insertSpan.WithText(text));
+				var newRun = new RunElement();
+				newRun.Add(element);
+				newParagraph.Add(newRun);
 			}
-			else if (paragraph != null)
-			{
-				var rightParagraph = paragraph.Split(index - paragraph.Start);
-				if (rightParagraph != null)
-				{
-					var paragraphIndex = IndexOf(paragraph);
-					InsertAt(paragraphIndex + 1, rightParagraph);
-				}
-				var newRun = new Run { };
-				newRun.InsertAt(index - paragraph.Start, insertSpan.WithText(text));
-				paragraph.InsertAt(index - paragraph.Start, newRun);
-			}
-			return true;
-		}
-
-		public void Insert(int index, IInlineElement element)
-		{
-			var paragraph = Find(index);
-			if (paragraph == null)
-				return;
-			var run = paragraph?.Find(index);
-			var span = run?.Find(index - run.Start);
-			if (span != null && run != null)
-			{
-				if (!span.Merge(index - run.Start - span.Start, element))
-				{
-					var rightSpan = span.Split(index - run.Start - span.Start);
-					if (rightSpan is IInlineElement rightElement)
-					{
-						run.InsertAt(index - run.Start, rightElement);
-					}
-					run.InsertAt(index - run.Start, element);
-				}
-			}
-			else if (run != null && paragraph != null)
-			{
-				var rightRun = run.Split(index - run.Start);
-				if (rightRun != null)
-				{
-					// shouldn't happen?!
-					paragraph.InsertAt(index - paragraph.Start, rightRun);
-				}
-				run.Add(element);
-			}
-			else if (paragraph != null)
-			{
-				var rightParagraph = paragraph.Split(index - paragraph.Start);
-				if (rightParagraph != null)
-				{
-					var paragraphIndex = IndexOf(paragraph);
-					InsertAt(paragraphIndex + 1, rightParagraph);
-				}
-				var newRun = new Run { };
-				newRun.InsertAt(index - paragraph.Start, element);
-				paragraph.InsertAt(index - paragraph.Start, newRun);
-			}
-		}
-
-		public void Insert(int index, Span insertSpan)
-		{
-			var text = insertSpan.Text;
-			var lines = text.Split(new[] { "\n" }, StringSplitOptions.None);
-			if (lines.Length == 0)
-				return;
-
-			index = Math.Min(index, Length);
-
-			var line = lines[0];
-			var paragraph = Find(index);
-
-			if (line.Length > 0)
-			{
-				// first line
-				if (!InsertToParagraph(paragraph, index - paragraph?.Start ?? 0, insertSpan.WithText(line)))
-				{
-					// couldn't insert, add a new paragraph
-					var newSpan = insertSpan.WithText(line);
-					var newRun = new Run();
-					newRun.Add(newSpan);
-					var newParagraph = new Paragraph();
-					newParagraph.Add(newRun);
-					Add(newParagraph);
-					index += line.Length + 1;
-				}
-				else
-				{
-					index += line.Length;
-				}
-			}
-
-			// additional lines in new paragraphs
-			for (int i = 1; i < lines.Length; i++)
-			{
-				line = lines[i];
-
-				// newline, create a new paragraph
-				var newParagraph = new Paragraph();
-				if (line.Length > 0)
-				{
-					var newRun = new Run();
-					newRun.Add(insertSpan.WithText(line));
-					newParagraph.Add(newRun);
-				}
-				InsertAt(index, newParagraph);
-				index += line.Length + 1;
-			}
-			MeasureIfNeeded();
+			InsertAt(start, newParagraph);
+			start += element.Length + 1;
+			return start;
 		}
 
 		public void Paint(Graphics graphics, RectangleF clipBounds)
 		{
-			// if (_measurement == null)
-			// 	MeasureIfNeeded();
-				
-			// _measurement?.Paint(graphics, clipBounds);
-			
-			// /*
-			
 			foreach (var paragraph in this)
 			{
 				if (!paragraph.Bounds.Intersects(clipBounds))
@@ -286,28 +181,17 @@ namespace Eto.ExtendedRichTextArea.Model
 				{
 					if (!run.Bounds.Intersects(clipBounds))
 						continue;
+					run.Paint(graphics, clipBounds);
 
-					foreach (var span in run)
-					{
-						if (!span.Bounds.Intersects(clipBounds))
-							continue;
-						span.Paint(graphics, clipBounds);
-					}
 				}
 			}
 			// */
 		}
-		Measurement? _measurement;
 		
 		internal override void MeasureIfNeeded()
 		{
 			if (_suspendMeasure == 0)
 			{
-				// _measurement = new Measurement(this, SizeF.PositiveInfinity);
-				// _measurement.Measure();
-
-				// Size = _measurement.Bounds.Size;
-				
 				Size = Measure(SizeF.PositiveInfinity, PointF.Empty);
 				Changed?.Invoke(this, EventArgs.Empty);
 			}
@@ -348,135 +232,118 @@ namespace Eto.ExtendedRichTextArea.Model
 			return true;
 		}
 
-		public int Navigate(int index, DocumentNavigationMode type, PointF? caretLocation = null)
+		public int Navigate(int start, DocumentNavigationMode type, PointF? caretLocation = null)
 		{
 			return type switch
 			{
-				DocumentNavigationMode.NextLine => GetNextLine(index, caretLocation),
-				DocumentNavigationMode.PreviousLine => GetPreviousLine(index, caretLocation),
-				DocumentNavigationMode.BeginningOfLine => GetBeginningOfLine(index),
-				DocumentNavigationMode.EndOfLine => GetEndOfLine(index),
-				DocumentNavigationMode.NextWord => GetNextWord(index),
-				DocumentNavigationMode.PreviousWord => GetPreviousWord(index),
-				_ => index
+				DocumentNavigationMode.NextLine => GetNextLine(start, caretLocation),
+				DocumentNavigationMode.PreviousLine => GetPreviousLine(start, caretLocation),
+				DocumentNavigationMode.BeginningOfLine => GetBeginningOfLine(start),
+				DocumentNavigationMode.EndOfLine => GetEndOfLine(start),
+				DocumentNavigationMode.NextWord => GetNextWord(start),
+				DocumentNavigationMode.PreviousWord => GetPreviousWord(start),
+				_ => start
 			};
 		}
 
-		private int GetPreviousWord(int index)
+		private int GetPreviousWord(int start)
 		{
-			return index;
+			var words = EnumerateWords(start, false);
+			var prevWord = words.Skip(1).FirstOrDefault();
+			if (prevWord.start >= 0)
+				return prevWord.start + Start;
+			return End;
 		}
 
 
-		private int GetNextWord(int index)
+		private int GetNextWord(int start)
 		{
-			var words = EnumerateWords(index, true);
+			var words = EnumerateWords(start, true);
 			var nextWord = words.Skip(1).FirstOrDefault();
-			if (nextWord.index >= 0)
-				return nextWord.index + Start;
+			if (nextWord.start >= 0)
+				return nextWord.start + Start;
 			return End;
 		}
 
-		private int GetBeginningOfLine(int index)
+		private int GetBeginningOfLine(int start)
 		{
-			var paragraph = Find(index);
-			if (paragraph == null)
-				return 0;
-			return paragraph.Start;
+			var line = EnumerateLines(start, false).FirstOrDefault();
+			return line == null ? Start : line.DocumentStart;
 		}
 
-		private int GetEndOfLine(int index)
+		private int GetEndOfLine(int start)
 		{
-			var paragraph = Find(index);
-			if (paragraph == null)
-				return Length;
-			return paragraph.End;
+			var line = EnumerateLines(start).FirstOrDefault();
+			return line == null ? End : line.DocumentEnd;
 		}
 
-		int GetNextLine(int index, PointF? caretLocation)
+		int GetNextLine(int start, PointF? caretLocation)
 		{
-			// var inlines = EnumerateInlines(index, Length);
-			// RectangleF? initialBounds = null;
-			// foreach (var inline in inlines)
-			// {
-			// 	if (initialBounds == null)
-			// 	{
-			// 		initialBounds = inline.Bounds;
-			// 	}
-			// 	else if (inline.Bounds.Y > initialBounds.Value.Y)
-			// 	{
-			// 		var point = inline.Bounds.Location;
-			// 		if (caretLocation != null)
-			// 		{
-			// 			point.X = caretLocation.Value.X;
-			// 		}
-			// 		this.GetIndexAtPoint(point);
-			// 		return inline.Start;
-			// 	}
-			// }
-
-
-
-
-			var paragraph = Find(index);
-			if (paragraph == null)
-				return Length;
-			var row = paragraph.Find(index - paragraph.Start);
-			var span = row?.Find(index - paragraph.Start - row.Start);
-			if (span != null && row != null)
-			{
-				var point = caretLocation ?? span.GetPointAtIndex(index - paragraph.Start - row.Start - span.Start) ?? PointF.Empty;
-				var idx = GetIndexAtPoint(new PointF(point.X, span.Bounds.Bottom + 1));
-				if (idx >= 0)
-					return idx;
-			}
-			if (row != null)
-			{
-				var point = caretLocation ?? row.GetPointAtIndex(index - paragraph.Start - row.Start) ?? PointF.Empty;
-				var idx = GetIndexAtPoint(new PointF(point.X, row.Bounds.Bottom + 1));
-				if (idx >= 0)
-					return idx;
-			}
-			if (paragraph != null)
-			{
-				var point = caretLocation ?? paragraph.GetPointAtIndex(index - paragraph.Start) ?? PointF.Empty;
-				var idx = GetIndexAtPoint(new PointF(point.X, paragraph.Bounds.Bottom + 1));
-				if (idx >= 0)
-					return idx;
-			}
-			return End;
+			var line = EnumerateLines(start).Skip(1).FirstOrDefault();
+			if (line == null)
+				return End;
+			var point = line.Bounds.Location;
+			if (caretLocation != null)
+				point.X = caretLocation.Value.X;
+			else
+				point = GetPointAt(start) ?? point;
+			var idx = line.GetIndexAt(point);
+			if (idx >= 0)
+				return idx + line.DocumentStart;
+			if (point.X > line.Bounds.Right)
+				return line.DocumentEnd;
+			return line.DocumentStart;
 		}
 
-		int GetPreviousLine(int index, PointF? caretLocation)
+		int GetPreviousLine(int start, PointF? caretLocation)
 		{
-			var paragraph = Find(index);
-			if (paragraph == null)
-				return 0;
-
-			var row = paragraph.Find(index - paragraph.Start);
-			var span = row?.Find(index - paragraph.Start - row.Start);
-			if (span != null && row != null)
-			{
-				var point = caretLocation ?? span.GetPointAtIndex(index - paragraph.Start - row.Start - span.Start) ?? PointF.Empty;
-				var idx = GetIndexAtPoint(new PointF(point.X, span.Bounds.Top - 1));
-				if (idx >= 0)
-					return idx;
-			}
-			if (row != null)
-			{
-				var point = caretLocation ?? row.GetPointAtIndex(index - paragraph.Start - row.Start) ?? PointF.Empty;
-				var idx = GetIndexAtPoint(new PointF(point.X, row.Bounds.Top - 1));
-				if (idx >= 0)
-					return idx;
-			}
-			if (paragraph != null)
-			{
-				var point = caretLocation ?? paragraph.GetPointAtIndex(index - paragraph.Start) ?? PointF.Empty;
-				var idx = GetIndexAtPoint(new PointF(point.X, paragraph.Bounds.Top - 1));
-				if (idx >= 0)
-					return idx;
-			}
-			return Start;
+			var line = EnumerateLines(start, false).Skip(1).FirstOrDefault();
+			if (line == null)
+				return Start;
+			var point = line.Bounds.Location;
+			if (caretLocation != null)
+				point.X = caretLocation.Value.X;
+			else
+				point = GetPointAt(start) ?? point;
+			var idx = line.GetIndexAt(point);
+			if (idx >= 0)
+				return idx + line.DocumentStart;
+			if (point.X > line.Bounds.Right)
+				return line.DocumentEnd;
+			return line.DocumentStart;
 		}
+
+		protected override SizeF MeasureOverride(SizeF availableSize, PointF location)
+		{
+			SizeF size = SizeF.Empty;
+			int start = 0;
+			var separatorLength = Separator?.Length ?? 0;
+			PointF elementLocation = location;
+			for (int i = 0; i < Count; i++)
+			{
+				if (i > 0)
+					start += separatorLength;
+				var element = this[i];
+				element.Start = start;
+				var elementSize = element.Measure(availableSize, elementLocation);
+
+				size.Width = Math.Max(size.Width, elementSize.Width);
+
+				var height = ParagraphSpacing + elementSize.Height;
+
+				size.Height += height;
+				elementLocation.Y += height;
+				start += element.Length;
+			}
+			Length = start;
+			return size;
+		}
+		public override PointF? GetPointAt(int start)
+		{
+			var element = Find(start);
+			var point = element?.GetPointAt(start - element.Start);
+			return point ?? Bounds.Location;
+		}
+
 	}
 }

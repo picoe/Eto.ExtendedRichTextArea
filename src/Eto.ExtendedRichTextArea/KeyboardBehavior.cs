@@ -29,7 +29,7 @@ namespace Eto.ExtendedRichTextArea
 			}
 		}
 
-		private void TextArea_KeyDown_Navigation(object sender, KeyEventArgs e)
+		private void TextArea_KeyDown_Navigation(object? sender, KeyEventArgs e)
 		{
 			var extendSelection = e.Modifiers == Keys.Shift;
 			if (!extendSelection && e.Modifiers != Keys.None)
@@ -74,7 +74,7 @@ namespace Eto.ExtendedRichTextArea
 			{
 				if (_textArea.Selection != null)
 				{
-					lastCaretIndex = _textArea.Selection.Start;
+					lastCaretIndex = _textArea.Selection.OriginalStart;
 				}
 				_textArea.Selection = new DocumentRange(lastCaretIndex, _caret.Index);
 			}
@@ -84,14 +84,14 @@ namespace Eto.ExtendedRichTextArea
 			}
 		}
 
-		private void TextArea_TextInput(object sender, TextInputEventArgs e)
+		private void TextArea_TextInput(object? sender, TextInputEventArgs e)
 		{
 			Document.InsertText(_caret.Index, e.Text, _textArea.SelectionFont, _textArea.SelectionBrush);
 			_caret.Index += e.Text.Length;
 			e.Cancel = true;
 		}
 
-		private void TextArea_KeyDown_Generic(object sender, KeyEventArgs e)
+		private void TextArea_KeyDown_Generic(object? sender, KeyEventArgs e)
 		{
 			switch (e.KeyData)
 			{
@@ -118,7 +118,7 @@ namespace Eto.ExtendedRichTextArea
 			}
 		}
 
-		private void TextArea_KeyDown_Mac(object sender, KeyEventArgs e)
+		private void TextArea_KeyDown_Mac(object? sender, KeyEventArgs e)
 		{
 			switch (e.KeyData)
 			{
@@ -145,7 +145,7 @@ namespace Eto.ExtendedRichTextArea
 			}
 		}
 
-		private void TextArea_KeyDown(object sender, KeyEventArgs e)
+		private void TextArea_KeyDown(object? sender, KeyEventArgs e)
 		{
 			switch (e.Key)
 			{

@@ -23,7 +23,7 @@ namespace Eto.ExtendedRichTextArea
 			_textArea.MouseUp += TextArea_MouseUp;
 		}
 
-		private void TextArea_MouseUp(object sender, MouseEventArgs e)
+		private void TextArea_MouseUp(object? sender, MouseEventArgs e)
 		{
 			_isMouseDown = false;
 			if (_initialIndex == _caret.Index)
@@ -32,23 +32,23 @@ namespace Eto.ExtendedRichTextArea
 			}
 		}
 
-		private void TextArea_MouseMove(object sender, MouseEventArgs e)
+		private void TextArea_MouseMove(object? sender, MouseEventArgs e)
 		{
 			_mouseLocation = e.Location;
 			if (_isMouseDown)
 			{
-				var index = _textArea.Document.GetIndexAtPoint(_mouseLocation);
+				var index = _textArea.Document.GetIndexAt(_mouseLocation);
 				_caret.Index = index;
 				_textArea.Selection = new DocumentRange(_initialIndex, index);
 			}
 		}
 
-		private void TextArea_MouseDown(object sender, MouseEventArgs e)
+		private void TextArea_MouseDown(object? sender, MouseEventArgs e)
 		{
 			_isMouseDown = true;
 			_mouseDownLocation = e.Location;
 			_mouseLocation = e.Location;
-			var index = _textArea.Document.GetIndexAtPoint(_mouseLocation);
+			var index = _textArea.Document.GetIndexAt(_mouseLocation);
 			if (index >= 0)
 			{
 				_caret.Index = index;

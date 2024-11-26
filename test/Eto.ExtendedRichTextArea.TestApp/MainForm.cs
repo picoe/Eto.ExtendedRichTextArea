@@ -29,10 +29,10 @@ namespace Eto.ExtendedRichTextArea.TestApp
 					switch (random.Next(3))
 					{
 						case 0:
-							graphics.FillRectangle(brush, random.Next(width), random.Next(height), random.Next(20, width - 20), random.Next(20, height - 20));
+							graphics.FillRectangle(brush, random.Next(width), random.Next(height), random.Next(width), random.Next(height));
 							break;
 						case 1:
-							graphics.FillEllipse(brush, random.Next(width), random.Next(height), random.Next(20, width - 20), random.Next(20, height - 20));
+							graphics.FillEllipse(brush, random.Next(width), random.Next(height), random.Next(width), random.Next(height));
 							break;
 						case 2:
 							graphics.DrawLine(pen, random.Next(width), random.Next(height), random.Next(width), random.Next(height));
@@ -56,7 +56,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 #endif
 
 			var initialText = LoremGenerator.GenerateLines(200, 20);
-			
+
 			var insertRandomTextButton = new Button { Text = "Insert Random Text" };
 			insertRandomTextButton.Click += (sender, e) =>
 			{
@@ -68,7 +68,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			{
 				richTextArea.Insert(new ImageElement { Image = CreateRandomBitmap(200, 40) });
 			};
-			
+
 			var fontSelector = new FontPicker();
 			fontSelector.ValueBinding.Bind(richTextArea, r => r.SelectionFont);
 			fontSelector.GotFocus += (sender, e) => richTextArea.Focus();
@@ -77,11 +77,20 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			var colorSelector = new ColorPicker { AllowAlpha = true };
 			// TODO: This doesn't work on Wpf to set the focus to the richTextArea so you have to click first.
 			colorSelector.ValueChanged += (sender, e) => Application.Instance.AsyncInvoke(richTextArea.Focus);
-			colorSelector.ValueBinding.Bind(richTextArea, 
+			colorSelector.ValueBinding.Bind(richTextArea,
 				Binding.Property((ExtendedRichTextArea r) => r.SelectionBrush)
 				.Convert(r => r is SolidBrush brush ? brush.Color : Colors.Black, r => new SolidBrush(r)));
 
 			var structure = new TreeGridView
+			{
+				Size = new Size(200, 600),
+				ShowHeader = false,
+				Columns = {
+					new GridColumn { DataCell = new TextBoxCell(0) }
+				}
+			};
+
+			var lines = new TreeGridView
 			{
 				Size = new Size(200, 600),
 				ShowHeader = false,
@@ -99,15 +108,15 @@ namespace Eto.ExtendedRichTextArea.TestApp
 				foreach (var paragraph in richTextArea.Document)
 				{
 					var paragraphItem = new TreeGridItem { Expanded = true };
-					paragraphItem.Values = new object[] { $"Paragraph: {paragraph.Start}:{paragraph.Length}" };
+					paragraphItem.Values = new object[] { $"Paragraph: {paragraph.DocumentStart}:{paragraph.Length}" };
 					foreach (var run in paragraph)
 					{
 						var runItem = new TreeGridItem { Expanded = true };
-						runItem.Values = new object[] { $"Run: {run.Start}:{run.Length}" };
+						runItem.Values = new object[] { $"Run: {run.DocumentStart}:{run.Length}" };
 						foreach (var span in run)
 						{
 							var spanItem = new TreeGridItem();
-							spanItem.Values = new object[] { $"{span.GetType().Name}: {span.Start}:{span.Text}" };
+							spanItem.Values = new object[] { $"{span.GetType().Name}: {span.DocumentStart}:{span.Text}" };
 							runItem.Children.Add(spanItem);
 						}
 						paragraphItem.Children.Add(runItem);
@@ -115,9 +124,17 @@ namespace Eto.ExtendedRichTextArea.TestApp
 					items.Add(paragraphItem);
 				}
 				structure.DataStore = items;
+				
+				var linesItems = new TreeGridItemCollection();
+				foreach (var line in richTextArea.Document.EnumerateLines(0))
+				{
+					var lineItem = new TreeGridItem();
+					lineItem.Values = new object[] { $"Line: {line.DocumentStart}:{line.Length}" };
+					linesItems.Add(lineItem);
+				}
+				lines.DataStore = linesItems;
 
 			};
-
 
 			richTextArea.Document.Changed += (sender, e) =>
 			{
@@ -145,7 +162,6 @@ namespace Eto.ExtendedRichTextArea.TestApp
 
 #endif
 
-
 			var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
 
 			layout.AddSeparateRow(fontSelector, colorSelector, insertRandomTextButton, insertImageButton, null);
@@ -153,13 +169,22 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			layout.BeginVertical();
 			layout.BeginHorizontal();
 			layout.Add(richTextArea, xscale: true);
-			layout.Add(structure);
+			layout.BeginVertical();
+			layout.Add(structure, yscale: true);
+			layout.Add(lines, yscale: true);
+			layout.EndVertical();
 			layout.EndHorizontal();
 			layout.EndVertical();
 
 			Content = layout;
+			Shown += (sender, e) => richTextArea.Focus();
 
+			CreateMenu();
 
+		}
+
+		private void CreateMenu()
+		{
 			var quitCommand = new Command { MenuText = "Quit", Shortcut = Application.Instance.CommonModifier | Keys.Q };
 			quitCommand.Executed += (sender, e) => Application.Instance.Quit();
 
@@ -184,12 +209,6 @@ namespace Eto.ExtendedRichTextArea.TestApp
 				QuitItem = quitCommand,
 				AboutItem = aboutCommand
 			};
-
-
-			Shown += (sender, e) => richTextArea.Focus();
-
-
-
 		}
 	}
 }

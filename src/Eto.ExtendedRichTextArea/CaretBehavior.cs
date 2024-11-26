@@ -34,7 +34,7 @@ namespace Eto.ExtendedRichTextArea
 					InvalidateCaret();
 					IndexChanged?.Invoke(_textArea, EventArgs.Empty);
 					_textArea.SelectionFont = Document.GetFont(_caretIndex);
-					// _textArea.SelectionBrush = Document.GetBrush(_caretIndex);
+					_textArea.SelectionBrush = Document.GetBrush(_caretIndex);
 				}
 			}
 		}
@@ -44,8 +44,13 @@ namespace Eto.ExtendedRichTextArea
 		public void Navigate(DocumentNavigationMode mode)
 		{
 			var location = _navLocation ?? _caretBounds.Location;
-			Index = Document.Navigate(_caretIndex, mode, _navLocation);
-			_navLocation = location;
+
+			Index = Document.Navigate(_caretIndex, mode, location);
+			
+			if (mode == DocumentNavigationMode.NextLine || mode == DocumentNavigationMode.PreviousLine)
+				_navLocation = location;
+			else
+				_navLocation = null;
 		}
 
 		public RectangleF CaretBounds => _caretBounds;

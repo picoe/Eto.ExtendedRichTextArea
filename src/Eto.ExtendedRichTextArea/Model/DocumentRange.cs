@@ -6,50 +6,41 @@ namespace Eto.ExtendedRichTextArea.Model
 	{
 		internal Document? Document { get; set; }
 		public int Start { get; }
-		public int Length => Math.Abs(End - Start);
+		public int Length => End - Start;
 		public int End { get; }
-		
 		public string Text => Document?.GetText(Start, Length) ?? string.Empty;
+
+		public int OriginalStart { get; }
 
 		List<RectangleF>? _bounds;
 
-		public DocumentRange(int start, int end)
+		public DocumentRange(int start, int end, int? originalStart = null)
 		{
-			Start = start;
-			End = end;
+			OriginalStart = originalStart ?? start;
+			Start = Math.Min(start, end);
+			End = Math.Max(start, end);
 		}
 		
 		public void CalculateBounds()
 		{
 			if (Document == null)
 				return;
-			int start, end;
-			if (Start < End)
-			{
-				start = Start;
-				end = End;
-			}
-			else
-			{
-				start = End;
-				end = Start;
-			}
 			
 			_bounds ??= new List<RectangleF>();
 			_bounds.Clear();
 			RectangleF bounds = RectangleF.Empty;
-			IInlineElement? lastSpan = null;
+			Chunk? lastChunk = null;
 			// TODO: trim mid spans for start/end
-			foreach (var span in Document.EnumerateInlines(start, end))
+			foreach (var chunk in Document.EnumerateChunks(Start, End))
 			{
-				var spanBounds = span.Bounds;
+				var spanBounds = chunk.Bounds;
 				if (bounds.IsEmpty)
 				{
-					bounds = span.Bounds;
-					var documentIndex = span.DocumentIndex;
-					if (documentIndex < start)
+					bounds = chunk.Bounds;
+					var documentIndex = chunk.Element.DocumentStart;
+					if (documentIndex < Start)
 					{
-						var point = span.GetPointAtIndex(start - documentIndex);
+						var point = chunk.GetPointAt(Start - documentIndex - chunk.Start);
 						if (point != null)
 						{
 							bounds.Width -= point.Value.X - bounds.X;
@@ -57,27 +48,27 @@ namespace Eto.ExtendedRichTextArea.Model
 						}
 					}
 				}
-				else if (span.Bounds.Y != bounds.Y || span.Bounds.X < bounds.X)
+				else if (chunk.Bounds.Y != bounds.Y || chunk.Bounds.X < bounds.X)
 				{
 					_bounds.Add(bounds);
-					bounds = span.Bounds;
+					bounds = chunk.Bounds;
 				}
 				else
 				{
 					// combine bounds
-					bounds.Right = span.Bounds.Right;
-					bounds.Height = Math.Max(bounds.Height, span.Bounds.Height);					
+					bounds.Right = chunk.Bounds.Right;
+					bounds.Height = Math.Max(bounds.Height, chunk.Bounds.Height);					
 				}
-				lastSpan = span;
+				lastChunk = chunk;
 			}
 			if (!bounds.IsEmpty)
 			{
-				if (lastSpan != null)
+				if (lastChunk != null)
 				{
-					var documentIndex = lastSpan.DocumentIndex;
-					if (documentIndex + lastSpan.Length > end)
+					var documentIndex = lastChunk.Element.DocumentStart;
+					if (documentIndex + lastChunk.Length > End)
 					{
-						var point = lastSpan.GetPointAtIndex(end - documentIndex);
+						var point = lastChunk.GetPointAt(End - documentIndex);
 						bounds.Width = point?.X - bounds.X ?? bounds.Width;
 					}
 				}
