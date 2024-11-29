@@ -37,7 +37,7 @@ namespace Eto.ExtendedRichTextArea.Model
 
 			if (size.Height <= 0)
 			{
-				size.Height = defaultAttributes.Font?.LineHeight ?? SystemFonts.Default().LineHeight;
+				size.Height = defaultAttributes.Font?.LineHeight ?? Document.GetDefaultFont().LineHeight;
 			}
 			return size;
 		}

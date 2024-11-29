@@ -29,6 +29,7 @@ namespace Eto.ExtendedRichTextArea
 			if (_initialIndex == _caret.Index)
 			{
 				_textArea.Selection = null;
+				_textArea.TextArea.SelectionAttributes = _textArea.Document.GetAttributes(_caret.Index, _caret.Index);
 			}
 		}
 

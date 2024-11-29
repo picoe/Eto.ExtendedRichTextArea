@@ -32,9 +32,10 @@ namespace Eto.ExtendedRichTextArea
 					_caretVisible = true;
 					CalculateCaretBounds();
 					InvalidateCaret();
+					if (_textArea.Selection == null)
+						_textArea.TextArea.SelectionAttributes = Document.GetAttributes(_caretIndex, _caretIndex);
+					
 					IndexChanged?.Invoke(_textArea, EventArgs.Empty);
-					_textArea.SelectionFont = Document.GetFont(_caretIndex);
-					_textArea.SelectionBrush = Document.GetBrush(_caretIndex);
 				}
 			}
 		}
@@ -95,7 +96,7 @@ namespace Eto.ExtendedRichTextArea
 
 		internal void CalculateCaretBounds()
 		{
-			_caretBounds = _textArea.Document.CalculateCaretBounds(_caretIndex, _textArea.SelectionFont, _textArea.ParentWindow?.Screen);
+			_caretBounds = _textArea.Document.CalculateCaretBounds(_caretIndex, _textArea.TextArea.SelectionFont, _textArea.ParentWindow?.Screen);
 		}
 
 		internal void Paint(PaintEventArgs e)

@@ -49,7 +49,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			return false;
 		}
 
-		public IEnumerable<IInlineElement> EnumerateInlines(int start, int end)
+		public IEnumerable<IInlineElement> EnumerateInlines(int start, int end, bool trim)
 		{
 			yield return this;
 		}

@@ -41,7 +41,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		
         public int GetIndexAt(PointF point)
         {
-			return Element.GetIndexAt(this, point) + Start;
+			return Element.GetIndexAt(this, point);
         }
 	}
 }

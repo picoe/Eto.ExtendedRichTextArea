@@ -39,7 +39,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		int RemoveAt(int start, int length);
 		void Recalculate(int start);
 		IEnumerable<(string text, int start)> EnumerateWords(int start, bool forward);
-		IEnumerable<IInlineElement> EnumerateInlines(int start, int end);
+		IEnumerable<IInlineElement> EnumerateInlines(int start, int end, bool trim);
 		void MeasureIfNeeded();
 	}
 }

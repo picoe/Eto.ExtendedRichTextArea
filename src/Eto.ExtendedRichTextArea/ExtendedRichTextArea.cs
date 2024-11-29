@@ -2,6 +2,7 @@ using Eto.Forms;
 using Eto.Drawing;
 using System;
 using Eto.ExtendedRichTextArea.Model;
+using System.ComponentModel;
 
 namespace Eto.ExtendedRichTextArea
 {
@@ -15,19 +16,72 @@ namespace Eto.ExtendedRichTextArea
 			set => _drawable.Document = value;
 		}
 		
+		Attributes? _selectionAttributes;
+		
+		public Attributes? SelectionAttributes
+		{
+			get
+			{
+				if (_selectionAttributes != null)
+					_selectionAttributes.PropertyChanged -= SelectionAttributes_PropertyChanged;
+				_selectionAttributes ??= Document.DefaultAttributes.Clone();
+				if (_selectionAttributes != null)
+					_selectionAttributes.PropertyChanged += SelectionAttributes_PropertyChanged;
+				return _selectionAttributes;
+			}
+			set
+			{
+				if (_selectionAttributes != null)
+					_selectionAttributes.PropertyChanged -= SelectionAttributes_PropertyChanged;
+				_selectionAttributes = value;
+				if (_selectionAttributes != null)
+					_selectionAttributes.PropertyChanged += SelectionAttributes_PropertyChanged;
+				SelectionAttributesChanged?.Invoke(this, EventArgs.Empty);
+			}
+		}
+
+		private void SelectionAttributes_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+		{
+			if (_selectionAttributes == null)
+				return;
+			if (e.PropertyName == nameof(Attributes.Font)) // not actually a property we apply
+				return;
+
+			UpdateSelectionAttributes();
+		}
+
+		private void UpdateSelectionAttributes()
+		{
+			_drawable.Selection?.SetAttributes(_selectionAttributes);
+		}
+
+		public event EventHandler<EventArgs>? SelectionAttributesChanged;
+
 		public Font SelectionFont
 		{
-			get => _drawable.SelectionFont;
-			set => _drawable.SelectionFont = value;
+			get => _selectionAttributes?.Font ?? Document.DefaultFont;
+			set
+			{
+				_selectionAttributes ??= new Attributes();
+				_selectionAttributes.Font = value;
+				SelectionFontChanged?.Invoke(this, EventArgs.Empty);
+			}
 		}
+
+		public event EventHandler<EventArgs>? SelectionFontChanged;
+
 
 		public Brush SelectionBrush
 		{
-			get => _drawable.SelectionBrush;
-			set => _drawable.SelectionBrush = value;
+			get => _selectionAttributes?.ForegroundBrush ?? Document.DefaultForegroundBrush;
+			set
+			{
+				_selectionAttributes ??= new Attributes();
+				_selectionAttributes.ForegroundBrush = value;
+				SelectionBrushChanged?.Invoke(this, EventArgs.Empty);
+			}
 		}
-		
-		public event EventHandler<EventArgs>? SelectionFontChanged;
+
 		public event EventHandler<EventArgs>? SelectionBrushChanged;
 
         public override void Focus()
@@ -38,9 +92,7 @@ namespace Eto.ExtendedRichTextArea
         public ExtendedRichTextArea()
 		{
 			_drawable = new TextAreaDrawable(this);
-			_drawable.CaretIndexChanged += Drawable_CaretIndexChanged;
-			_drawable.SelectionFontChanged += (sender, e) => SelectionFontChanged?.Invoke(this, e);
-			_drawable.SelectionBrushChanged += (sender, e) => SelectionBrushChanged?.Invoke(this, e);
+			_drawable.Caret.IndexChanged += Drawable_CaretIndexChanged;
 			
 			Content = _drawable;
 
@@ -84,8 +136,34 @@ namespace Eto.ExtendedRichTextArea
 			ScrollPosition = Point.Round(scrollPosition);
         }
 
-		public void InsertText(string text) => _drawable.InsertText(text);
-
-		public void Insert(IInlineElement imageElement) => _drawable.Insert(imageElement);
+		public void InsertText(string text)
+		{
+			Document.BeginEdit();
+			if (_drawable.Selection != null)
+			{
+				Document.RemoveAt(_drawable.Selection.Start, _drawable.Selection.Length);
+				_drawable.Selection = null;
+			}
+			Document.InsertText(_drawable.Caret.Index, text, SelectionAttributes);
+			Document.EndEdit();
+			_drawable.Caret.Index += text.Length;
+			_drawable.Caret.CalculateCaretBounds();
+			Invalidate();
+		}
+		
+		public void Insert(IInlineElement element)
+		{
+			Document.BeginEdit();
+			if (_drawable.Selection != null)
+			{
+				Document.RemoveAt(_drawable.Selection.Start, _drawable.Selection.Length);
+				_drawable.Selection = null;
+			}
+			Document.InsertAt(_drawable.Caret.Index, element);
+			Document.EndEdit();
+			_drawable.Caret.Index += element.Length;
+			_drawable.Caret.CalculateCaretBounds();
+			Invalidate();
+		}
 	}
 }

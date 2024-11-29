@@ -32,4 +32,14 @@ public class NavigationTests : TestBase
 		var result = document.Navigate(start, mode);
 		Assert.That(result, Is.EqualTo(expected));
 	}
+	
+	[TestCase("<p>Hello <b>World</b></p><p>This is a test</p>", 15, DocumentNavigationMode.PreviousLine, 2)]
+	[TestCase("<p>Hello <b>World</b></p><p>This is a test</p>", 24, DocumentNavigationMode.PreviousLine, 10)]
+	public void NavigateWithFormattingShouldWork(string html, int start, DocumentNavigationMode mode, int expected)
+	{
+		var document = new Document();
+		new HtmlParser().ParseHtml(document, html);
+		var result = document.Navigate(start, mode);
+		Assert.That(result, Is.EqualTo(expected));
+	}	
 }

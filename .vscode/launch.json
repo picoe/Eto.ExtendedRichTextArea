@@ -1,0 +1,24 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		// launch TestApp.Mac64 using .NET Core
+		{
+			"name": "Launch TestApp",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build",
+			"justMyCode": false,
+			"windows": {
+				"program": "${workspaceFolder}/artifacts/bin/Eto.ExtendedRichTextArea.TestApp.Wpf/Debug/net8.0-windows/Eto.ExtendedRichTextArea.TestApp.Wpf.exe"
+			},
+			"osx": {
+				"program": "${workspaceFolder}/artifacts/bin/Eto.ExtendedRichTextArea.TestApp.Mac64/Debug/net8.0/Eto.ExtendedRichTextArea.TestApp.Mac64.app/Contents/MacOS/Eto.ExtendedRichTextArea.TestApp.Mac64"
+			},
+			"args": [],
+			"stopAtEntry": false,
+			"console": "internalConsole"
+		},
+		
+	],
+	"compounds": []
+}

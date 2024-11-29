@@ -3,7 +3,6 @@ using Eto.Drawing;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
-
 	public interface IInlineElement : IElement
 	{
 		bool Matches(IInlineElement element);
@@ -23,6 +22,11 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		Attributes? _attributes;
 
+		/// <summary>
+		/// Gets or sets an application-defined object associated with this element.
+		/// </summary>
+		public object? Tag { get; set; }
+
 		public Attributes? Attributes
 		{
 			get => _attributes;
@@ -33,7 +37,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 		
-		protected IElement? Parent { get; set; }
+		public IElement? Parent { get; private set; }
 		
 		IElement? IElement.Parent
 		{
@@ -44,8 +48,9 @@ namespace Eto.ExtendedRichTextArea.Model
 		public int Start { get; set; }
 		public int Length => Text.Length;
 		public int End => Start + Length;
-		
-		public int DocumentStart => Start + Parent?.DocumentStart ?? 0;
+
+		int? _documentStart;
+		public int DocumentStart => _documentStart ??= Start + Parent?.DocumentStart ?? 0;
 
 		public string Text
 		{
@@ -67,7 +72,10 @@ namespace Eto.ExtendedRichTextArea.Model
 			Text = text.Substring(0, index);
 			if (index >= text.Length)
 				return null;
-			var newSpan = new SpanElement { Text = text.Substring(index), Attributes = Attributes?.Clone() };
+			var newSpan = new SpanElement { 
+				Start = index,
+				Text = text.Substring(index), Attributes = Attributes?.Clone() 
+			};
 			return newSpan;
 		}
 
@@ -97,8 +105,8 @@ namespace Eto.ExtendedRichTextArea.Model
 			// nothing to recalculate for this one
 		}
 		
-		public Font Font => Attributes?.Font ?? this.GetDocument()?.DefaultAttributes.Font ?? SystemFonts.Default();
-		public Brush ForegroundBrush => Attributes?.ForegroundBrush ?? this.GetDocument()?.DefaultAttributes.ForegroundBrush ?? new SolidBrush(SystemColors.ControlText);
+		Attributes? _resolvedAttributes;
+		public Font Font => _resolvedAttributes?.Font ?? Document.GetDefaultFont();
 
         public int GetIndexAt(Chunk chunk, PointF point)
         {
@@ -192,8 +200,11 @@ namespace Eto.ExtendedRichTextArea.Model
 			return true;
 		}
 
-		public IEnumerable<IInlineElement> EnumerateInlines(int start, int end)
+		public IEnumerable<IInlineElement> EnumerateInlines(int start, int end, bool trim)
 		{
+			if (end < start)
+				throw new ArgumentOutOfRangeException(nameof(end), "End must be greater than or equal to start");
+				
 			if (start < 0)
 			{
 				end += start;
@@ -205,7 +216,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				end = Length;
 			if (end <= 0)
 				yield break;
-			if (start == 0 && end == Length)
+			if ((start == 0 && end == Length) || !trim)
 			{
 				yield return this;
 				yield break;
@@ -230,9 +241,10 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, out float baseline)
 		{
+			_documentStart = null;
 			_formattedText ??= new FormattedText { Text = Text };
-			defaultAttributes.Apply(_formattedText);
-			Attributes?.Apply(_formattedText);
+			_resolvedAttributes = defaultAttributes.Merge(Attributes, false);
+			_resolvedAttributes.Apply(_formattedText);
 			
 			if (_measureSize == null)
 			{

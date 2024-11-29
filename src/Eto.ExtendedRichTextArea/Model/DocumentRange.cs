@@ -4,7 +4,17 @@ namespace Eto.ExtendedRichTextArea.Model
 {
 	public class DocumentRange
 	{
-		internal Document? Document { get; set; }
+		Document? _document;
+		internal Document? Document
+		{
+			get => _document;
+			set
+			{
+				_document = value;
+				_bounds = null;
+			}
+		}
+		
 		public int Start { get; }
 		public int Length => End - Start;
 		public int End { get; }
@@ -40,7 +50,7 @@ namespace Eto.ExtendedRichTextArea.Model
 					var documentIndex = chunk.Element.DocumentStart;
 					if (documentIndex < Start)
 					{
-						var point = chunk.GetPointAt(Start - documentIndex - chunk.Start);
+						var point = chunk.GetPointAt(Start - documentIndex);
 						if (point != null)
 						{
 							bounds.Width -= point.Value.X - bounds.X;
@@ -79,12 +89,18 @@ namespace Eto.ExtendedRichTextArea.Model
 		internal void Paint(Graphics graphics)
 		{
 			if (_bounds == null)
+				CalculateBounds();
+			if (_bounds == null)
 				return;
 			foreach (var bounds in _bounds)
 			{
 				graphics.FillRectangle(SystemColors.Highlight, bounds);
 			}
 		}
-		
+
+		public void SetAttributes(Attributes? selectionAttributes)
+		{
+			Document?.SetAttributes(Start, End, selectionAttributes);
+		}
 	}
 }

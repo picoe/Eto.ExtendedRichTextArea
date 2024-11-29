@@ -14,6 +14,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		PointF? GetPointAt(int start);
 		IEnumerable<Chunk> EnumerateChunks(int start, int end);
 		IEnumerable<Line> EnumerateLines(int start, bool forward = true);
+		void InsertAt(int start, IElement element);
 	}
 	
 	public static class ElementExtensions
@@ -203,6 +204,8 @@ namespace Eto.ExtendedRichTextArea.Model
 			Length += element.Length;
 			MeasureIfNeeded();
 		}
+		
+		void IContainerElement.InsertAt(int start, IElement element) => InsertAt(start, (T)element);
 
 		public void Adjust(int startIndex, int length)
 		{
@@ -213,12 +216,12 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 
-		public int RemoveAt(int index, int length)
+		public int RemoveAt(int start, int length)
 		{
 			if (length < 0)
 				throw new ArgumentOutOfRangeException(nameof(length), "Length must be greater than or equal to zero");
-			if (index < 0)
-				throw new ArgumentOutOfRangeException(nameof(index), "Index must be greater than or equal to zero");
+			if (start < 0)
+				throw new ArgumentOutOfRangeException(nameof(start), "Index must be greater than or equal to zero");
 			var originalLength = length;
 			var separatorLength = Separator?.Length ?? 0;
 			// go backwards so we don't have to update indexes as we remove
@@ -229,27 +232,27 @@ namespace Eto.ExtendedRichTextArea.Model
 					break;
 					
 				var element = this[i];
-				var start = index;
-				var end = start + length;
-				if (element.Start > end || element.End < start)
+				var elementStart = start;
+				var elementEnd = elementStart + length;
+				if (element.Start > elementEnd || element.End < elementStart)
 					continue;
-				if (start <= element.Start && end >= element.End)
+				if (elementStart <= element.Start && elementEnd >= element.End)
 				{
 					Remove(element);
 					length -= element.Length + separatorLength;
 					continue;
 				}
 
-				if (start < element.Start && end >= element.End)
+				if (elementStart < element.Start && elementEnd >= element.End)
 				{
-					var removeLength = element.Length - start;
-					length -= element.RemoveAt(start - element.Start, removeLength);
+					var removeLength = element.Length - elementStart;
+					length -= element.RemoveAt(elementStart - element.Start, removeLength);
 				}
-				else if (start >= element.Start && end < element.End)
+				else if (elementStart >= element.Start && elementEnd < element.End)
 				{
-					length -= element.RemoveAt(start - element.Start, length);
+					length -= element.RemoveAt(elementStart - element.Start, length);
 				}
-				else if (end > element.End && element is ParagraphElement paragraph)
+				else if (elementEnd > element.End && element is ParagraphElement paragraph)
 				{
 					// merge the next paragraph into this one
 					if (i + 1 < Count)
@@ -284,7 +287,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				}
 				else
 				{
-					var removeStart = start - element.Start;
+					var removeStart = elementStart - element.Start;
 					var removeLength = length;
 					if (removeStart < 0)
 					{
@@ -413,7 +416,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		// 	}
 		// }
 
-		public IEnumerable<IInlineElement> EnumerateInlines(int start, int end)
+		public IEnumerable<IInlineElement> EnumerateInlines(int start, int end, bool trim)
 		{
 			for (int i = 0; i < Count; i++)
 			{
@@ -422,7 +425,9 @@ namespace Eto.ExtendedRichTextArea.Model
 					break;
 				if (element.End <= start)
 					continue;
-				foreach (var inline in element.EnumerateInlines(start, end))
+				var elementStart = Math.Max(start - element.Start, 0);
+				var elementEnd = Math.Min(end - element.Start, element.Length);
+				foreach (var inline in element.EnumerateInlines(elementStart, elementEnd, trim))
 				{
 					yield return inline;
 				}
@@ -475,8 +480,8 @@ namespace Eto.ExtendedRichTextArea.Model
 		
 		public string GetText(int start, int length)
 		{
-			if (Separator != null) string.Join(Separator, EnumerateInlines(start, start + length));
-			return string.Concat(EnumerateInlines(start, length));
+			if (Separator != null) string.Join(Separator, EnumerateInlines(start, start + length, false));
+			return string.Concat(EnumerateInlines(start, length, false));
 		}
 
 		public override string ToString() => Text;

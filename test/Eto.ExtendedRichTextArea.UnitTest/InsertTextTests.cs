@@ -1,4 +1,5 @@
-﻿using Eto.ExtendedRichTextArea.Model;
+﻿using Eto.Drawing;
+using Eto.ExtendedRichTextArea.Model;
 
 namespace Eto.ExtendedRichTextArea.UnitTest;
 
@@ -99,5 +100,19 @@ public class InsertTextTests : TestBase
 		document.Text = initialText;
 		document.InsertText(insertIndex, text);
 		Assert.That(document.Text, Is.EqualTo(expected));
+	}
+	
+	[Test]
+	public void InsertingWithDifferentFontShouldWork()
+	{
+		var document = new Document();
+		document.InsertText(0, "Hello", new Attributes { Font = new Font("Arial", 12) });
+		Assert.That(document.Text, Is.EqualTo("Hello"));
+		Assert.That(document.Length, Is.EqualTo(5));
+		Assert.That(document.Count, Is.EqualTo(1), "Should only be one paragraph");
+		Assert.That(document[0].Count, Is.EqualTo(1), "Should only be one run");
+		Assert.That(document[0][0].Count, Is.EqualTo(1), "Should only be one inline element");
+		Assert.That(document[0][0][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
+		Assert.That(((SpanElement)document[0][0][0]).Attributes?.Font?.FamilyName, Is.EqualTo("Arial"));
 	}
 }

@@ -4,6 +4,7 @@ using Eto.Drawing;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
+using System.ComponentModel;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
@@ -62,10 +63,14 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 		
+		static Font? s_defaultFont;
+
+		internal static Font GetDefaultFont() => s_defaultFont ??= new Font("Arial", SystemFonts.Default().Size);
+		
 		
 		public Attributes DefaultAttributes
 		{
-			get => _defaultAttributes ??= new Attributes { Font = SystemFonts.Default(), ForegroundBrush = new SolidBrush(SystemColors.ControlText) };
+			get => _defaultAttributes ??= new Attributes { Font = GetDefaultFont(), ForegroundBrush = new SolidBrush(SystemColors.ControlText) };
 			set
 			{
 				_defaultAttributes = value;
@@ -75,7 +80,7 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public Font DefaultFont
 		{
-			get => DefaultAttributes.Font ?? SystemFonts.Default();
+			get => DefaultAttributes.Font ?? GetDefaultFont();
 			set => DefaultAttributes.Font = value;
 		}
 		
@@ -112,24 +117,18 @@ namespace Eto.ExtendedRichTextArea.Model
 			return new RectangleF(point.X, point.Y + leading, 1, lineHeight);
 		}
 
-		public Font GetFont(int start)
+		public Attributes GetAttributes(int start, int end)
 		{
-			var paragraph = Find(start);
-			var run = paragraph?.Find(start - paragraph.Start);
-			if (run == null || paragraph == null) // prevent NRE warning, compiler isn't smart enough..
-				return DefaultFont;
-			var span = run?.Find(start - paragraph.Start - run.Start) as SpanElement;
-			return span?.Font ?? DefaultFont;
-		}
-
-		public Brush GetBrush(int start)
-		{
-			var paragraph = Find(start);
-			var run = paragraph?.Find(start - paragraph.Start);
-			if (run == null || paragraph == null) // prevent NRE warning, compiler isn't smart enough..
-				return DefaultForegroundBrush;
-			var span = run?.Find(start - paragraph.Start - run.Start) as SpanElement;
-			return span?.ForegroundBrush ?? DefaultForegroundBrush;
+			Attributes? attributes = null;
+			foreach (var inline in EnumerateInlines(start, end, false).OfType<SpanElement>())
+			{
+				if (attributes == null)
+					attributes = DefaultAttributes.Merge(inline.Attributes, true);
+				else
+					attributes.ClearUnmatched(inline.Attributes ?? DefaultAttributes);
+			}
+			return attributes ?? DefaultAttributes.Clone();
+			
 		}
 
 		public void Replace(int start, int length, SpanElement span)
@@ -141,9 +140,9 @@ namespace Eto.ExtendedRichTextArea.Model
 		}
 
 
-		public void InsertText(int start, string text, Font? font = null, Brush? brush = null)
+		public void InsertText(int start, string text, Attributes? attributes = null)
 		{
-			InsertAt(start, new SpanElement { Text = text });
+			InsertAt(start, new SpanElement { Text = text, Attributes = attributes?.Clone() });
 		}
 
 		public void InsertAt(int start, IInlineElement element)
@@ -172,7 +171,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			else
 			{
 				var paragraph = Find(start);
-				InsertElementAt(paragraph, start, true, element);
+				InsertElementAt(paragraph, start, false, element);
 
 				MeasureIfNeeded();
 			}
@@ -336,6 +335,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				point.X = caretLocation.Value.X;
 			else
 				point = GetPointAt(start) ?? point;
+			point.Y = line.Bounds.Y;
 			var idx = line.GetIndexAt(point);
 			if (idx >= 0)
 				return idx + line.DocumentStart;
@@ -354,6 +354,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				point.X = caretLocation.Value.X;
 			else
 				point = GetPointAt(start) ?? point;
+			point.Y = line.Bounds.Y;
 			var idx = line.GetIndexAt(point);
 			if (idx >= 0)
 				return idx + line.DocumentStart;
@@ -394,5 +395,65 @@ namespace Eto.ExtendedRichTextArea.Model
 			return point ?? Bounds.Location;
 		}
 
+		internal void SetAttributes(int start, int end, Attributes? attributes)
+		{
+			foreach (var inline in EnumerateInlines(start, end, false))
+			{
+				if (inline is not SpanElement span)
+					continue;
+
+				var docStart = span.DocumentStart;
+				if (start > docStart && start < docStart + span.Length)
+				{
+					// need to split and apply attributes to right side only
+					var right = span.Split(start - docStart);
+					if (right != null && span.Parent is IContainerElement container)
+					{
+						container.InsertAt(span.End, right);
+						span = right; // apply new attributes to the right side
+						docStart = right.DocumentStart;
+						if (end > docStart && end < docStart + span.Length)
+						{
+							// need to split again as the end is in the middle of the right side
+							right = span.Split(end - docStart);	
+							if (right != null && span.Parent is IContainerElement container2)
+							{
+								container2.InsertAt(span.End, right);
+							}
+						}
+					}
+				}
+				if (end > docStart && end < docStart + span.Length)
+				{
+					// need to split and apply attributes to left side
+					var right = span.Split(end - docStart);
+					if (right != null && span.Parent is IContainerElement container)
+					{
+						container.InsertAt(span.End, right);
+					}
+				}				
+				var existingAttributes = span.Attributes;
+				
+				Attributes? newAttributes;
+				if (existingAttributes != null && attributes != null)
+				{
+					// need to merge the attributes into a new copy
+					newAttributes = existingAttributes.Merge(attributes, true);
+				}
+				else if (existingAttributes == null)
+				{
+					// just use a copy of the new attributes
+					newAttributes = attributes?.Clone();
+				}
+				else
+				{
+					newAttributes = null;
+				}
+				span.Attributes = newAttributes;
+				
+				
+			}
+			MeasureIfNeeded();
+		}
 	}
 }

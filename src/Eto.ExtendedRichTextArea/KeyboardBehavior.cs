@@ -86,8 +86,7 @@ namespace Eto.ExtendedRichTextArea
 
 		private void TextArea_TextInput(object? sender, TextInputEventArgs e)
 		{
-			Document.InsertText(_caret.Index, e.Text, _textArea.SelectionFont, _textArea.SelectionBrush);
-			_caret.Index += e.Text.Length;
+			_textArea.TextArea.InsertText(e.Text);
 			e.Cancel = true;
 		}
 
@@ -177,7 +176,7 @@ namespace Eto.ExtendedRichTextArea
 					e.Handled = true;
 					break;
 				case Keys.Enter:
-					_textArea.Document.InsertText(_caret.Index, "\n", _textArea.SelectionFont);
+					_textArea.Document.InsertText(_caret.Index, "\n", _textArea.TextArea.SelectionAttributes);
 					_caret.Index++;
 					e.Handled = true;
 					break;

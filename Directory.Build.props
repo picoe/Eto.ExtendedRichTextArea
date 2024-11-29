@@ -9,6 +9,8 @@
     
     <BaseIntermediateOutputPath>$(BasePath)artifacts\obj\$(OSPlatform)\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
     <BaseOutputPath>$(BasePath)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
+
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
   
   <PropertyGroup>
