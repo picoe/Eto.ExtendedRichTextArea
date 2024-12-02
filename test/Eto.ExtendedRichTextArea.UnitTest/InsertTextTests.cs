@@ -115,4 +115,22 @@ public class InsertTextTests : TestBase
 		Assert.That(document[0][0][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
 		Assert.That(((SpanElement)document[0][0][0]).Attributes?.Font?.FamilyName, Is.EqualTo("Arial"));
 	}
+	
+	
+	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 0, "Courier New")]
+	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 4, "Courier New")]
+	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 5, "Courier New")]
+	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 6, "Courier New")]
+	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 7, "Courier New")]
+	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 8, "Courier New")]
+	public void InsertingParagraphWithFormattingShouldKeepFormatting(string html, int insertIndex, string insertText, int testIndex, string fontFamily)
+	{
+		var document = new Document();
+		new HtmlParser().ParseHtml(document, html);
+
+		document.InsertText(insertIndex, insertText);
+		var attributes = document.GetAttributes(testIndex, testIndex);
+		Assert.That(attributes?.Family?.Name, Is.EqualTo(fontFamily));
+		
+	}
 }

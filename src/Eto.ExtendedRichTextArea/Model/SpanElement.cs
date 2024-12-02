@@ -3,16 +3,7 @@ using Eto.Drawing;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
-	public interface IInlineElement : IElement
-	{
-		bool Matches(IInlineElement element);
-		bool Merge(int index, IInlineElement element);
-		void Paint(Chunk chunk, Graphics graphics, RectangleF clipBounds);
-		PointF? GetPointAt(Chunk chunk, int start);
-		int GetIndexAt(Chunk chunk, PointF point);
-		SizeF Measure(Attributes defaultAttributes, SizeF availableSize, out float baseline);
-	}
-	
+
 	public class SpanElement : IInlineElement
 	{
 		FormattedText? _formattedText;
@@ -66,12 +57,10 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public SpanElement? Split(int index)
 		{
-			if (index >= Length)
+			if (index >= Length || index <=0)
 				return null;
 			var text = Text;
 			Text = text.Substring(0, index);
-			if (index >= text.Length)
-				return null;
 			var newSpan = new SpanElement { 
 				Start = index,
 				Text = text.Substring(index), Attributes = Attributes?.Clone() 
@@ -214,7 +203,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				yield break;
 			if (end > Length)
 				end = Length;
-			if (end <= 0)
+			if (end < 0)
 				yield break;
 			if ((start == 0 && end == Length) || !trim)
 			{
@@ -254,5 +243,38 @@ namespace Eto.ExtendedRichTextArea.Model
 			return _measureSize.Value;
 		}
 
+		public IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines)
+		{
+			if (end < start)
+				throw new ArgumentOutOfRangeException(nameof(end), "End must be greater than or equal to start");
+				
+			if (start < 0)
+			{
+				end += start;
+				start = 0;
+			}
+			if (start >= Length)
+				yield break;
+			if (end > Length)
+				end = Length;
+			if (end <= 0)
+				yield break;
+			if ((start == 0 && end == Length) || !trimInlines)
+			{
+				yield return this;
+				yield break;
+			}
+			if (start == 0)
+			{
+				yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(0, end) };
+				yield break;
+			}
+			if (end == Length)
+			{
+				yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start) };
+				yield break;
+			}
+			yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start, end - start) };
+		}
 	}
 }

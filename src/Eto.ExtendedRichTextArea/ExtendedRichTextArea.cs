@@ -142,6 +142,7 @@ namespace Eto.ExtendedRichTextArea
 			if (_drawable.Selection != null)
 			{
 				Document.RemoveAt(_drawable.Selection.Start, _drawable.Selection.Length);
+				_drawable.Caret.Index = _drawable.Selection.Start;
 				_drawable.Selection = null;
 			}
 			Document.InsertText(_drawable.Caret.Index, text, SelectionAttributes);

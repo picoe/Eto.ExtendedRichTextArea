@@ -5,10 +5,38 @@
 			"label": "build",
 			"command": "dotnet",
 			"type": "process",
-			"args": [
-				"build",
-				"${workspaceFolder}/Eto.ExtendedRichTextArea.sln"
-			],
+			"windows": {
+				"args": [
+					"build",
+					"${workspaceFolder}/test/Eto.ExtendedRichTextArea.TestApp.Wpf/Eto.ExtendedRichTextArea.TestApp.Wpf.csproj"
+				],
+			},
+			"osx": {
+				"args": [
+					"build",
+					"${workspaceFolder}/test/Eto.ExtendedRichTextArea.TestApp.Mac/Eto.ExtendedRichTextArea.TestApp.Mac64.csproj"
+				],
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build-localeto",
+			"command": "dotnet",
+			"type": "process",
+			"windows": {
+				"args": [
+					"build",
+					"${workspaceFolder}/test/Eto.ExtendedRichTextArea.TestApp.Wpf/Eto.ExtendedRichTextArea.TestApp.Wpf.csproj",
+					"/p:UseLocalEto=true"
+				],
+			},
+			"osx": {
+				"args": [
+					"build",
+					"${workspaceFolder}/test/Eto.ExtendedRichTextArea.TestApp.Mac/Eto.ExtendedRichTextArea.TestApp.Mac64.csproj",
+					"/p:UseLocalEto=true"
+				],
+			},
 			"problemMatcher": "$msCompile"
 		}
 	]

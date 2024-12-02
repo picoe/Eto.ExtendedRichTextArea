@@ -18,6 +18,22 @@
 			"stopAtEntry": false,
 			"console": "internalConsole"
 		},
+		{
+			"name": "Launch TestApp LocalEto",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build-localeto",
+			"justMyCode": false,
+			"windows": {
+				"program": "${workspaceFolder}/artifacts/bin/Eto.ExtendedRichTextArea.TestApp.Wpf/Debug/net8.0-windows/Eto.ExtendedRichTextArea.TestApp.Wpf.exe"
+			},
+			"osx": {
+				"program": "${workspaceFolder}/artifacts/bin/Eto.ExtendedRichTextArea.TestApp.Mac64/Debug/net8.0/Eto.ExtendedRichTextArea.TestApp.Mac64.app/Contents/MacOS/Eto.ExtendedRichTextArea.TestApp.Mac64"
+			},
+			"args": [],
+			"stopAtEntry": false,
+			"console": "internalConsole"
+		},
 		
 	],
 	"compounds": []

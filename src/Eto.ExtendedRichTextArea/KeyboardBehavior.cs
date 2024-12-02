@@ -76,7 +76,7 @@ namespace Eto.ExtendedRichTextArea
 				{
 					lastCaretIndex = _textArea.Selection.OriginalStart;
 				}
-				_textArea.Selection = new DocumentRange(lastCaretIndex, _caret.Index);
+				_textArea.Selection = Document.GetRange(lastCaretIndex, _caret.Index);
 			}
 			else if (e.Handled == true)
 			{
@@ -95,7 +95,7 @@ namespace Eto.ExtendedRichTextArea
 			switch (e.KeyData)
 			{
 				case Keys.Control | Keys.A:
-					_textArea.Selection = new DocumentRange(0, _textArea.Document.Length);
+					_textArea.Selection = Document.GetRange(0, _textArea.Document.Length);
 					e.Handled = true;
 					break;
 				case Keys.PageUp:
@@ -122,7 +122,7 @@ namespace Eto.ExtendedRichTextArea
 			switch (e.KeyData)
 			{
 				case Keys.Application | Keys.A:
-					_textArea.Selection = new DocumentRange(0, _textArea.Document.Length);
+					_textArea.Selection = Document.GetRange(0, _textArea.Document.Length);
 					e.Handled = true;
 					break;
 				case Keys.Application | Keys.Up:
@@ -152,8 +152,9 @@ namespace Eto.ExtendedRichTextArea
 					if (_textArea.Selection != null)
 					{
 						_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
-						_caret.Index = _textArea.Selection.Start;
+						var start = _textArea.Selection.Start;
 						_textArea.Selection = null;
+						_caret.Index = start;
 					}
 					else if (_caret.Index > 0)
 					{
@@ -166,8 +167,9 @@ namespace Eto.ExtendedRichTextArea
 					if (_textArea.Selection != null)
 					{
 						_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
-						_caret.Index = _textArea.Selection.Start;
+						var start = _textArea.Selection.Start;
 						_textArea.Selection = null;
+						_caret.Index = start;
 					}
 					else if (_caret.Index < _textArea.Document.Length)
 					{

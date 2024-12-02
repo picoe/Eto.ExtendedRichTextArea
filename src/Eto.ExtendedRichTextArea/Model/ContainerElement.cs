@@ -48,6 +48,8 @@ namespace Eto.ExtendedRichTextArea.Model
 			get => Parent;
 			set => Parent = value;
 		}
+		
+		public virtual Attributes? Attributes { get; set; }
 
 		protected virtual string? Separator => null;
 
@@ -131,7 +133,8 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, PointF location)
 		{
-			var size = MeasureOverride(defaultAttributes, availableSize, location);
+			var childAttributes = defaultAttributes.Merge(Attributes, false);
+			var size = MeasureOverride(childAttributes, availableSize, location);
 			Bounds = new RectangleF(location, size);
 			return size;
 		}
@@ -327,6 +330,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			ContainerElement<T> CreateNew()
 			{
 				var newElement = Create();
+				newElement.Attributes = Attributes?.Clone();
 				return newElement;
 			}
 
@@ -400,30 +404,33 @@ namespace Eto.ExtendedRichTextArea.Model
 			return Length;
         }
 
-		// public IEnumerable<IDocumentElement> Enumerate(int start, int end)
-		// {
-		// 	for (int i = 0; i < Count; i++)
-		// 	{
-		// 		var element = this[i];
-		// 		if (element.Start >= end)
-		// 			break;
-		// 		if (element.End <= start)
-		// 			continue;
-		// 		foreach (var child in element.Enumerate(start, end))
-		// 		{
-		// 			yield return child;
-		// 		}
-		// 	}
-		// }
+		public IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines)
+		{
+			for (int i = 0; i < Count; i++)
+			{
+				var element = this[i];
+				if (element.Start > end)
+					break;
+				if (element.End < start)
+					continue;
+				yield return element;
+				var elementStart = Math.Max(start - element.Start, 0);
+				var elementEnd = Math.Min(end - element.Start, element.Length);
+				foreach (var child in element.Enumerate(elementStart, elementEnd, trimInlines))
+				{
+					yield return child;
+				}
+			}
+		}
 
 		public IEnumerable<IInlineElement> EnumerateInlines(int start, int end, bool trim)
 		{
 			for (int i = 0; i < Count; i++)
 			{
 				var element = this[i];
-				if (element.Start >= end)
+				if (element.Start > end)
 					break;
-				if (element.End <= start)
+				if (element.End < start)
 					continue;
 				var elementStart = Math.Max(start - element.Start, 0);
 				var elementEnd = Math.Min(end - element.Start, element.Length);

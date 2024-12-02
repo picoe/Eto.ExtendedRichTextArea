@@ -40,7 +40,7 @@ namespace Eto.ExtendedRichTextArea
 			{
 				var index = _textArea.Document.GetIndexAt(_mouseLocation);
 				_caret.Index = index;
-				_textArea.Selection = new DocumentRange(_initialIndex, index);
+				_textArea.Selection = _textArea.Document.GetRange(_initialIndex, index);
 			}
 		}
 

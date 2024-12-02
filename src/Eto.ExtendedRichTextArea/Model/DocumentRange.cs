@@ -4,85 +4,90 @@ namespace Eto.ExtendedRichTextArea.Model
 {
 	public class DocumentRange
 	{
-		Document? _document;
-		internal Document? Document
-		{
-			get => _document;
-			set
-			{
-				_document = value;
-				_bounds = null;
-			}
-		}
+		internal Document Document { get; private set; }
 		
 		public int Start { get; }
 		public int Length => End - Start;
 		public int End { get; }
-		public string Text => Document?.GetText(Start, Length) ?? string.Empty;
+		public string Text => Document.GetText(Start, Length) ?? string.Empty;
 
 		public int OriginalStart { get; }
 
 		List<RectangleF>? _bounds;
-
-		public DocumentRange(int start, int end, int? originalStart = null)
+		
+		public IEnumerable<RectangleF> Bounds
 		{
+			get
+			{
+				if (_bounds == null)
+					CalculateBounds();
+				return _bounds ?? Enumerable.Empty<RectangleF>();
+			}
+		}
+
+		internal DocumentRange(Document document, int start, int end, int? originalStart = null)
+		{
+			Document = document;
 			OriginalStart = originalStart ?? start;
 			Start = Math.Min(start, end);
 			End = Math.Max(start, end);
 		}
 		
-		public void CalculateBounds()
+		void CalculateBounds()
 		{
-			if (Document == null)
-				return;
-			
 			_bounds ??= new List<RectangleF>();
 			_bounds.Clear();
-			RectangleF bounds = RectangleF.Empty;
 			Chunk? lastChunk = null;
-			// TODO: trim mid spans for start/end
-			foreach (var chunk in Document.EnumerateChunks(Start, End))
+			// TODO: deal with empty lines
+			foreach (var line in Document.EnumerateLines(Start))
 			{
-				var spanBounds = chunk.Bounds;
-				if (bounds.IsEmpty)
+				if (line.Start >= End)
+					break;
+
+				RectangleF bounds = RectangleF.Empty;
+				foreach (var chunk in line)
 				{
-					bounds = chunk.Bounds;
-					var documentIndex = chunk.Element.DocumentStart;
-					if (documentIndex < Start)
+					var spanBounds = chunk.Bounds;
+					if (bounds.IsEmpty)
 					{
-						var point = chunk.GetPointAt(Start - documentIndex);
-						if (point != null)
+						bounds = chunk.Bounds;
+						var documentIndex = chunk.Element.DocumentStart;
+						if (documentIndex < Start)
 						{
-							bounds.Width -= point.Value.X - bounds.X;
-							bounds.X = point.Value.X;
+							var point = chunk.GetPointAt(Start - documentIndex);
+							if (point != null)
+							{
+								bounds.Width -= point.Value.X - bounds.X;
+								bounds.X = point.Value.X;
+							}
 						}
 					}
-				}
-				else if (chunk.Bounds.Y != bounds.Y || chunk.Bounds.X < bounds.X)
-				{
-					_bounds.Add(bounds);
-					bounds = chunk.Bounds;
-				}
-				else
-				{
-					// combine bounds
-					bounds.Right = chunk.Bounds.Right;
-					bounds.Height = Math.Max(bounds.Height, chunk.Bounds.Height);					
-				}
-				lastChunk = chunk;
-			}
-			if (!bounds.IsEmpty)
-			{
-				if (lastChunk != null)
-				{
-					var documentIndex = lastChunk.Element.DocumentStart;
-					if (documentIndex + lastChunk.Length > End)
+					else if (chunk.Bounds.Y != bounds.Y || chunk.Bounds.X < bounds.X)
 					{
-						var point = lastChunk.GetPointAt(End - documentIndex);
-						bounds.Width = point?.X - bounds.X ?? bounds.Width;
+						_bounds.Add(bounds);
+						bounds = chunk.Bounds;
 					}
+					else
+					{
+						// combine bounds
+						bounds.Right = chunk.Bounds.Right;
+						bounds.Height = Math.Max(bounds.Height, chunk.Bounds.Height);
+					}
+					lastChunk = chunk;
 				}
-				_bounds.Add(bounds);
+				if (!bounds.IsEmpty)
+				{
+					if (lastChunk != null)
+					{
+						var documentIndex = lastChunk.Element.DocumentStart;
+						if (documentIndex + lastChunk.Length > End)
+						{
+							var point = lastChunk.GetPointAt(End - documentIndex);
+							bounds.Width = point?.X - bounds.X ?? bounds.Width;
+						}
+					}
+					_bounds.Add(bounds);
+				}
 			}
 		}
 		
@@ -100,7 +105,10 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public void SetAttributes(Attributes? selectionAttributes)
 		{
-			Document?.SetAttributes(Start, End, selectionAttributes);
+			_bounds = null;
+			Document.SetAttributes(Start, End, selectionAttributes);
 		}
+		
+		public Attributes GetAttributes() => Document.GetAttributes(Start, End);
 	}
 }

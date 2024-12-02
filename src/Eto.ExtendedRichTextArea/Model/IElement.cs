@@ -2,6 +2,7 @@ namespace Eto.ExtendedRichTextArea.Model
 {
 	public interface IElement
 	{
+		public Attributes? Attributes { get; set; }
 		/// <summary>
 		/// The start index, relative to the parent element.
 		/// E.g. the first element in a container always has a start of 0.
@@ -40,6 +41,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		void Recalculate(int start);
 		IEnumerable<(string text, int start)> EnumerateWords(int start, bool forward);
 		IEnumerable<IInlineElement> EnumerateInlines(int start, int end, bool trim);
+		IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines);
 		void MeasureIfNeeded();
 	}
 }

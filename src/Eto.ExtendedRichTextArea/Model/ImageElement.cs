@@ -12,9 +12,12 @@ namespace Eto.ExtendedRichTextArea.Model
 		
 		public Image? Image { get; set; }
 		
-		public int DocumentStart => Start + Parent?.DocumentStart ?? 0;
+		int? _documentStart;
+		public int DocumentStart => _documentStart ??= Start + Parent?.DocumentStart ?? 0;
 
 		public IElement? Parent { get; private set; }
+		
+		public Attributes? Attributes { get; set; }
 		
 		IElement? IElement.Parent
 		{
@@ -77,9 +80,15 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, out float baseline)
 		{
+			_documentStart = null;
 			Size = Image?.Size ?? SizeF.Empty;
 			baseline = Size.Height;
 			return Size;
+		}
+
+		public IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines)
+		{
+			yield return this;
 		}
 	}
 }

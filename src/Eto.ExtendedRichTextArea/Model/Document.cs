@@ -35,7 +35,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		public event EventHandler? Changed;
 
 		public SizeF Size { get; internal set; }
-		
+
 		internal float ScreenScale
 		{
 			get => _screenScale;
@@ -62,12 +62,12 @@ namespace Eto.ExtendedRichTextArea.Model
 				}
 			}
 		}
-		
+
 		static Font? s_defaultFont;
 
 		internal static Font GetDefaultFont() => s_defaultFont ??= new Font("Arial", SystemFonts.Default().Size);
-		
-		
+
+
 		public Attributes DefaultAttributes
 		{
 			get => _defaultAttributes ??= new Attributes { Font = GetDefaultFont(), ForegroundBrush = new SolidBrush(SystemColors.ControlText) };
@@ -83,7 +83,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			get => DefaultAttributes.Font ?? GetDefaultFont();
 			set => DefaultAttributes.Font = value;
 		}
-		
+
 		public Brush DefaultForegroundBrush
 		{
 			get => DefaultAttributes.ForegroundBrush ?? new SolidBrush(SystemColors.ControlText);
@@ -91,6 +91,11 @@ namespace Eto.ExtendedRichTextArea.Model
 		}
 
 		public WrapMode WrapMode { get; internal set; }
+
+		public DocumentRange GetRange(int start, int end)
+		{
+			return new DocumentRange(this, start, end);
+		}
 
 		public override void BeginEdit()
 		{
@@ -119,16 +124,47 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public Attributes GetAttributes(int start, int end)
 		{
+			// TODO: move this to ContainerElement?
 			Attributes? attributes = null;
-			foreach (var inline in EnumerateInlines(start, end, false).OfType<SpanElement>())
+			foreach (var paragraph in this)
 			{
+				if (end <= paragraph.Start)
+					break;
+				if (start >= paragraph.End)
+					continue;
+
+				var paragraphAttributes = DefaultAttributes.Merge(paragraph.Attributes, false);
+
+				var paragraphStart = start - paragraph.Start;
+				var paragraphEnd = end - paragraph.Start;
+				foreach (var run in paragraph)
+				{
+					if (paragraphEnd <= run.Start)
+						break;
+					if (paragraphStart >= run.End)
+						continue;
+					var runAttributes = paragraphAttributes.Merge(run.Attributes, false);
+
+					var runStart = paragraphStart - run.Start;
+					var runEnd = paragraphEnd - run.Start;
+					foreach (var inline in run)
+					{
+						if (runEnd <= inline.Start)
+							break;
+						if (runStart >= inline.End)
+							continue;
+						if (attributes == null)
+							attributes = paragraphAttributes.Merge(inline.Attributes, true);
+						else
+							attributes.ClearUnmatched(inline.Attributes ?? paragraphAttributes);
+					}
+				}
+
 				if (attributes == null)
-					attributes = DefaultAttributes.Merge(inline.Attributes, true);
-				else
-					attributes.ClearUnmatched(inline.Attributes ?? DefaultAttributes);
+					attributes = paragraphAttributes.Clone();
 			}
 			return attributes ?? DefaultAttributes.Clone();
-			
+
 		}
 
 		public void Replace(int start, int length, SpanElement span)
@@ -193,7 +229,7 @@ namespace Eto.ExtendedRichTextArea.Model
 						return start;
 					}
 				}
-				else if (element.Length > 0)
+				else if (element.Length > 0 && start >= paragraph.Start)
 				{
 					if (paragraph.InsertInParagraph(start - paragraph.Start, element))
 					{
@@ -208,6 +244,7 @@ namespace Eto.ExtendedRichTextArea.Model
 
 			// create a new paragraph, couldn't insert in existing paragraph or split
 			var newParagraph = new ParagraphElement();
+			newParagraph.Attributes = GetAttributes(start, start);
 			if (element.Length > 0)
 			{
 				var newRun = new RunElement();
@@ -235,7 +272,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			// */
 		}
-		
+
 		internal override void MeasureIfNeeded()
 		{
 			if (_suspendMeasure == 0)
@@ -397,63 +434,108 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		internal void SetAttributes(int start, int end, Attributes? attributes)
 		{
-			foreach (var inline in EnumerateInlines(start, end, false))
+			// TODO: move this to ContainerElement
+			for (int i = 0; i < Count; i++)
 			{
-				if (inline is not SpanElement span)
+				ParagraphElement? paragraph = this[i];
+				if (paragraph == null)
+					continue;
+				if (end <= paragraph.Start)
+					break;
+				if (start >= paragraph.End)
 					continue;
 
-				var docStart = span.DocumentStart;
-				if (start > docStart && start < docStart + span.Length)
+				if (start <= paragraph.Start && end >= paragraph.End)
 				{
-					// need to split and apply attributes to right side only
-					var right = span.Split(start - docStart);
-					if (right != null && span.Parent is IContainerElement container)
+					// encompasses entire paragraph, apply style to the paragraph itself
+					paragraph.Attributes = UpdateAttributes(attributes, paragraph.Attributes);
+				}
+
+				var paragraphStart = start - paragraph.Start;
+				var paragraphEnd = end - paragraph.Start;
+				for (int j = 0; j < paragraph.Count; j++)
+				{
+					RunElement? run = paragraph[j];
+					if (run == null)
+						continue;
+					if (paragraphEnd <= run.Start)
+						break;
+					if (paragraphStart >= run.End)
+						continue;
+
+					var runStart = paragraphStart - run.Start;
+					var runEnd = paragraphEnd - run.Start;
+					for (int k = 0; k < run.Count; k++)
 					{
-						container.InsertAt(span.End, right);
-						span = right; // apply new attributes to the right side
-						docStart = right.DocumentStart;
-						if (end > docStart && end < docStart + span.Length)
+						IInlineElement? inline = run[k];
+						if (inline == null)
+							continue;
+						if (runEnd <= inline.Start)
+							break;
+						if (runStart >= inline.End)
+							continue;
+
+						IElement applySpan = inline;
+						var docStart = inline.DocumentStart;
+						if (start > docStart && start < docStart + inline.Length)
 						{
-							// need to split again as the end is in the middle of the right side
-							right = span.Split(end - docStart);	
-							if (right != null && span.Parent is IContainerElement container2)
+							// need to split and apply attributes to right side only
+							var right = inline.Split(start - docStart);
+							if (right != null && inline.Parent is IContainerElement container)
 							{
-								container2.InsertAt(span.End, right);
+								container.InsertAt(inline.End, right);
+								
+								applySpan = right; // apply new attributes to the right side
+								docStart = right.DocumentStart;
+								if (end > docStart && end < docStart + applySpan.Length)
+								{
+									// need to split again as the end is in the middle of the right side
+									right = applySpan.Split(end - docStart);
+									if (right != null && applySpan.Parent is IContainerElement container2)
+									{
+										container2.InsertAt(applySpan.End, right);
+									}
+								}
 							}
 						}
+						if (end > docStart && end < docStart + applySpan.Length)
+						{
+							// need to split and apply attributes to left side
+							var right = applySpan.Split(end - docStart);
+							if (right != null && applySpan.Parent is IContainerElement container)
+							{
+								container.InsertAt(applySpan.End, right);
+							}
+						}
+						applySpan.Attributes = UpdateAttributes(attributes, applySpan.Attributes);
 					}
 				}
-				if (end > docStart && end < docStart + span.Length)
-				{
-					// need to split and apply attributes to left side
-					var right = span.Split(end - docStart);
-					if (right != null && span.Parent is IContainerElement container)
-					{
-						container.InsertAt(span.End, right);
-					}
-				}				
-				var existingAttributes = span.Attributes;
-				
-				Attributes? newAttributes;
-				if (existingAttributes != null && attributes != null)
-				{
-					// need to merge the attributes into a new copy
-					newAttributes = existingAttributes.Merge(attributes, true);
-				}
-				else if (existingAttributes == null)
-				{
-					// just use a copy of the new attributes
-					newAttributes = attributes?.Clone();
-				}
-				else
-				{
-					newAttributes = null;
-				}
-				span.Attributes = newAttributes;
-				
-				
+
 			}
 			MeasureIfNeeded();
+		}
+
+		private static Attributes? UpdateAttributes(Attributes? attributes, Attributes? spanAttributes)
+		{
+			var existingAttributes = spanAttributes;
+
+			Attributes? newAttributes;
+			if (existingAttributes != null && attributes != null)
+			{
+				// need to merge the attributes into a new copy
+				newAttributes = existingAttributes.Merge(attributes, true);
+			}
+			else if (existingAttributes == null)
+			{
+				// just use a copy of the new attributes
+				newAttributes = attributes?.Clone();
+			}
+			else
+			{
+				newAttributes = null;
+			}
+
+			return newAttributes;
 		}
 	}
 }

@@ -1,7 +1,7 @@
 <Project>
 
   <PropertyGroup>
-    <LangVersion>10.0</LangVersion>
+    <LangVersion>latest</LangVersion>
 
 		<BasePath>$(MSBuildThisFileDirectory)</BasePath>
     <UseLocalEto Condition="$(SolutionName) == 'Eto.ExtendedRichTextArea.LocalEto'">True</UseLocalEto>
@@ -11,6 +11,8 @@
     <BaseOutputPath>$(BasePath)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
 
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <WarningsNotAsErrors>NETSDK1202</WarningsNotAsErrors>
+    <CheckEolWorkloads>false</CheckEolWorkloads>
   </PropertyGroup>
   
   <PropertyGroup>

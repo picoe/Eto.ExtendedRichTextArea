@@ -68,8 +68,8 @@ namespace Eto.ExtendedRichTextArea.Model
 			{
 				_family = value;
 				_font = null;
-				OnPropertyChanged();
 				Typeface = value?.Typefaces.FirstOrDefault();
+				OnPropertyChanged();
 				OnPropertyChanged(nameof(Font));
 			}
 		}

@@ -50,7 +50,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			
 			// Family
 			var familyDropDown = new DropDown();
-			familyDropDown.GotFocus += (sender, e) => textArea.Focus();
+			familyDropDown.DropDownClosed += (sender, e) => textArea.Focus();
 			var families = Fonts.AvailableFontFamilies.ToList();
 			/*
 			families.Insert(1, Fonts.Monospace(10).Family);
@@ -68,7 +68,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 
 			// Typeface
 			var typefaceDropDown = new DropDown();
-			typefaceDropDown.GotFocus += (sender, e) => textArea.Focus();
+			typefaceDropDown.DropDownClosed += (sender, e) => textArea.Focus();
 			var dataStoreBinding = typefaceDropDown.Bind(c => c.DataStore,
 				textArea,
 				attributesBinding.Child(a => a.Family).Convert(
@@ -129,12 +129,14 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			insertRandomTextButton.Click += (sender, e) =>
 			{
 				richTextArea.InsertText(LoremGenerator.GenerateLines(20, 20));
+				richTextArea.Focus();
 			};
 
 			var insertImageButton = new Button { Text = "Insert Image" };
 			insertImageButton.Click += (sender, e) =>
 			{
 				richTextArea.Insert(new ImageElement { Image = CreateRandomBitmap(200, 40) });
+				richTextArea.Focus();
 			};
 
 

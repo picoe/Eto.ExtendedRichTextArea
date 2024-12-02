@@ -20,14 +20,10 @@ namespace Eto.ExtendedRichTextArea.UnitTest
 			_currentAttributes = document.DefaultAttributes;
 			foreach (var node in htmlDoc.DocumentNode.SelectNodes("//p"))
 			{
-				_currentParagraph = new ParagraphElement();
-				_currentRun = new RunElement();
-				ParseRun(node);
-				if (_currentRun?.Length > 0)
-					_currentParagraph.Add(_currentRun);
-
-				document.Add(_currentParagraph);
+				ParseNode(document, node);
 			};
+			AddParagraph(document);
+			
 		}
 		
 		void SetAttributes(Action<Attributes>? action = null)
@@ -36,57 +32,82 @@ namespace Eto.ExtendedRichTextArea.UnitTest
 			action?.Invoke(_currentAttributes);
 		}
 
-		void ParseRun(HtmlNode node)
+		void ParseRun(Document document, HtmlNode node)
 		{
 			foreach (var child in node.ChildNodes)
 			{
 				var lastAttributes = _currentAttributes;
-				if (child.GetAttributeValue("style", null) is string style)
+				ParseNode(document, child);
+				_currentAttributes = lastAttributes;
+			}
+		}
+
+		private void ParseNode(Document document, HtmlNode node)
+		{
+			if (node.Name == "p")
+			{
+				AddParagraph(document);
+			}
+
+			if (node.GetAttributeValue("style", null) is string style)
+			{
+				var parts = style.Split(';');
+				foreach (var part in parts)
 				{
-					var parts = style.Split(';');
-					foreach (var part in parts)
+					var kv = part.Split(':');
+					if (kv.Length == 2)
 					{
-						var kv = part.Split(':');
-						if (kv.Length == 2)
+						var key = kv[0].Trim();
+						var value = kv[1].Trim();
+						switch (key)
 						{
-							var key = kv[0].Trim();
-							var value = kv[1].Trim();
-							switch (key)
-							{
-								case "font-family":
-									SetAttributes(a => a.Family = new FontFamily(value));
-									break;
-								case "font-size":
-									SetAttributes(a => a.Size = float.Parse(value));
-									break;
-								case "font-weight":
-									SetAttributes(a => a.Typeface = a.Family?.Typefaces.FirstOrDefault(r => r.Bold));
-									break;
-								case "color":
-									SetAttributes(a => a.ForegroundBrush = new SolidBrush(Color.Parse(value)));
-									break;
-							}
+							case "font-family":
+								SetAttributes(a => a.Family = new FontFamily(value));
+								break;
+							case "font-size":
+								SetAttributes(a => a.Size = float.Parse(value));
+								break;
+							case "font-weight":
+								SetAttributes(a => a.Typeface = a.Family?.Typefaces.FirstOrDefault(r => r.Bold));
+								break;
+							case "color":
+								SetAttributes(a => a.ForegroundBrush = new SolidBrush(Color.Parse(value)));
+								break;
 						}
 					}
 				}
-				
-				if (child.Name == "b")
-				{
-					SetAttributes(a => a.Typeface = a.Family?.Typefaces.FirstOrDefault(r => r.Bold));
-					ParseRun(child);
-				}
-				else if (child.HasChildNodes)
-				{
-					ParseRun(child);
-				}
-				else
-				{
-					var span = new SpanElement { Text = child.InnerText, Attributes = _currentAttributes };
-					_currentRun?.Add(span);
-				}
-				_currentAttributes = lastAttributes;
 			}
+			
+			if (node.Name == "p")
+			{
+				if (_currentParagraph != null)
+					_currentParagraph.Attributes = _currentAttributes;
+				ParseRun(document, node);
+			}
+			else if (node.Name == "b")
+			{
+				SetAttributes(a => a.Typeface = a.Family?.Typefaces.FirstOrDefault(r => r.Bold));
+				ParseRun(document, node);
+			}
+			else if (node.HasChildNodes)
+			{
+				ParseRun(document, node);
+			}
+			else
+			{
+				var span = new SpanElement { Text = node.InnerText, Attributes = _currentAttributes };
+				_currentRun?.Add(span);
+			}
+		}
 
+		private void AddParagraph(Document document)
+		{
+			if (_currentRun?.Length > 0)
+				_currentParagraph?.Add(_currentRun);
+			if (_currentParagraph != null)
+				document.Add(_currentParagraph);
+			_currentParagraph = new ParagraphElement();
+			_currentRun = new RunElement();
 		}
 	}
 }

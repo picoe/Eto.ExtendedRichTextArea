@@ -38,7 +38,6 @@ namespace Eto.ExtendedRichTextArea
 		private void Document_Changed(object? sender, EventArgs e)
 		{
 			_caret.CalculateCaretBounds();
-			Selection?.CalculateBounds();
 			Size = Size.Ceiling(Document.Size);
 #if DEBUG
 			_isValid = Document.GetIsValid();
@@ -57,7 +56,6 @@ namespace Eto.ExtendedRichTextArea
 			_caret = new CaretBehavior(this);
 			_keyboard = new KeyboardBehavior(this, _caret);
 			_mouse = new MouseBehavior(this, _caret);
-			_selection = new DocumentRange(0, 0);
 			CanFocus = true;
 			
 			_cutCommand = new CutCommand(this);
@@ -77,7 +75,9 @@ namespace Eto.ExtendedRichTextArea
 				_selection = value;
 				if (_selection != null)
 				{
-					_selection.Document = Document;
+					if (!ReferenceEquals(_selection.Document, Document))
+						throw new ArgumentOutOfRangeException(nameof(value), "Selection must be from this document");
+
 					_textArea.SelectionAttributes = Document.GetAttributes(_selection.Start, _selection.End);
 				}
 				SelectionChanged?.Invoke(this, EventArgs.Empty);
@@ -92,6 +92,10 @@ namespace Eto.ExtendedRichTextArea
 		protected override void OnSizeChanged(EventArgs e)
 		{
 			base.OnSizeChanged(e);
+			
+			// shouldn't be necessary.. but..
+			if (Platform.IsWpf)
+				_parentScrollable?.UpdateLayout();
 		}
 
 		protected override void OnLoad(EventArgs e)
