@@ -98,6 +98,8 @@ namespace Eto.ExtendedRichTextArea
 
 			BackgroundColor = SystemColors.ControlBackground;
 			Size = new Size(200, 100);
+			ExpandContentHeight = false;
+			ExpandContentWidth = false;
 		}
 
 		protected override void OnSizeChanged(EventArgs e)
@@ -139,7 +141,7 @@ namespace Eto.ExtendedRichTextArea
 		public void InsertText(string text)
 		{
 			Document.BeginEdit();
-			if (_drawable.Selection != null)
+			if (_drawable.Selection?.Length > 0)
 			{
 				Document.RemoveAt(_drawable.Selection.Start, _drawable.Selection.Length);
 				_drawable.Caret.Index = _drawable.Selection.Start;

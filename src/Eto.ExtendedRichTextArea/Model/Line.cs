@@ -31,8 +31,18 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		internal int GetIndexAt(PointF point)
 		{
+			if (point.Y > Bounds.Bottom)
+				return -1;
+			if (point.Y < Bounds.Top)
+				return -1;
+			if (point.X > Bounds.Right)
+				return End;
+			if (point.X < Bounds.Left)
+				return Start;
+			
 			if (!Bounds.Contains(point))
 				return -1;
+								
 			var linePoint = point; // - line.Bounds.Location;
 			foreach (var chunk in this)
 			{

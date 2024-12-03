@@ -38,7 +38,6 @@ namespace Eto.ExtendedRichTextArea.Model
 		/// <returns>A new element containing the right portion after the split</returns>
 		IElement? Split(int start);
 		int RemoveAt(int start, int length);
-		void Recalculate(int start);
 		IEnumerable<(string text, int start)> EnumerateWords(int start, bool forward);
 		IEnumerable<IInlineElement> EnumerateInlines(int start, int end, bool trim);
 		IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines);

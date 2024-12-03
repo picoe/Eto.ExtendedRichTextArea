@@ -38,20 +38,33 @@ namespace Eto.ExtendedRichTextArea.Model
 			_bounds ??= new List<RectangleF>();
 			_bounds.Clear();
 			Chunk? lastChunk = null;
-			// TODO: deal with empty lines
 			foreach (var line in Document.EnumerateLines(Start))
 			{
-				if (line.Start >= End)
+				if (line.DocumentStart >= End)
 					break;
-
+					
 				RectangleF bounds = RectangleF.Empty;
+				if (line.Count == 0)
+				{
+					bounds = line.Bounds;
+					if (bounds.Width <= 0)
+						bounds.Width = 8;
+					_bounds.Add(bounds);
+					continue;
+				}
+
 				foreach (var chunk in line)
 				{
+					var documentIndex = line.DocumentStart + chunk.Start;
+					if (documentIndex >= End)
+						break;
+					if (documentIndex + chunk.Length <= Start)
+						continue;
+						
 					var spanBounds = chunk.Bounds;
 					if (bounds.IsEmpty)
 					{
 						bounds = chunk.Bounds;
-						var documentIndex = chunk.Element.DocumentStart;
 						if (documentIndex < Start)
 						{
 							var point = chunk.GetPointAt(Start - documentIndex);

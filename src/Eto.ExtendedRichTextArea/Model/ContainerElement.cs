@@ -11,7 +11,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		RectangleF Bounds { get; }
 		SizeF Measure(Attributes defaultAttributes, SizeF availableSize, PointF location);
 		int GetIndexAt(PointF point);
-		PointF? GetPointAt(int start);
+		PointF? GetPointAt(int start, out Line? line);
 		IEnumerable<Chunk> EnumerateChunks(int start, int end);
 		IEnumerable<Line> EnumerateLines(int start, bool forward = true);
 		void InsertAt(int start, IElement element);
@@ -103,9 +103,12 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		protected override void InsertItem(int index, T item)
 		{
+			var rightItem = index < Count ? this[index] : null;
 			base.InsertItem(index, item);
 			item.Parent = this;
-			Adjust(index, item.Length);
+			var separatorLength = Separator?.Length ?? 0;
+			item.Start = (rightItem?.End ?? Length) + separatorLength;
+			Adjust(index, item.Length + separatorLength);
 			MeasureIfNeeded();
 		}
 
@@ -113,8 +116,9 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			var element = this[index];
 			element.Parent = null;
+			element.Start = 0;
 			base.RemoveItem(index);
-			Adjust(index, -element.Length);
+			Adjust(index, -(element.Length + Separator?.Length ?? 0));
 			MeasureIfNeeded();
 		}
 
@@ -124,6 +128,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			old.Parent = null;
 			base.SetItem(index, item);
 			item.Parent = this;
+			item.Start = old.Start;
 			Adjust(index, item.Length - old.Length);
 			MeasureIfNeeded();
 		}
@@ -199,12 +204,10 @@ namespace Eto.ExtendedRichTextArea.Model
 				}
 					
 				Insert(i, element);
-				Adjust(i, element.Length);
 				MeasureIfNeeded();
 				return;
 			}
 			Add(element);
-			Length += element.Length;
 			MeasureIfNeeded();
 		}
 		
@@ -225,6 +228,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				throw new ArgumentOutOfRangeException(nameof(length), "Length must be greater than or equal to zero");
 			if (start < 0)
 				throw new ArgumentOutOfRangeException(nameof(start), "Index must be greater than or equal to zero");
+			BeginEdit();
 			var originalLength = length;
 			var separatorLength = Separator?.Length ?? 0;
 			// go backwards so we don't have to update indexes as we remove
@@ -237,21 +241,16 @@ namespace Eto.ExtendedRichTextArea.Model
 				var element = this[i];
 				var elementStart = start;
 				var elementEnd = elementStart + length;
-				if (element.Start > elementEnd || element.End < elementStart)
+				if (elementEnd < element.Start || elementStart > element.End)
 					continue;
-				if (elementStart <= element.Start && elementEnd >= element.End)
+				if (elementStart <= element.Start && elementEnd >= element.End && length >= element.Length + separatorLength)
 				{
 					Remove(element);
 					length -= element.Length + separatorLength;
 					continue;
 				}
 
-				if (elementStart < element.Start && elementEnd >= element.End)
-				{
-					var removeLength = element.Length - elementStart;
-					length -= element.RemoveAt(elementStart - element.Start, removeLength);
-				}
-				else if (elementStart >= element.Start && elementEnd < element.End)
+				if (elementStart >= element.Start && elementEnd < element.End)
 				{
 					length -= element.RemoveAt(elementStart - element.Start, length);
 				}
@@ -263,24 +262,10 @@ namespace Eto.ExtendedRichTextArea.Model
 						var nextElement = this[i + 1];
 						if (nextElement is ParagraphElement nextParagraph)
 						{
-							// merge first row of next paragraph into last row of this paragraph
-							var nextRow = nextParagraph.FirstOrDefault();
-							if (nextRow != null)
+							// add the elements to this paragraph (if any)
+							foreach (var child in nextParagraph)
 							{
-								var row = paragraph.LastOrDefault();
-								if (row != null)
-								{
-									nextParagraph.Remove(nextRow);
-									foreach (var span in nextRow)
-									{
-										row.Add(span);
-									}
-								}
-							}
-							// add the remaining rows to this paragraph (if any)
-							foreach (var row in nextParagraph)
-							{
-								paragraph.Add(row);
+								paragraph.Add(child);
 							}
 							Remove(nextElement);
 							length -= separatorLength;
@@ -301,12 +286,13 @@ namespace Eto.ExtendedRichTextArea.Model
 					if (removeLength > 0)
 						length -= element.RemoveAt(removeStart, removeLength);
 				}
-				if (element.Length == 0)
+				if (element.Length == 0 && length > separatorLength)
 				{
 					Remove(element);
 					length -= separatorLength;
 				}
 			}
+			EndEdit();
 			MeasureIfNeeded();
 			return originalLength - length;
 		}
@@ -323,9 +309,9 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		void IElement.MeasureIfNeeded() => MeasureIfNeeded();
 
-		IElement? IElement.Split(int index)
+		IElement? IElement.Split(int start)
 		{
-			if (index >= Length || Start == index)
+			if (start >= Length || Start == start)
 				return null;
 			ContainerElement<T> CreateNew()
 			{
@@ -338,7 +324,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			for (int i = 0; i < Count; i++)
 			{
 				var element = this[i];
-				if (element.Start >= index)
+				if (element.Start >= start)
 				{
 					Remove(element);
 					i--;
@@ -346,36 +332,21 @@ namespace Eto.ExtendedRichTextArea.Model
 					element.Start = newRun.Length;
 					newRun.Add(element);
 				}
-				else if (element.End > index)
+				else if (element.End > start)
 				{
 					newRun ??= CreateNew();
-					if (element.Split(index - element.Start) is T newElement)
+					if (element.Split(start - element.Start) is T newElement)
 					{
 						newElement.Start = newRun.Length;
 						newRun.Add(newElement);
 					}
 				}
 			}
+			Length -= Length - start;
 			return newRun;
 		}
 
-		void IElement.Recalculate(int index) => Recalculate(index);
-		internal void Recalculate(int index)
-		{
-			Start = index;
-			var childIndex = 0;
-			for (int i = 0; i < Count; i++)
-			{
-				if (i > 0)
-					childIndex++; // newline
-				var element = this[i];
-				element.Recalculate(childIndex);
-				childIndex += element.Length;
-			}
-			Length = childIndex;
-		}
-
-		public abstract PointF? GetPointAt(int index);
+		public abstract PointF? GetPointAt(int index, out Line? line);
 		
         public virtual int GetIndexAt(PointF point)
         {

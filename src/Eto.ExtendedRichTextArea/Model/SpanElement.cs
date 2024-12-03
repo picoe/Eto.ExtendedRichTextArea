@@ -62,7 +62,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			var text = Text;
 			Text = text.Substring(0, index);
 			var newSpan = new SpanElement { 
-				Start = index,
+				Start = Start + index,
 				Text = text.Substring(index), Attributes = Attributes?.Clone() 
 			};
 			return newSpan;
@@ -89,20 +89,15 @@ namespace Eto.ExtendedRichTextArea.Model
 			return length;
 		}
 
-		public void Recalculate(int index)
-		{
-			// nothing to recalculate for this one
-		}
-		
 		Attributes? _resolvedAttributes;
 		public Font Font => _resolvedAttributes?.Font ?? Document.GetDefaultFont();
 
         public int GetIndexAt(Chunk chunk, PointF point)
         {
-			if (point.X > chunk.Bounds.Right || point.Y > chunk.Bounds.Bottom)
+			if (point.X < chunk.Bounds.Left || point.X > chunk.Bounds.Right)
 				return -1;
-			if (point.X < chunk.Bounds.Left || point.Y < chunk.Bounds.Top)
-				return -1;
+			// if ( || point.Y < chunk.Bounds.Top)
+			// 	return -1;
 			var spanX = chunk.Bounds.X;
 			var spanLength = Length;
 			var font = Font;
@@ -113,7 +108,7 @@ namespace Eto.ExtendedRichTextArea.Model
 					return i;
 				spanX += spanSize.Width;
 			}
-			return -1;
+			return Length;
         }
 		
 		public PointF? GetPointAt(Chunk chunk, int start)

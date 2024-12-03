@@ -26,16 +26,20 @@ namespace Eto.ExtendedRichTextArea.TestApp
 					var brush = new SolidBrush(Color.FromArgb(random.Next(256), random.Next(256), random.Next(256), random.Next(256)));
 					var pen = new Pen(brush, random.Next(1, 5));
 
+					var middle = new Size(width / 2, height / 2);
+					var point1 = new PointF(random.Next(width), random.Next(height)) - middle;
+					var point2 = new PointF(random.Next(width), random.Next(height)) - middle;
+					var size = new SizeF(random.Next(width), random.Next(height));
 					switch (random.Next(3))
 					{
 						case 0:
-							graphics.FillRectangle(brush, random.Next(width), random.Next(height), random.Next(width), random.Next(height));
+							graphics.FillRectangle(brush, new RectangleF(point1, size));
 							break;
 						case 1:
-							graphics.FillEllipse(brush, random.Next(width), random.Next(height), random.Next(width), random.Next(height));
+							graphics.FillEllipse(brush, new RectangleF(point1, size));
 							break;
 						case 2:
-							graphics.DrawLine(pen, random.Next(width), random.Next(height), random.Next(width), random.Next(height));
+							graphics.DrawLine(pen, point1, point2);
 							break;
 					}
 				}
@@ -168,17 +172,11 @@ namespace Eto.ExtendedRichTextArea.TestApp
 				{
 					var paragraphItem = new TreeGridItem { Expanded = true };
 					paragraphItem.Values = new object[] { $"Paragraph: {paragraph.DocumentStart}:{paragraph.Length}" };
-					foreach (var run in paragraph)
+					foreach (var inline in paragraph)
 					{
-						var runItem = new TreeGridItem { Expanded = true };
-						runItem.Values = new object[] { $"Run: {run.DocumentStart}:{run.Length}" };
-						foreach (var span in run)
-						{
-							var spanItem = new TreeGridItem();
-							spanItem.Values = new object[] { $"{span.GetType().Name}: {span.DocumentStart}:{span.Text}" };
-							runItem.Children.Add(spanItem);
-						}
-						paragraphItem.Children.Add(runItem);
+						var inlineItem = new TreeGridItem();
+						inlineItem.Values = new object[] { $"{inline.GetType().Name}: {inline.DocumentStart}:{inline.Text}" };
+						paragraphItem.Children.Add(inlineItem);
 					}
 					items.Add(paragraphItem);
 				}

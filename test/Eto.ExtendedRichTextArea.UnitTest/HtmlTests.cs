@@ -22,15 +22,13 @@ namespace Eto.ExtendedRichTextArea.UnitTest
 			new HtmlParser().ParseHtml(document, html);
 			Assert.That(document.Length, Is.EqualTo(26));
 			Assert.That(document.Text, Is.EqualTo("Hello World\nThis is a test"));
-			Assert.That(document[0].Count, Is.EqualTo(1));
-			Assert.That(document[0][0].Count, Is.EqualTo(2));
+			Assert.That(document[0].Count, Is.EqualTo(2));
 			Assert.That(document[1].Count, Is.EqualTo(1));
-			Assert.That(document[1][0].Count, Is.EqualTo(1));
 
-			Assert.That(document[0][0][0], Is.TypeOf<SpanElement>());
-			Assert.That(document[0][0][1], Is.TypeOf<SpanElement>());
-			Assert.That(((SpanElement)document[0][0][0])?.Attributes?.Font?.Bold, Is.False);
-			Assert.That(((SpanElement)document[0][0][1])?.Attributes?.Font?.Bold, Is.True);
+			Assert.That(document[0][0], Is.TypeOf<SpanElement>());
+			Assert.That(document[0][1], Is.TypeOf<SpanElement>());
+			Assert.That(((SpanElement)document[0][0])?.Attributes?.Font?.Bold, Is.False);
+			Assert.That(((SpanElement)document[0][1])?.Attributes?.Font?.Bold, Is.True);
 		}
 	}
 }

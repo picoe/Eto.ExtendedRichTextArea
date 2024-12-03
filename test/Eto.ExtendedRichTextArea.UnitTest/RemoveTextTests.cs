@@ -18,13 +18,16 @@ public class RemoveTextTests : TestBase
 	[TestCase("Hello\nWorld", 2, 7, "Held")]
 	[TestCase("Hello\nThere\nFun\nAnd\nExciting\nWorld", 8,11, "Hello\nTh\nExciting\nWorld")]
 	[TestCase("Hello\nThere\nFun\nAnd\nExciting\nWorld", 8,12, "Hello\nThExciting\nWorld")]
+	[TestCase("Hello\na\nWorld", 6, 1, "Hello\n\nWorld")]
+	[TestCase("Hello\n\nWorld", 5, 1, "Hello\nWorld")]
 	public void RemovingTextShouldWork(string initialText, int removeStart, int removeLength, string expected)
 	{
 		var document = new Document();
 		document.Text = initialText;
 		Assert.That(document.Text, Is.EqualTo(initialText)); // sanity
-		
+		document.BeginEdit();
 		document.RemoveAt(removeStart, removeLength);
+		document.EndEdit();
 		Assert.That(document.Text, Is.EqualTo(expected));
 	}
 }

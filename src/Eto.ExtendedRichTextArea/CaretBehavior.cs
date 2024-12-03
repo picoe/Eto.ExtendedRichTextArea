@@ -21,22 +21,22 @@ namespace Eto.ExtendedRichTextArea
 			get => _caretIndex;
 			set
 			{
-				if (_caretIndex != value)
-				{
-					_navLocation = null;
-					_caretIndex = Math.Max(0, Math.Min(value, Document.Length));
-					if (_caretVisible)
-					{
-						InvalidateCaret(_caretBounds);
-					}
-					_caretVisible = true;
-					CalculateCaretBounds();
-					InvalidateCaret();
-					if (_textArea.Selection == null)
-						_textArea.TextArea.SelectionAttributes = Document.GetAttributes(_caretIndex, _caretIndex);
+				if (_caretIndex == value)
+					return;
 					
-					IndexChanged?.Invoke(_textArea, EventArgs.Empty);
+				_navLocation = null;
+				_caretIndex = Math.Max(0, Math.Min(value, Document.Length));
+				if (_caretVisible)
+				{
+					InvalidateCaret(_caretBounds);
 				}
+				_caretVisible = true;
+				CalculateCaretBounds();
+				InvalidateCaret();
+				if (_textArea.Selection == null)
+					_textArea.TextArea.SelectionAttributes = Document.GetAttributes(_caretIndex, _caretIndex);
+				
+				IndexChanged?.Invoke(_textArea, EventArgs.Empty);
 			}
 		}
 

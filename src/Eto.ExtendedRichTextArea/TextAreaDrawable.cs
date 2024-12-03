@@ -80,6 +80,8 @@ namespace Eto.ExtendedRichTextArea
 
 					_textArea.SelectionAttributes = Document.GetAttributes(_selection.Start, _selection.End);
 				}
+				else
+					_textArea.SelectionAttributes = Document.GetAttributes(_caret.Index, _caret.Index);
 				SelectionChanged?.Invoke(this, EventArgs.Empty);
 				
 				Invalidate(false);
@@ -89,14 +91,6 @@ namespace Eto.ExtendedRichTextArea
 		public event EventHandler<EventArgs>? SelectionChanged;
 		
 
-		protected override void OnSizeChanged(EventArgs e)
-		{
-			base.OnSizeChanged(e);
-			
-			// shouldn't be necessary.. but..
-			if (Platform.IsWpf)
-				_parentScrollable?.UpdateLayout();
-		}
 
 		protected override void OnLoad(EventArgs e)
 		{

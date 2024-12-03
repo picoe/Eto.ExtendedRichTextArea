@@ -63,13 +63,16 @@ namespace Eto.ExtendedRichTextArea.Model
 		
 		public FontFamily? Family
 		{
-			get => _family;
+			get => _family ?? _typeface?.Family;
 			set
 			{
+				if (_family == value)
+					return;
 				_family = value;
 				_font = null;
-				Typeface = value?.Typefaces.FirstOrDefault();
+				_typeface = null;
 				OnPropertyChanged();
+				OnPropertyChanged(nameof(Typeface));
 				OnPropertyChanged(nameof(Font));
 			}
 		}
@@ -79,9 +82,11 @@ namespace Eto.ExtendedRichTextArea.Model
 			get => _typeface;
 			set
 			{
+				if (_typeface == value)
+					return;
 				_typeface = value;
 				_font = null;
-				_family = value?.Family;
+				_family = null;
 				OnPropertyChanged();
 				OnPropertyChanged(nameof(Family));
 				OnPropertyChanged(nameof(Font));
@@ -90,14 +95,16 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		private Font? CreateFont()
 		{
-			if (_family == null || _typeface == null)
+			if (_family == null && _typeface == null)
 				return Document.GetDefaultFont();
+			var typeface = _typeface ?? _family?.Typefaces.FirstOrDefault();
+
 			var decoration = FontDecoration.None; 
 			if (_underline == true)
 				decoration |= FontDecoration.Underline;
 			if (_strikethrough == true)
 				decoration |= FontDecoration.Strikethrough;
-			return new Font(_typeface, _size ?? 12, decoration);
+			return new Font(typeface, _size ?? 12, decoration);
 		}
 
 		public Brush? ForegroundBrush
@@ -174,6 +181,12 @@ namespace Eto.ExtendedRichTextArea.Model
 				clone.Family = attributes._family;
 			if (attributes._typeface != null)
 				clone.Typeface = attributes._typeface;
+			else if (_typeface != null && clone.Family != null)
+			{
+				var fontStyle = _typeface.FontStyle;
+				clone.Typeface = clone.Family.Typefaces.FirstOrDefault(r => r.FontStyle == fontStyle);
+			}
+				
 			if (attributes._size != null)
 				clone.Size = attributes._size;
 			if (attributes._foregroundBrush != null)
@@ -189,10 +202,16 @@ namespace Eto.ExtendedRichTextArea.Model
 		
 		internal void ClearUnmatched(Attributes? attributes)
 		{
-			if (_family != attributes?._family)
+			if (_family != attributes?.Family)
 				_family = null;
 			if (_typeface != attributes?._typeface)
+			{
+				if (_typeface != null && _typeface.Family == attributes?.Family)
+				{
+					_family = _typeface.Family;
+				}
 				_typeface = null;
+			}
 			if (_size != attributes?._size)
 				_size = null;
 			if (_foregroundBrush != attributes?._foregroundBrush)

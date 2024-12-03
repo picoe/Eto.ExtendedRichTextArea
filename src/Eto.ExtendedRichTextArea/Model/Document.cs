@@ -118,46 +118,43 @@ namespace Eto.ExtendedRichTextArea.Model
 			var scale = screen?.Scale ?? 1;
 			var lineHeight = font.LineHeight * scale;
 			var leading = (font.Baseline - font.Ascent) * scale;
-			var point = GetPointAt(start) ?? Bounds.Location;
+			var point = GetPointAt(start, out var line) ?? Bounds.Location;
+			if (line != null)
+			{
+				point.Y = line.Bounds.Y;
+				lineHeight = line.Bounds.Height;
+			}
+			
 			return new RectangleF(point.X, point.Y + leading, 1, lineHeight);
 		}
 
 		public Attributes GetAttributes(int start, int end)
 		{
 			// TODO: move this to ContainerElement?
+			bool isRange = end > start;
 			Attributes? attributes = null;
 			foreach (var paragraph in this)
 			{
-				if (end <= paragraph.Start)
+				if (end < paragraph.Start)// || (end == paragraph.Start && isRange))
 					break;
-				if (start >= paragraph.End)
+				if (start > paragraph.End || (start == paragraph.End && isRange))
 					continue;
 
 				var paragraphAttributes = DefaultAttributes.Merge(paragraph.Attributes, false);
 
 				var paragraphStart = start - paragraph.Start;
 				var paragraphEnd = end - paragraph.Start;
-				foreach (var run in paragraph)
+				foreach (var inline in paragraph)
 				{
-					if (paragraphEnd <= run.Start)
+					if (paragraphEnd <= inline.Start)// || (paragraphEnd == inline.Start && isRange))
 						break;
-					if (paragraphStart >= run.End)
+					if (paragraphStart > inline.End || (paragraphStart == inline.End && isRange))
 						continue;
-					var runAttributes = paragraphAttributes.Merge(run.Attributes, false);
-
-					var runStart = paragraphStart - run.Start;
-					var runEnd = paragraphEnd - run.Start;
-					foreach (var inline in run)
-					{
-						if (runEnd <= inline.Start)
-							break;
-						if (runStart >= inline.End)
-							continue;
-						if (attributes == null)
-							attributes = paragraphAttributes.Merge(inline.Attributes, true);
-						else
-							attributes.ClearUnmatched(inline.Attributes ?? paragraphAttributes);
-					}
+						
+					if (attributes == null)
+						attributes = paragraphAttributes.Merge(inline.Attributes, true);
+					else
+						attributes.ClearUnmatched(paragraphAttributes.Merge(inline.Attributes, false));
 				}
 
 				if (attributes == null)
@@ -188,7 +185,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			if (element is SpanElement insertSpan)
 			{
 				var text = insertSpan.Text;
-				var lines = text.Split(new[] { "\n" }, StringSplitOptions.None);
+				var lines = text.Split(new[] { Separator }, StringSplitOptions.None);
 				if (lines.Length == 0)
 					return;
 
@@ -223,9 +220,10 @@ namespace Eto.ExtendedRichTextArea.Model
 					if (rightParagraph != null)
 					{
 						var paragraphIndex = IndexOf(paragraph);
-						Insert(paragraphIndex + 1, rightParagraph);
 						rightParagraph.InsertInParagraph(0, element);
-						start += element.Length + 1;
+						
+						Insert(paragraphIndex + 1, rightParagraph);
+						start = rightParagraph.Start + element.Length;
 						return start;
 					}
 				}
@@ -233,7 +231,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				{
 					if (paragraph.InsertInParagraph(start - paragraph.Start, element))
 					{
-						Recalculate(Start);
+						Adjust(paragraph.Start, element.Length);
 						start += element.Length;
 						return start;
 					}
@@ -247,12 +245,10 @@ namespace Eto.ExtendedRichTextArea.Model
 			newParagraph.Attributes = GetAttributes(start, start);
 			if (element.Length > 0)
 			{
-				var newRun = new RunElement();
-				newRun.Add(element);
-				newParagraph.Add(newRun);
+				newParagraph.Add(element);
 			}
 			InsertAt(start, newParagraph);
-			start += element.Length + 1;
+			start = newParagraph.End;
 			return start;
 		}
 
@@ -262,15 +258,8 @@ namespace Eto.ExtendedRichTextArea.Model
 			{
 				if (!paragraph.Bounds.Intersects(clipBounds))
 					continue;
-				foreach (var run in paragraph)
-				{
-					if (!run.Bounds.Intersects(clipBounds))
-						continue;
-					run.Paint(graphics, clipBounds);
-
-				}
+				paragraph.Paint(graphics, clipBounds);
 			}
-			// */
 		}
 
 		internal override void MeasureIfNeeded()
@@ -295,20 +284,11 @@ namespace Eto.ExtendedRichTextArea.Model
 				if (paragraph.Start != index)
 					return false;
 				var runIndex = 0;
-				foreach (var run in paragraph)
+				foreach (var inline in paragraph)
 				{
-					if (run.Start != runIndex)
+					if (inline.Start != runIndex)
 						return false;
-					var spanIndex = 0;
-					foreach (var span in run)
-					{
-						if (span.Start != spanIndex)
-							return false;
-						spanIndex += span.Length;
-					}
-					if (run.Length != spanIndex)
-						return false;
-					runIndex += run.Length;
+					runIndex += inline.Length;
 				}
 				if (paragraph.Length != runIndex)
 					return false;
@@ -371,7 +351,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			if (caretLocation != null)
 				point.X = caretLocation.Value.X;
 			else
-				point = GetPointAt(start) ?? point;
+				point = GetPointAt(start, out _) ?? point;
 			point.Y = line.Bounds.Y;
 			var idx = line.GetIndexAt(point);
 			if (idx >= 0)
@@ -390,7 +370,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			if (caretLocation != null)
 				point.X = caretLocation.Value.X;
 			else
-				point = GetPointAt(start) ?? point;
+				point = GetPointAt(start, out _) ?? point;
 			point.Y = line.Bounds.Y;
 			var idx = line.GetIndexAt(point);
 			if (idx >= 0)
@@ -425,10 +405,14 @@ namespace Eto.ExtendedRichTextArea.Model
 			Length = start;
 			return size;
 		}
-		public override PointF? GetPointAt(int start)
+		
+		public PointF? GetPointAt(int start) => GetPointAt(start, out _);
+		
+		public override PointF? GetPointAt(int start, out Line? line)
 		{
+			line = null;
 			var element = Find(start);
-			var point = element?.GetPointAt(start - element.Start);
+			var point = element?.GetPointAt(start - element.Start, out line);
 			return point ?? Bounds.Location;
 		}
 
@@ -455,60 +439,47 @@ namespace Eto.ExtendedRichTextArea.Model
 				var paragraphEnd = end - paragraph.Start;
 				for (int j = 0; j < paragraph.Count; j++)
 				{
-					RunElement? run = paragraph[j];
-					if (run == null)
+					var inline = paragraph[j];
+					if (inline == null)
 						continue;
-					if (paragraphEnd <= run.Start)
+					if (paragraphEnd <= inline.Start)
 						break;
-					if (paragraphStart >= run.End)
+					if (paragraphStart >= inline.End)
 						continue;
 
-					var runStart = paragraphStart - run.Start;
-					var runEnd = paragraphEnd - run.Start;
-					for (int k = 0; k < run.Count; k++)
+					IElement applySpan = inline;
+					var docStart = inline.DocumentStart;
+					if (start > docStart && start < docStart + inline.Length)
 					{
-						IInlineElement? inline = run[k];
-						if (inline == null)
-							continue;
-						if (runEnd <= inline.Start)
-							break;
-						if (runStart >= inline.End)
-							continue;
-
-						IElement applySpan = inline;
-						var docStart = inline.DocumentStart;
-						if (start > docStart && start < docStart + inline.Length)
+						// need to split and apply attributes to right side only
+						var right = inline.Split(start - docStart);
+						if (right != null && inline.Parent is IContainerElement container)
 						{
-							// need to split and apply attributes to right side only
-							var right = inline.Split(start - docStart);
-							if (right != null && inline.Parent is IContainerElement container)
+							container.InsertAt(inline.End, right);
+
+							applySpan = right; // apply new attributes to the right side
+							docStart = right.DocumentStart;
+							if (end > docStart && end < docStart + applySpan.Length)
 							{
-								container.InsertAt(inline.End, right);
-								
-								applySpan = right; // apply new attributes to the right side
-								docStart = right.DocumentStart;
-								if (end > docStart && end < docStart + applySpan.Length)
+								// need to split again as the end is in the middle of the right side
+								right = applySpan.Split(end - docStart);
+								if (right != null && applySpan.Parent is IContainerElement container2)
 								{
-									// need to split again as the end is in the middle of the right side
-									right = applySpan.Split(end - docStart);
-									if (right != null && applySpan.Parent is IContainerElement container2)
-									{
-										container2.InsertAt(applySpan.End, right);
-									}
+									container2.InsertAt(applySpan.End, right);
 								}
 							}
 						}
-						if (end > docStart && end < docStart + applySpan.Length)
-						{
-							// need to split and apply attributes to left side
-							var right = applySpan.Split(end - docStart);
-							if (right != null && applySpan.Parent is IContainerElement container)
-							{
-								container.InsertAt(applySpan.End, right);
-							}
-						}
-						applySpan.Attributes = UpdateAttributes(attributes, applySpan.Attributes);
 					}
+					if (end > docStart && end < docStart + applySpan.Length)
+					{
+						// need to split and apply attributes to left side
+						var right = applySpan.Split(end - docStart);
+						if (right != null && applySpan.Parent is IContainerElement container)
+						{
+							container.InsertAt(applySpan.End, right);
+						}
+					}
+					applySpan.Attributes = UpdateAttributes(attributes, applySpan.Attributes);
 				}
 
 			}

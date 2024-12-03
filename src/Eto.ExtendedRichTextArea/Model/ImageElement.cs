@@ -31,11 +31,6 @@ namespace Eto.ExtendedRichTextArea.Model
 			return Length;
 		}
 
-		public void Recalculate(int index)
-		{
-			// nothing to recalculate for this one
-		}
-
 		public IEnumerable<(string text, int start)> EnumerateWords(int start, bool forward)
 		{
 			yield break;
@@ -75,6 +70,8 @@ namespace Eto.ExtendedRichTextArea.Model
 				return -1;
 			if (point.X < chunk.Bounds.Left || point.Y < chunk.Bounds.Top)
 				return -1;
+			if (point.X > chunk.Bounds.Left + chunk.Bounds.Width / 3)
+				return 1;
 			return 0;
 		}
 

@@ -11,7 +11,6 @@ namespace Eto.ExtendedRichTextArea.UnitTest
 	class HtmlParser
 	{
 		ParagraphElement? _currentParagraph;
-		RunElement? _currentRun;
 		Attributes? _currentAttributes;
 		public void ParseHtml(Document document, string html)
 		{
@@ -96,18 +95,15 @@ namespace Eto.ExtendedRichTextArea.UnitTest
 			else
 			{
 				var span = new SpanElement { Text = node.InnerText, Attributes = _currentAttributes };
-				_currentRun?.Add(span);
+				_currentParagraph?.Add(span);
 			}
 		}
 
 		private void AddParagraph(Document document)
 		{
-			if (_currentRun?.Length > 0)
-				_currentParagraph?.Add(_currentRun);
 			if (_currentParagraph != null)
 				document.Add(_currentParagraph);
 			_currentParagraph = new ParagraphElement();
-			_currentRun = new RunElement();
 		}
 	}
 }
