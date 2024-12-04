@@ -13,7 +13,9 @@ namespace Eto.ExtendedRichTextArea
 		readonly CaretBehavior _caret;
 		readonly KeyboardBehavior _keyboard;
 		readonly MouseBehavior _mouse;
+#if DEBUG
 		bool _isValid = true;
+#endif
 		Scrollable? _parentScrollable;		
 		DocumentRange? _selection;
 		readonly ExtendedRichTextArea _textArea;
