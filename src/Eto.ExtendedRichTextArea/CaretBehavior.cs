@@ -60,7 +60,11 @@ namespace Eto.ExtendedRichTextArea
 		{
 			var bounds = caretBounds ?? _caretBounds;
 			bounds.Inflate(5, 5);
-			_textArea.Invalidate(Rectangle.Ceiling(bounds));// TODO: only invalidate the caret bounds
+			// TODO: only invalidate the caret bounds, perhaps put the caret in a child drawable?
+			if (Eto.Platform.Instance.IsWpf)
+				_textArea.Invalidate(false);
+			else
+				_textArea.Invalidate(Rectangle.Ceiling(bounds));
 		}
 
 		public CaretBehavior(TextAreaDrawable textArea)
@@ -73,8 +77,12 @@ namespace Eto.ExtendedRichTextArea
 
 		private void TextArea_LostFocus(object? sender, EventArgs e)
 		{
-			_caretTimer ??= new UITimer(OnCaretTimer) { Interval = 0.5 };
-			_caretTimer.Start();
+			_caretTimer?.Stop();
+			if (_caretVisible)
+			{
+				_caretVisible = false;
+				InvalidateCaret();
+			}
 		}
 
 		private void TextArea_Load(object? sender, EventArgs e)
