@@ -70,13 +70,34 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public Attributes DefaultAttributes
 		{
-			get => _defaultAttributes ??= new Attributes { Font = GetDefaultFont(), Foreground = new SolidBrush(SystemColors.ControlText) };
+			get
+			{
+				if (_defaultAttributes == null)
+				{
+					_defaultAttributes = new Attributes { Font = GetDefaultFont(), Foreground = new SolidBrush(SystemColors.ControlText) };
+					_defaultAttributes.PropertyChanged += DefaultAttributes_Changed;
+				}
+				return _defaultAttributes;
+			}
 			set
 			{
+				if (_defaultAttributes != null)
+					_defaultAttributes.PropertyChanged -= DefaultAttributes_Changed;
+
 				_defaultAttributes = value;
+				_defaultAttributes.PropertyChanged += DefaultAttributes_Changed;
+				DefaultAttributesChanged?.Invoke(this, EventArgs.Empty);
 				MeasureIfNeeded();
 			}
 		}
+
+		private void DefaultAttributes_Changed(object? sender, PropertyChangedEventArgs e)
+		{
+			DefaultAttributesChanged?.Invoke(this, EventArgs.Empty);
+			MeasureIfNeeded();
+		}
+
+		public event EventHandler<EventArgs>? DefaultAttributesChanged;
 
 		public Font DefaultFont
 		{

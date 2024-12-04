@@ -27,13 +27,23 @@ namespace Eto.ExtendedRichTextArea
 				{
 					_document.Changed -= Document_Changed;
 					_document.OverrideAttributes -= Document_OverrideAttributes;
+					_document.DefaultAttributesChanged -= Document_DefaultAttributesChanged;
 				}
 				_document = value ?? throw new ArgumentNullException(nameof(value));
 				_document.Changed += Document_Changed;
 				_document.OverrideAttributes += Document_OverrideAttributes;
+				_document.DefaultAttributesChanged += Document_DefaultAttributesChanged;
 				_caret.Index = 0;
 				_caret.CalculateCaretBounds();
 			}
+		}
+
+		private void Document_DefaultAttributesChanged(object? sender, EventArgs e)
+		{
+			if (Selection?.Length > 0)
+				_textArea.SelectionAttributes = Document.GetAttributes(Selection.Start, Selection.End);
+			else
+				_textArea.SelectionAttributes = Document.GetAttributes(_caret.Index, _caret.Index);
 		}
 
 		public Attributes HighlightAttributes { get; set; } = new Attributes { Background = new SolidBrush(SystemColors.Highlight), Foreground = new SolidBrush(SystemColors.HighlightText) };
