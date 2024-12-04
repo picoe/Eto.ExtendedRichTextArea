@@ -36,10 +36,12 @@ namespace Eto.ExtendedRichTextArea
 			}
 		}
 
+		public Attributes HighlightAttributes { get; set; } = new Attributes { Background = new SolidBrush(SystemColors.Highlight), Foreground = new SolidBrush(SystemColors.HighlightText) };
+
 		private void Document_OverrideAttributes(object? sender, OverrideAttributesEventArgs e)
 		{
 			if (Selection?.Length > 0)
-				e.NewAttributes.Add(new AttributeRange(Selection.Start, Selection.End, new Attributes { Background = new SolidBrush(SystemColors.Highlight), Foreground = new SolidBrush(SystemColors.HighlightText) }));
+				e.NewAttributes.Add(new AttributeRange(Selection.Start, Selection.End, HighlightAttributes));
 		}
 
 		private void Document_Changed(object? sender, EventArgs e)
