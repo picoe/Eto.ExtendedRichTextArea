@@ -9,7 +9,15 @@ namespace Eto.ExtendedRichTextArea.Model
 		public int Start { get; }
 		public int Length => End - Start;
 		public int End { get; }
-		public string Text => Document.GetText(Start, Length) ?? string.Empty;
+		public string Text
+		{
+			get => Document.GetText(Start, Length) ?? string.Empty;
+			set
+			{
+				Document.RemoveAt(Start, Length);
+				Document.InsertText(Start, value);
+			}
+		}
 
 		public int OriginalStart { get; }
 
@@ -61,10 +69,11 @@ namespace Eto.ExtendedRichTextArea.Model
 					if (documentIndex + chunk.Length <= Start)
 						continue;
 						
-					var spanBounds = chunk.Bounds;
 					if (bounds.IsEmpty)
 					{
 						bounds = chunk.Bounds;
+						bounds.Y = line.Bounds.Y;
+						bounds.Height = line.Bounds.Height;
 						if (documentIndex < Start)
 						{
 							var point = chunk.GetPointAt(Start - documentIndex);
@@ -79,12 +88,14 @@ namespace Eto.ExtendedRichTextArea.Model
 					{
 						_bounds.Add(bounds);
 						bounds = chunk.Bounds;
+						bounds.Y = line.Bounds.Y;
+						bounds.Height = line.Bounds.Height;
 					}
 					else
 					{
 						// combine bounds
 						bounds.Right = chunk.Bounds.Right;
-						bounds.Height = Math.Max(bounds.Height, chunk.Bounds.Height);
+						// bounds.Height = Math.Max(bounds.Height, chunk.Bounds.Height);
 					}
 					lastChunk = chunk;
 				}

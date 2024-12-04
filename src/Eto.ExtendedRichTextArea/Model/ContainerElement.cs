@@ -6,7 +6,7 @@ using System.ComponentModel;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
-	public interface IContainerElement : IElement
+	public interface IBlockElement : IElement, IList
 	{
 		RectangleF Bounds { get; }
 		SizeF Measure(Attributes defaultAttributes, SizeF availableSize, PointF location);
@@ -31,7 +31,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		
 	}
 	
-	public abstract class ContainerElement<T> : Collection<T>, IContainerElement
+	public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		where T : class, IElement
 	{
 		public int Start { get; internal set; }
@@ -159,15 +159,24 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public IEnumerable<(string text, int start)> EnumerateWords(int start, bool forward)
 		{
+			var separatorLength = Separator?.Length ?? 0;
 			if (forward)
 			{
 				for (int i = 0; i < Count; i++)
 				{
 					var element = this[i];
-					foreach (var word in element.EnumerateWords(start, forward))
+					if (start >= element.End)
+						continue;
+					if (start < element.Start && separatorLength > 0)
+					{
+						yield return (string.Empty, start);
+						start += separatorLength;
+					}
+					foreach (var word in element.EnumerateWords(start - element.Start, forward))
 					{
 						yield return (word.text, word.start + element.Start);
 					}
+					start = element.End;
 				}
 			}
 			else
@@ -175,10 +184,18 @@ namespace Eto.ExtendedRichTextArea.Model
 				for (int i = Count - 1; i >= 0; i--)
 				{
 					var element = this[i];
-					foreach (var word in element.EnumerateWords(start, forward))
+					if (start <= element.Start)
+						continue;
+					if (start >= element.End && separatorLength > 0)
+					{
+						start -= separatorLength;
+						yield return (string.Empty, start);
+					}
+					foreach (var word in element.EnumerateWords(start - element.Start, forward))
 					{
 						yield return (word.text, word.start + element.Start);
 					}
+					start = element.Start;
 				}
 			}
 		}
@@ -211,7 +228,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			MeasureIfNeeded();
 		}
 		
-		void IContainerElement.InsertAt(int start, IElement element) => InsertAt(start, (T)element);
+		void IBlockElement.InsertAt(int start, IElement element) => InsertAt(start, (T)element);
 
 		public void Adjust(int startIndex, int length)
 		{
@@ -358,7 +375,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			{
 				var element = this[i];
 
-				if (element is IContainerElement container)
+				if (element is IBlockElement container)
 				{
 					// too far, break!
 					if (point.Y < container.Bounds.Top)
@@ -421,7 +438,7 @@ namespace Eto.ExtendedRichTextArea.Model
 					break;
 				if (element.End <= start)
 					continue;
-				if (element is IContainerElement container)
+				if (element is IBlockElement container)
 				{
 					var containerStart = Math.Max(start - element.Start, 0);
 					var containerEnd = Math.Min(end - element.Start, element.Length);
@@ -441,7 +458,7 @@ namespace Eto.ExtendedRichTextArea.Model
 					continue;
 				else if (!forward && element.Start > start)
 					continue;
-				if (element is IContainerElement container)
+				if (element is IBlockElement container)
 				{
 					var containerStart = Math.Max(start - element.Start, 0);
 					foreach (var line in container.EnumerateLines(containerStart, forward))
@@ -458,8 +475,8 @@ namespace Eto.ExtendedRichTextArea.Model
 		
 		public string GetText(int start, int length)
 		{
-			if (Separator != null) string.Join(Separator, EnumerateInlines(start, start + length, false));
-			return string.Concat(EnumerateInlines(start, length, false));
+			var inlineText = EnumerateInlines(start, start + length, false).Select(r => r.Text);
+			return Separator != null ? string.Join(Separator, inlineText) : string.Concat(inlineText);
 		}
 
 		public override string ToString() => Text;

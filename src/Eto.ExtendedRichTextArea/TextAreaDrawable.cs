@@ -16,7 +16,6 @@ namespace Eto.ExtendedRichTextArea
 		bool _isValid = true;
 		Scrollable? _parentScrollable;		
 		DocumentRange? _selection;
-		readonly Command _cutCommand;
 		readonly ExtendedRichTextArea _textArea;
 
 		public Document Document
@@ -27,12 +26,20 @@ namespace Eto.ExtendedRichTextArea
 				if (_document != null)
 				{
 					_document.Changed -= Document_Changed;
+					_document.OverrideAttributes -= Document_OverrideAttributes;
 				}
 				_document = value ?? throw new ArgumentNullException(nameof(value));
 				_document.Changed += Document_Changed;
+				_document.OverrideAttributes += Document_OverrideAttributes;
 				_caret.Index = 0;
 				_caret.CalculateCaretBounds();
 			}
+		}
+
+		private void Document_OverrideAttributes(object? sender, OverrideAttributesEventArgs e)
+		{
+			if (Selection?.Length > 0)
+				e.NewAttributes.Add(new AttributeRange(Selection.Start, Selection.End, new Attributes { Background = new SolidBrush(SystemColors.Highlight), Foreground = new SolidBrush(SystemColors.HighlightText) }));
 		}
 
 		private void Document_Changed(object? sender, EventArgs e)
@@ -42,9 +49,13 @@ namespace Eto.ExtendedRichTextArea
 #if DEBUG
 			_isValid = Document.GetIsValid();
 #endif
-			Invalidate();
+			Invalidate(false);
+
+			// Shouldn't be needed after https://github.com/picoe/Eto/pull/2709
+			if (Platform.IsWpf)
+				_parentScrollable?.UpdateScrollSizes();
 		}
-		
+
 		internal CaretBehavior Caret => _caret;
 		internal KeyboardBehavior Keyboard => _keyboard;
 		internal MouseBehavior Mouse => _mouse;
@@ -58,12 +69,6 @@ namespace Eto.ExtendedRichTextArea
 			_mouse = new MouseBehavior(this, _caret);
 			CanFocus = true;
 			
-			_cutCommand = new CutCommand(this);
-
-			if (Platform.IsMac)
-			{
-				MapPlatformCommand("cut", _cutCommand);
-			}
 		}
 
 		
@@ -143,14 +148,13 @@ namespace Eto.ExtendedRichTextArea
 					// Eto.Wpf currently has an issue getting client size before loaded during a drawing operation, so ignore for now.
 				}
 			}
-			_selection?.Paint(e.Graphics);
+			// _selection?.Paint(e.Graphics);
 
 			var screen = ParentWindow?.Screen ?? Screen.PrimaryScreen;	
 			Document.ScreenScale = screen.Scale;
 			Document.Paint(e.Graphics, clip);
 			_caret.Paint(e);
 		}
-
 
 		internal float Scale => ParentWindow?.Screen.Scale ?? 1;
 

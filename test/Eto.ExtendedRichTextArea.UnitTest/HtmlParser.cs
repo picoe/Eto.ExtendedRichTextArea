@@ -70,7 +70,7 @@ namespace Eto.ExtendedRichTextArea.UnitTest
 								SetAttributes(a => a.Typeface = a.Family?.Typefaces.FirstOrDefault(r => r.Bold));
 								break;
 							case "color":
-								SetAttributes(a => a.ForegroundBrush = new SolidBrush(Color.Parse(value)));
+								SetAttributes(a => a.Foreground = new SolidBrush(Color.Parse(value)));
 								break;
 						}
 					}

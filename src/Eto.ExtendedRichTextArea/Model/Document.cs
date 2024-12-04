@@ -70,7 +70,7 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public Attributes DefaultAttributes
 		{
-			get => _defaultAttributes ??= new Attributes { Font = GetDefaultFont(), ForegroundBrush = new SolidBrush(SystemColors.ControlText) };
+			get => _defaultAttributes ??= new Attributes { Font = GetDefaultFont(), Foreground = new SolidBrush(SystemColors.ControlText) };
 			set
 			{
 				_defaultAttributes = value;
@@ -84,10 +84,10 @@ namespace Eto.ExtendedRichTextArea.Model
 			set => DefaultAttributes.Font = value;
 		}
 
-		public Brush DefaultForegroundBrush
+		public Brush DefaultForeground
 		{
-			get => DefaultAttributes.ForegroundBrush ?? new SolidBrush(SystemColors.ControlText);
-			set => DefaultAttributes.ForegroundBrush = value;
+			get => DefaultAttributes.Foreground ?? new SolidBrush(SystemColors.ControlText);
+			set => DefaultAttributes.Foreground = value;
 		}
 
 		public WrapMode WrapMode { get; internal set; }
@@ -125,7 +125,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				lineHeight = line.Bounds.Height;
 			}
 			
-			return new RectangleF(point.X, point.Y + leading, 1, lineHeight);
+			return new RectangleF(point.X, point.Y, 1, lineHeight);
 		}
 
 		public Attributes GetAttributes(int start, int end)
@@ -314,19 +314,23 @@ namespace Eto.ExtendedRichTextArea.Model
 		private int GetPreviousWord(int start)
 		{
 			var words = EnumerateWords(start, false);
-			var prevWord = words.Skip(1).FirstOrDefault();
-			if (prevWord.start >= 0)
-				return prevWord.start + Start;
-			return End;
+			foreach (var word in words)
+			{
+				if (start > word.start + word.text.Length)
+					return word.start + Start;
+			}
+			return Start;
 		}
 
 
 		private int GetNextWord(int start)
 		{
 			var words = EnumerateWords(start, true);
-			var nextWord = words.Skip(1).FirstOrDefault();
-			if (nextWord.start >= 0)
-				return nextWord.start + Start;
+			foreach (var word in words)
+			{
+				if (start < word.start)
+					return word.start + Start;
+			}
 			return End;
 		}
 
@@ -421,7 +425,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			// TODO: move this to ContainerElement
 			for (int i = 0; i < Count; i++)
 			{
-				ParagraphElement? paragraph = this[i];
+				var paragraph = this[i];
 				if (paragraph == null)
 					continue;
 				if (end <= paragraph.Start)
@@ -453,7 +457,7 @@ namespace Eto.ExtendedRichTextArea.Model
 					{
 						// need to split and apply attributes to right side only
 						var right = inline.Split(start - docStart);
-						if (right != null && inline.Parent is IContainerElement container)
+						if (right != null && inline.Parent is IBlockElement container)
 						{
 							container.InsertAt(inline.End, right);
 
@@ -463,7 +467,7 @@ namespace Eto.ExtendedRichTextArea.Model
 							{
 								// need to split again as the end is in the middle of the right side
 								right = applySpan.Split(end - docStart);
-								if (right != null && applySpan.Parent is IContainerElement container2)
+								if (right != null && applySpan.Parent is IBlockElement container2)
 								{
 									container2.InsertAt(applySpan.End, right);
 								}
@@ -474,7 +478,7 @@ namespace Eto.ExtendedRichTextArea.Model
 					{
 						// need to split and apply attributes to left side
 						var right = applySpan.Split(end - docStart);
-						if (right != null && applySpan.Parent is IContainerElement container)
+						if (right != null && applySpan.Parent is IBlockElement container)
 						{
 							container.InsertAt(applySpan.End, right);
 						}
@@ -507,6 +511,71 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 
 			return newAttributes;
+		}
+		
+		public event EventHandler<OverrideAttributesEventArgs>? OverrideAttributes;
+
+		internal void TriggerOverrideAttributes(Line line, Chunk chunk, Attributes attributes, out List<AttributeRange>? newAttributes)
+		{
+			var args = new OverrideAttributesEventArgs(line, chunk, attributes);
+			OverrideAttributes?.Invoke(this, args);
+			newAttributes = args.NewAttributes;
+		}
+	}
+
+	public class OverrideAttributesEventArgs : EventArgs
+	{
+		public Line Line { get; }
+		public Chunk Chunk { get; }
+		public Attributes Attributes { get; }
+
+		public int Start => Chunk.Start;
+		public int End => Chunk.End;
+		public int Length => Chunk.Length;
+		public string Text => Chunk.Element.Text;
+		
+		List<AttributeRange>? _newAttributes;
+		public List<AttributeRange> NewAttributes => _newAttributes ??= new List<AttributeRange>();
+
+		public OverrideAttributesEventArgs(Line line, Chunk chunk, Attributes attributes)
+		{
+			Line = line;
+			Chunk = chunk;
+			Attributes = attributes;
+		}
+	}
+
+	public struct AttributeRange
+	{
+		int? _end;
+		int? _length;
+		public int Start { get; set; }
+		public int End
+		{
+			get => _end ?? Start + _length ?? 0;
+			set
+			{
+				_end = value;
+				_length = null;
+			}
+		}
+		
+		public int Length
+		{
+			get => _length ?? _end ?? Start - Start;
+			set
+			{
+				_length = value;
+				_end = null;
+			}
+		}
+		public Attributes Attributes { get; set; }
+		
+		public AttributeRange(int start, int end, Attributes attributes)
+		{
+			Start = start;
+			_end = end;
+			Attributes = attributes;
 		}
 	}
 }

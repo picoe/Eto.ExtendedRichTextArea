@@ -25,7 +25,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				Chunk? chunk = this[i];
 				if (!chunk.Bounds.Intersects(clipBounds))
 					continue;
-				chunk.Paint(graphics, clipBounds);
+				chunk.Paint(this, graphics, clipBounds);
 			}
 		}
 

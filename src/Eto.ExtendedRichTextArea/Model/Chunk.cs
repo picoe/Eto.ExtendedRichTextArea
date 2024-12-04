@@ -17,7 +17,8 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public int Length => End - Start;
 		
-		public int InlineIndex { get; }
+		public int InlineStart { get; }
+		public int InlineEnd => InlineStart + Length;
 
 		public Chunk(IInlineElement element, int start, int end, RectangleF bounds, int inlineIndex = 0)
 		{
@@ -25,13 +26,13 @@ namespace Eto.ExtendedRichTextArea.Model
 			Start = start;
 			End = end;
 			Bounds = bounds;
-			InlineIndex = inlineIndex;
+			InlineStart = inlineIndex;
 		}
 
-		internal void Paint(Graphics graphics, RectangleF clipBounds)
+		internal void Paint(Line line, Graphics graphics, RectangleF clipBounds)
 		{
 			// graphics.DrawRectangle(Colors.Gray, Bounds);
-			Element.Paint(this, graphics, clipBounds);
+			Element.Paint(line, this, graphics, clipBounds);
 		}
 
 		internal PointF? GetPointAt(int start)

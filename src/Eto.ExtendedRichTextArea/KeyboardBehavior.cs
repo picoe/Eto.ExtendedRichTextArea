@@ -2,6 +2,8 @@ using Eto.Forms;
 using Eto.ExtendedRichTextArea.Model;
 
 using System;
+using Eto.ExtendedRichTextArea.Commands;
+using System.Windows.Input;
 
 namespace Eto.ExtendedRichTextArea
 {
@@ -9,6 +11,7 @@ namespace Eto.ExtendedRichTextArea
 	{
 		readonly TextAreaDrawable _textArea;
 		readonly CaretBehavior _caret;
+		readonly List<Command> _commands = new List<Command>();
 
 		Document Document => _textArea.Document;
 
@@ -27,6 +30,18 @@ namespace Eto.ExtendedRichTextArea
 			{
 				_textArea.KeyDown += TextArea_KeyDown_Generic;
 			}
+
+			AddCommand(new CutCommand(textArea), "cut");
+			AddCommand(new CopyCommand(textArea), "copy");
+			AddCommand(new PasteCommand(textArea), "paste");
+
+		}
+
+		void AddCommand(Command command, string? macPlatformCommand = null)
+		{
+			_commands.Add(command);
+			if (_textArea.Platform.IsMac && macPlatformCommand != null)
+				_textArea.MapPlatformCommand(macPlatformCommand, command);
 		}
 
 		private void SetSelection(int lastCaretIndex, bool extendSelection)
@@ -60,7 +75,7 @@ namespace Eto.ExtendedRichTextArea
 				
 			if (!e.Handled)
 			{
-				switch (e.Key)
+				switch (e.KeyData & ~Keys.Shift)
 				{
 					case Keys.PageUp:
 						_caret.Index = 0;
@@ -106,6 +121,16 @@ namespace Eto.ExtendedRichTextArea
 						_caret.Navigate(DocumentNavigationMode.NextLine);
 						e.Handled = true;
 						break;
+					case Keys.Control | Keys.Alt | Keys.Right:
+					case Keys.Alt | Keys.Right:
+						_caret.Navigate(DocumentNavigationMode.NextWord);
+						e.Handled = true;
+						break;
+					case Keys.Control | Keys.Alt | Keys.Left:
+					case Keys.Alt | Keys.Left:
+						_caret.Navigate(DocumentNavigationMode.PreviousWord);
+						e.Handled = true;
+						break;
 				}
 			}
 			if (e.Handled)
@@ -116,6 +141,8 @@ namespace Eto.ExtendedRichTextArea
 		{
 			if (e.Text.Length > 0)
 			{
+				if (char.IsControl(e.Text[0]))
+					return;
 				_textArea.TextArea.InsertText(e.Text);
 				e.Cancel = true;
 			}
@@ -191,7 +218,7 @@ namespace Eto.ExtendedRichTextArea
 
 		private void TextArea_KeyDown(object? sender, KeyEventArgs e)
 		{
-			switch (e.Key)
+			switch (e.KeyData)
 			{
 				case Keys.Backspace:
 					if (_textArea.Selection?.Length > 0)
@@ -227,6 +254,21 @@ namespace Eto.ExtendedRichTextArea
 					e.Handled = true;
 					break;
 			}
+
+			if (!e.Handled)
+			{
+				foreach (var command in _commands)
+				{
+					if (command.Enabled && command.Shortcut == e.KeyData)
+					{
+						command.Execute();
+						e.Handled = true;
+						break;
+					}
+				}
+			}
+
+
 		}
 	}
 }

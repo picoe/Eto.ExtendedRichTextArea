@@ -4,10 +4,10 @@
     <LangVersion>latest</LangVersion>
 
 		<BasePath>$(MSBuildThisFileDirectory)</BasePath>
-    <UseLocalEto Condition="$(SolutionName) == 'Eto.ExtendedRichTextArea.LocalEto'">True</UseLocalEto>
+    <UseLocalEto Condition="$(UseLocalEto) == '' and $(SolutionName) == 'Eto.ExtendedRichTextArea.LocalEto'">True</UseLocalEto>
     <LocalEtoPath>$(MSBuildThisFileDirectory)..\Eto\</LocalEtoPath>
     
-    <BaseIntermediateOutputPath>$(BasePath)artifacts\obj\$(OSPlatform)\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseIntermediateOutputPath>$(BasePath)artifacts\obj\$(OS)\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
     <BaseOutputPath>$(BasePath)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
 
     <EnableWindowsTargeting>true</EnableWindowsTargeting>

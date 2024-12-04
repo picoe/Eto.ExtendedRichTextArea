@@ -119,17 +119,33 @@ namespace Eto.ExtendedRichTextArea.Model
 				return new PointF(chunk.Bounds.Right, chunk.Bounds.Y);
 			if (start == 0)
 				return new PointF(chunk.Bounds.X, chunk.Bounds.Y);
-			var text = Text.Substring(chunk.InlineIndex, start);
+			var text = Text.Substring(chunk.InlineStart, start);
 			var size = Font?.MeasureString(text) ?? SizeF.Empty;
 			return new PointF(chunk.Bounds.X + size.Width, chunk.Bounds.Y);
 		}
 
 		public IEnumerable<(string text, int start)> EnumerateWords(int start, bool forward)
 		{
+			if (start < 0)
+				throw new ArgumentOutOfRangeException(nameof(start), start, "Start must be greater than or equal to 0");
+			if (start > Length)
+				throw new ArgumentOutOfRangeException(nameof(start), start, "Start must be less than or equal to the length");
+
 			var text = Text;
 			if (forward)
 			{
 				int last = -1;
+				// try going backwards first, the start might not be at the beginning of the word.
+				if (start > 0)
+				{
+					for (int i = start - 1; i >= 0; i--)
+					{
+						if (char.IsWhiteSpace(text[i]))
+							break;
+						last = i;
+					}
+				}
+				
 				for (int i = start; i < text.Length; i++)
 				{
 					if (char.IsWhiteSpace(text[i]))
@@ -144,24 +160,40 @@ namespace Eto.ExtendedRichTextArea.Model
 					if (last == -1)
 						last = i;
 				}
+				if (last != -1)
+					yield return (text.Substring(last), last);
 			}
 			else
 			{
 				int last = -1;
-				for (int i = start; i >= 0; i--)
+				// try going forwards first, the start might not be at the end of the word.
+				if (start < text.Length)
+				{
+					for (int i = start; i < text.Length; i++)
+					{
+						if (char.IsWhiteSpace(text[i]))
+							break;
+						last = i;
+					}
+				}
+				
+				
+				for (int i = start - 1; i >= 0; i--)
 				{
 					if (char.IsWhiteSpace(text[i]))
 					{
-						if (last != text.Length)
+						if (last != -1)
 						{
-							yield return (text.Substring(last, i - last), i);
-							last = text.Length;
+							yield return (text.Substring(i + 1, last - i), i+1);
+							last = -1;
 						}
 						continue;
 					}
-					if (last == text.Length)
+					if (last == -1)
 						last = i;
 				}
+				if (last != -1 && last > 0)
+					yield return (text.Substring(0, last + 1), 0);
 			}
 		}
 
@@ -218,9 +250,86 @@ namespace Eto.ExtendedRichTextArea.Model
 			yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start, end - start) };
 		}
 
-		public void Paint(Chunk chunk, Graphics graphics, RectangleF clipBounds)
+		public void Paint(Line line, Chunk chunk, Graphics graphics, RectangleF clipBounds)
 		{
-			graphics.DrawText(_formattedText, chunk.Bounds.Location);
+			if (_resolvedAttributes == null || _formattedText == null)
+				return;
+				
+			var location = chunk.Bounds.Location;
+			location.Y += line.Baseline - _resolvedAttributes.Baseline ?? line.Baseline;
+			var start = chunk.InlineStart;
+			
+			void DrawBackground(Attributes attributes, float? left, float? right)
+			{
+				if (attributes.Background == null)
+					return;
+				var bounds = chunk.Bounds;
+				if (left != null)
+					bounds.Left = left.Value;
+				if (right != null)
+					bounds.Right = right.Value;
+					
+				bounds.Y = line.Bounds.Y;
+				bounds.Height = line.Bounds.Height;
+				graphics.FillRectangle(attributes.Background, bounds);
+			}
+			
+			void DrawText(Attributes attributes, int end)
+			{
+				var text = Text.Substring(start, end - start);
+				using var formattedText = new FormattedText { Text = text };
+				attributes.Apply(formattedText);
+				var width = formattedText.Measure().Width;
+				DrawBackground(attributes, location.X, location.X + width);
+				
+				graphics.DrawText(formattedText, location);
+				location.X += width;
+				start += text.Length;
+			}
+
+			// TODO: Check performance of this?
+			var doc = this.GetDocument();
+			if (doc != null)
+			{
+				doc.TriggerOverrideAttributes(line, chunk, _resolvedAttributes, out var newAttributes);
+				if (newAttributes?.Count > 0)
+				{
+					// need to draw in parts
+					var docStart = DocumentStart + chunk.InlineStart;
+					var docEnd = docStart + chunk.Length;
+					foreach (var attr in newAttributes)
+					{
+						// skip if it's outside this chunk range
+						if (attr.End < docStart)
+							continue;
+						if (attr.Start > docEnd)
+							break;
+						// ensure it's in range
+						var attrStart = Math.Max(0, attr.Start - docStart);
+						var attrEnd = Math.Min(attr.End - docStart, chunk.InlineEnd);
+						if (attrStart > start)
+						{
+							// draw first part without override
+							DrawText(_resolvedAttributes, attrStart);
+						}
+						
+						var attributes = _resolvedAttributes.Merge(attr.Attributes, false);
+						DrawText(attributes, attrEnd);
+					}
+				}
+			}
+
+			if (start == chunk.InlineStart)
+			{
+				// draw whole thing.
+				DrawBackground(_resolvedAttributes, null, null);
+				graphics.DrawText(_formattedText, location);
+			}
+			else if (start < chunk.InlineEnd)
+			{
+				// draw last part without override
+				DrawText(_resolvedAttributes, chunk.InlineEnd);
+			}
 		}
 
 		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, out float baseline)
@@ -234,7 +343,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			{
 				_measureSize = _formattedText.Measure();
 			}
-			baseline = Font?.Baseline ?? 0;
+			baseline = _resolvedAttributes.Baseline ?? 0;
 			return _measureSize.Value;
 		}
 

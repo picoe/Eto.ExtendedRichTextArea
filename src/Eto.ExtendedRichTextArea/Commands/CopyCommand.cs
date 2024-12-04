@@ -2,12 +2,12 @@ using Eto.Forms;
 
 namespace Eto.ExtendedRichTextArea.Commands
 {
-	class CutCommand : Command
+	class CopyCommand : Command
 	{
 		readonly TextAreaDrawable _textArea;
-		public CutCommand(TextAreaDrawable textArea)
+		public CopyCommand(TextAreaDrawable textArea)
 		{
-			Shortcut = Application.Instance.CommonModifier | Keys.X;
+			Shortcut = Application.Instance.CommonModifier | Keys.C;
 			_textArea = textArea;
 			_textArea.SelectionChanged += TextArea_SelectionChanged;
 		}
@@ -21,10 +21,8 @@ namespace Eto.ExtendedRichTextArea.Commands
 		{
 			if (_textArea.Selection == null)
 				return;
-			using var clip = new Clipboard(); 
+			var clip = new Clipboard(); 
 			clip.Text = _textArea.Selection.Text;
-			_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
-			_textArea.Selection = null;
 		}
 	}
 }

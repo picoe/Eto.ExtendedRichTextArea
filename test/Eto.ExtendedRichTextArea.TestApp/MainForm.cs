@@ -95,25 +95,40 @@ namespace Eto.ExtendedRichTextArea.TestApp
 				}
 			};
 			sizeDropDown.DataStore = new List<object> { 8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72 };
-			sizeDropDown.SelectedValueChanged += (sender, e) => textArea.Focus();
+			sizeDropDown.DropDownClosed += (sender, e) => textArea.Focus();
+			sizeDropDown.KeyDown += (sender, e) =>
+			{
+				if (e.KeyData == Keys.Enter)
+				{
+					textArea.Focus();
+					e.Handled = true;
+				}
+			};
 			sizeDropDown.Bind(c => c.Text, textArea,
 				attributesBinding
 				.Child(c => c.Size)
 				.Convert(size => size.ToString(), s => float.TryParse(s, out var v) ? v : null));
 
 			// Color
-			var colorSelector = new ColorPicker { AllowAlpha = true };
+			var foregroundSelector = new ColorPicker { AllowAlpha = true };
 			// TODO: This doesn't work on Wpf to set the focus to the richTextArea so you have to click first.
-			colorSelector.ValueChanged += (sender, e) => Application.Instance.AsyncInvoke(textArea.Focus);
-			colorSelector.ValueBinding.Bind(textArea,
-				attributesBinding.Child(a => a.ForegroundBrush)
-				.Convert(r => r is SolidBrush brush ? brush.Color : Colors.Black, r => new SolidBrush(r)));
+			foregroundSelector.ValueChanged += (sender, e) => Application.Instance.AsyncInvoke(textArea.Focus);
+			foregroundSelector.ValueBinding.Bind(textArea,
+				attributesBinding.Child(a => a.Foreground)
+				.Convert(r => r is SolidBrush brush ? brush.Color : Colors.Transparent, r => r.A <= 0 ? null : new SolidBrush(r)));
+
+			var backgroundSelector = new ColorPicker { AllowAlpha = true };
+			// TODO: This doesn't work on Wpf to set the focus to the richTextArea so you have to click first.
+			backgroundSelector.ValueChanged += (sender, e) => Application.Instance.AsyncInvoke(textArea.Focus);
+			backgroundSelector.ValueBinding.Bind(textArea,
+				attributesBinding.Child(a => a.Background)
+				.Convert(r => r is SolidBrush brush ? brush.Color : Colors.Transparent, r => r.A <= 0 ? null : new SolidBrush(r)));
 
 			// Layout
 			return new TableLayout {
 				Spacing = new Size(4, 4),
 				Rows = {
-					new TableRow("Family", familyDropDown, "Typeface", typefaceDropDown, "Size", sizeDropDown, colorSelector),
+					new TableRow("Family", familyDropDown, "Typeface", typefaceDropDown, "Size", sizeDropDown, "Fg", foregroundSelector, "Bg", backgroundSelector),
 				},
 			};
 		}

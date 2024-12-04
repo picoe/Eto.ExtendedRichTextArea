@@ -25,6 +25,12 @@ public class NavigationTests : TestBase
 	[TestCase("Hello\nWorld", 6, DocumentNavigationMode.EndOfLine, 11)]
 	[TestCase("Hello\nWorld", 8, DocumentNavigationMode.EndOfLine, 11)]
 	[TestCase("Hello\nWorld", 11, DocumentNavigationMode.EndOfLine, 11)]
+
+	[TestCase("Hello there fun\nWorld", 0, DocumentNavigationMode.NextWord, 6)]
+	[TestCase("Hello there fun\nWorld", 2, DocumentNavigationMode.NextWord, 6)]
+	[TestCase("Hello there fun\nWorld", 5, DocumentNavigationMode.NextWord, 6)]
+	[TestCase("Hello there fun\nWorld", 12, DocumentNavigationMode.NextWord, 15)]
+
 	public void NavigateShouldWork(string text, int start, DocumentNavigationMode mode, int expected)
 	{
 		var document = new Document();

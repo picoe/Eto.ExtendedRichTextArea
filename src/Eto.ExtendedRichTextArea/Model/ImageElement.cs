@@ -13,6 +13,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		public Image? Image { get; set; }
 		
 		int? _documentStart;
+		Attributes? _resolvedAttributes;
 		public int DocumentStart => _documentStart ??= Start + Parent?.DocumentStart ?? 0;
 
 		public IElement? Parent { get; private set; }
@@ -52,9 +53,34 @@ namespace Eto.ExtendedRichTextArea.Model
 			yield return this;
 		}
 
-		public void Paint(Chunk chunk, Graphics graphics, RectangleF clipBounds)
+		public void Paint(Line line, Chunk chunk, Graphics graphics, RectangleF clipBounds)
 		{
-			graphics.DrawImage(Image, chunk.Bounds);
+			var doc = this.GetDocument();
+			var attributes = _resolvedAttributes;
+			if (doc != null && attributes != null)
+			{
+				// TODO: Figure out an easier way to handle this for custom element authoring
+				doc.TriggerOverrideAttributes(line, chunk, attributes, out var newAttributes);
+				if (newAttributes != null)
+				{
+					var docStart = DocumentStart + chunk.InlineStart;
+					var docEnd = docStart + chunk.Length;
+					foreach (var attr in newAttributes)
+					{
+						if (attr.Start >= docEnd || attr.End <= docStart)
+							continue;
+						attributes = attributes.Merge(attr.Attributes, false);
+					}
+				}
+				if (attributes?.Background != null)
+				{
+					graphics.FillRectangle(attributes.Background, chunk.Bounds);
+				}
+			}
+
+			var bounds = chunk.Bounds;
+			bounds.Y += line.Baseline - Size.Height / 2;
+			graphics.DrawImage(Image, bounds);
 		}
 
 		public PointF? GetPointAt(Chunk chunk, int start)
@@ -78,8 +104,9 @@ namespace Eto.ExtendedRichTextArea.Model
 		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, out float baseline)
 		{
 			_documentStart = null;
+			_resolvedAttributes = defaultAttributes.Merge(Attributes, false);
 			Size = Image?.Size ?? SizeF.Empty;
-			baseline = Size.Height;
+			baseline = Size.Height / 2;
 			return Size;
 		}
 

@@ -73,11 +73,11 @@ namespace Eto.ExtendedRichTextArea
 
 		public Brush SelectionBrush
 		{
-			get => _selectionAttributes?.ForegroundBrush ?? Document.DefaultForegroundBrush;
+			get => _selectionAttributes?.Foreground ?? Document.DefaultForeground;
 			set
 			{
 				_selectionAttributes ??= new Attributes();
-				_selectionAttributes.ForegroundBrush = value;
+				_selectionAttributes.Foreground = value;
 				SelectionBrushChanged?.Invoke(this, EventArgs.Empty);
 			}
 		}
@@ -98,8 +98,6 @@ namespace Eto.ExtendedRichTextArea
 
 			BackgroundColor = SystemColors.ControlBackground;
 			Size = new Size(200, 100);
-			ExpandContentHeight = false;
-			ExpandContentWidth = false;
 		}
 
 		protected override void OnSizeChanged(EventArgs e)
