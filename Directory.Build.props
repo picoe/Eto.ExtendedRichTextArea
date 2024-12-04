@@ -50,4 +50,6 @@
 
   </PropertyGroup>
   
+  <Import Condition="Exists('$(BasePath)..\Eto.ExtendedRichTextArea.props')" Project="$(BasePath)..\Eto.ExtendedRichTextArea.props" />
+  
 </Project>

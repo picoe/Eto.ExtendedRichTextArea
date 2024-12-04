@@ -111,7 +111,7 @@ namespace Eto.ExtendedRichTextArea
 		{
 			if (_caretVisible && !_caretBounds.IsEmpty)
 			{
-				e.Graphics.FillRectangle(SystemColors.ControlText, _caretBounds);
+				e.Graphics.FillRectangle(_textArea.Document.DefaultAttributes.Foreground ?? new SolidBrush(SystemColors.ControlText), _caretBounds);
 			}
 		}
 	}
