@@ -287,7 +287,13 @@ namespace Eto.ExtendedRichTextArea.Model
 		
 		public override int GetHashCode()
 		{
-			return HashCode.Combine(Font, Foreground, Background, Underline, Strikethrough, Offset);
+			return
+				Font?.GetHashCode() ?? 0 ^
+				Foreground?.GetHashCode() ?? 0 ^
+				Background?.GetHashCode() ?? 0 ^
+				Underline?.GetHashCode() ?? 0 ^
+				Strikethrough?.GetHashCode() ?? 0 ^
+				Offset?.GetHashCode() ?? 0;
 		}
 		
 		public void Apply(FormattedText formattedText)
