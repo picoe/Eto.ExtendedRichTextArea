@@ -57,6 +57,18 @@ namespace Eto.ExtendedRichTextArea
 
 		public event EventHandler<EventArgs>? SelectionAttributesChanged;
 
+		public DocumentRange Selection
+		{
+			get => _drawable.Selection ??= Document.GetRange(_drawable.Caret.Index, _drawable.Caret.Index);
+			set => _drawable.Selection = value;
+		}
+
+		 public string SelectionText
+		 {
+		 	get => _drawable.Selection?.Text ?? string.Empty;
+		 	set => Selection.Text = value;
+		 }
+
 		public Font SelectionFont
 		{
 			get => _selectionAttributes?.Font ?? Document.DefaultFont;

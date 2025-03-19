@@ -475,7 +475,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		
 		public string GetText(int start, int length)
 		{
-			var inlineText = EnumerateInlines(start, start + length, false).Select(r => r.Text);
+			var inlineText = EnumerateInlines(start, start + length, true).Select(r => r.Text);
 			return Separator != null ? string.Join(Separator, inlineText) : string.Concat(inlineText);
 		}
 

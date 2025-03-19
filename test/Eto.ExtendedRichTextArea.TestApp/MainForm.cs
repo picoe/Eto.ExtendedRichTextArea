@@ -160,6 +160,26 @@ namespace Eto.ExtendedRichTextArea.TestApp
 				RichTextArea.Focus();
 			};
 
+			var setSelectedText = new Button { Text = "Set SelectedText" };
+			setSelectedText.Click += (sender, e) =>
+			{
+				var dlg = new Dialog<bool>();
+				var edit = new TextArea { Text = RichTextArea.SelectionText, Width = 300 };
+				edit.SelectAll();
+				dlg.Content = new TableLayout
+				{
+					Spacing = new Size(5, 5),
+					Rows = { new TableRow("SelectedText:", edit) }
+				};
+				dlg.PositiveButtons.Add(dlg.DefaultButton = new Button((s, e) => dlg.Close(true)) { Text = "Ok" });
+				dlg.NegativeButtons.Add(dlg.AbortButton = new Button((s, e) => dlg.Close(false)) { Text = "Cancel" });
+				dlg.Shown += (s, e) => edit.Focus();
+				if (dlg.ShowModal(setSelectedText))
+				{
+					RichTextArea.SelectionText = edit.Text;
+				}
+			};
+
 
 			var structure = new TreeGridView
 			{
@@ -236,7 +256,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 
 			var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
 
-			layout.AddSeparateRow(insertRandomTextButton, insertImageButton, null);
+			layout.AddSeparateRow(insertRandomTextButton, insertImageButton, setSelectedText, null);
 			layout.AddSeparateRow(AttributeControls(), null);
 			layout.BeginVertical();
 			layout.BeginHorizontal();

@@ -8,13 +8,15 @@ namespace Eto.ExtendedRichTextArea.Model
 		
 		public int Start { get; }
 		public int Length => End - Start;
-		public int End { get; }
+		public int End { get; private set; }
 		public string Text
 		{
 			get => Document.GetText(Start, Length) ?? string.Empty;
 			set
 			{
 				Document.RemoveAt(Start, Length);
+				End = Start + value.Length;
+				_bounds = null;
 				Document.InsertText(Start, value);
 			}
 		}
