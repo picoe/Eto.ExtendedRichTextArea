@@ -31,7 +31,7 @@ namespace Eto.ExtendedRichTextArea
 					_document.OverrideAttributes -= Document_OverrideAttributes;
 					_document.DefaultAttributesChanged -= Document_DefaultAttributesChanged;
 				}
-				_document = value ?? throw new ArgumentNullException(nameof(value));
+				_document = value ?? new Document();
 				_document.Changed += Document_Changed;
 				_document.OverrideAttributes += Document_OverrideAttributes;
 				_document.DefaultAttributesChanged += Document_DefaultAttributesChanged;
