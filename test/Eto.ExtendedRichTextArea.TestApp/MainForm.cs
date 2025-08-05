@@ -86,6 +86,17 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			dataStoreBinding.Changing += (sender, e) => selectedBinding.Mode = DualBindingMode.Manual;
 			dataStoreBinding.Changed += (sender, e) => selectedBinding.Mode = DualBindingMode.TwoWay;
 
+
+			var superscriptCheckBox = new CheckBox { Text = "Superscript" };
+			superscriptCheckBox.CheckedBinding.Bind(RichTextArea,
+				attributesBinding.Child(a => a.Superscript));
+			superscriptCheckBox.CheckedChanged += (sender, e) => RichTextArea.Focus();
+
+			var subscriptCheckBox = new CheckBox { Text = "Subscript" };
+			subscriptCheckBox.CheckedBinding.Bind(RichTextArea,
+				attributesBinding.Child(a => a.Subscript));
+			subscriptCheckBox.CheckedChanged += (sender, e) => RichTextArea.Focus();
+
 			// Size
 			var sizeDropDown = new ComboBox();
 			sizeDropDown.AutoComplete = true;
@@ -130,7 +141,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			return new TableLayout {
 				Spacing = new Size(4, 4),
 				Rows = {
-					new TableRow("Family", familyDropDown, "Typeface", typefaceDropDown, "Size", sizeDropDown, "Fg", foregroundSelector, "Bg", backgroundSelector),
+					new TableRow("Family", familyDropDown, "Typeface", typefaceDropDown, superscriptCheckBox, subscriptCheckBox, "Size", sizeDropDown, "Fg", foregroundSelector, "Bg", backgroundSelector),
 				},
 			};
 		}
@@ -205,17 +216,23 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			{
 				changeTimer.Stop();
 				var items = new TreeGridItemCollection();
-				foreach (var paragraph in RichTextArea.Document)
+				foreach (var block in RichTextArea.Document)
 				{
-					var paragraphItem = new TreeGridItem { Expanded = true };
-					paragraphItem.Values = new object[] { $"Paragraph: {paragraph.DocumentStart}:{paragraph.Length}" };
-					foreach (var inline in paragraph)
+					var blockItem = new TreeGridItem { Expanded = true };
+					var typeName = block.GetType().Name;
+					if (typeName.EndsWith("Element"))
+						typeName = typeName.Substring(0, typeName.Length - "Element".Length);
+					blockItem.Values = new object[] { $"{typeName}: {block.DocumentStart}:{block.Length}" };
+					if (block is IList list)
 					{
-						var inlineItem = new TreeGridItem();
-						inlineItem.Values = new object[] { $"{inline.GetType().Name}: {inline.DocumentStart}:{inline.Text}" };
-						paragraphItem.Children.Add(inlineItem);
+						foreach (var inline in list.OfType<IElement>())
+						{
+							var inlineItem = new TreeGridItem();
+							inlineItem.Values = new object[] { $"{inline.GetType().Name}: {inline.DocumentStart}:{inline.Text}" };
+							blockItem.Children.Add(inlineItem);
+						}
 					}
-					items.Add(paragraphItem);
+					items.Add(blockItem);
 				}
 				structure.DataStore = items;
 				

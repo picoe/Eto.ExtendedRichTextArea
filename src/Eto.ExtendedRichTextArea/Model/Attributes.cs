@@ -118,7 +118,10 @@ namespace Eto.ExtendedRichTextArea.Model
 				decoration |= FontDecoration.Underline;
 			if (_strikethrough == true)
 				decoration |= FontDecoration.Strikethrough;
-			return new Font(typeface, _size ?? 12, decoration);
+			var size = _size ?? 12;
+			if (Superscript == true || Subscript == true)
+				size *= 0.65f;
+			return new Font(typeface, size, decoration);
 		}
 
 		public Brush? Foreground
@@ -172,7 +175,39 @@ namespace Eto.ExtendedRichTextArea.Model
 				OnPropertyChanged();
 			}
 		}
-		
+
+		public bool? Superscript
+		{
+			get => _offset > 0;
+			set
+			{
+				_font = null;
+				if (value == true)
+					_offset = 2;
+				else
+					_offset = 0;
+				OnPropertyChanged(nameof(Offset));
+				OnPropertyChanged(nameof(Subscript));
+				OnPropertyChanged();
+			}
+		}
+
+		public bool? Subscript
+		{
+			get => _offset < 0;
+			set
+			{
+				_font = null;
+				if (value == true)
+					_offset = -2;
+				else
+					_offset = 0;
+				OnPropertyChanged(nameof(Offset));
+				OnPropertyChanged(nameof(Superscript));
+				OnPropertyChanged();
+			}
+		}
+
 		public Attributes Clone()
 		{
 			return new Attributes

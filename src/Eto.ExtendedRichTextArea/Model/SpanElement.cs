@@ -257,6 +257,20 @@ namespace Eto.ExtendedRichTextArea.Model
 				
 			var location = chunk.Bounds.Location;
 			location.Y += line.Baseline - _resolvedAttributes.Baseline ?? line.Baseline;
+
+			// super/subscript
+			var font = _resolvedAttributes.Font;
+			if (font != null && _resolvedAttributes.Superscript == true)
+			{
+				// Raise by 40% of the base font's ascent
+				location.Y -= font.Ascent * 0.5f * graphics.PointsPerPixel;
+			}
+			else if (font != null && _resolvedAttributes.Subscript == true)
+			{
+				// Lower by 25% of the base font's descent
+				location.Y += font.Descent * 0.25f * graphics.PointsPerPixel;
+			}
+
 			var start = chunk.InlineStart;
 			
 			void DrawBackground(Attributes attributes, float? left, float? right)
