@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel;
+using System.Collections;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
@@ -18,11 +19,11 @@ namespace Eto.ExtendedRichTextArea.Model
 		PreviousWord,
 	}
 
-	public class Document : ContainerElement<ParagraphElement>
+	public class Document : BlockContainerElement<IBlockElement>
 	{
-		internal override ContainerElement<ParagraphElement> Create() => throw new InvalidOperationException();
+		internal override ContainerElement<IBlockElement> Create() => throw new InvalidOperationException();
 
-		internal override ParagraphElement CreateElement() => new ParagraphElement();
+		internal override IBlockElement CreateElement() => new ParagraphElement();
 
 		public float ParagraphSpacing { get; set; }
 
@@ -122,6 +123,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			base.BeginEdit();
 			_suspendMeasure++;
+			// todo: save state for undo/redo
 		}
 
 		public override void EndEdit()
@@ -151,38 +153,7 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public Attributes GetAttributes(int start, int end)
 		{
-			// TODO: move this to ContainerElement?
-			bool isRange = end > start;
-			Attributes? attributes = null;
-			foreach (var paragraph in this)
-			{
-				if (end < paragraph.Start)// || (end == paragraph.Start && isRange))
-					break;
-				if (start > paragraph.End || (start == paragraph.End && isRange))
-					continue;
-
-				var paragraphAttributes = DefaultAttributes.Merge(paragraph.Attributes, false);
-
-				var paragraphStart = start - paragraph.Start;
-				var paragraphEnd = end - paragraph.Start;
-				foreach (var inline in paragraph)
-				{
-					if (paragraphEnd <= inline.Start)// || (paragraphEnd == inline.Start && isRange))
-						break;
-					if (paragraphStart > inline.End || (paragraphStart == inline.End && isRange))
-						continue;
-						
-					if (attributes == null)
-						attributes = paragraphAttributes.Merge(inline.Attributes, true);
-					else
-						attributes.ClearUnmatched(paragraphAttributes.Merge(inline.Attributes, false));
-				}
-
-				if (attributes == null)
-					attributes = paragraphAttributes.Clone();
-			}
-			return attributes ?? DefaultAttributes.Clone();
-
+			return GetAttributes(DefaultAttributes, start, end);
 		}
 
 		public void Replace(int start, int length, SpanElement span)
@@ -193,93 +164,50 @@ namespace Eto.ExtendedRichTextArea.Model
 			EndEdit();
 		}
 
+		void SaveState()
+		{
+			// This method can be used to save the current state of the document
+			// for undo/redo functionality or other purposes.
+			// Implementation details would depend on the specific requirements.
+			// This could involve storing the current document state in a stack or similar structure.
+
+			// copy the current document state
+			
+			
+		}
+
 
 		public void InsertText(int start, string text, Attributes? attributes = null)
 		{
 			InsertAt(start, new SpanElement { Text = text, Attributes = attributes?.Clone() });
 		}
 
-		public void InsertAt(int start, IInlineElement element)
+		public override bool InsertAt(int start, IElement element)
 		{
-			start = Math.Min(start, Length);
+			start = Math.Max(0, Math.Min(start, Length));
 
-			if (element is SpanElement insertSpan)
+			_suspendMeasure++;
+			var result = base.InsertAt(start, element);
+			if (!result && element is IInlineElement inlineElement)
 			{
-				var text = insertSpan.Text;
-				var lines = text.Split(new[] { Separator }, StringSplitOptions.None);
-				if (lines.Length == 0)
-					return;
-
-				// additional lines in new paragraphs
-				for (int i = 0; i < lines.Length; i++)
-				{
-					var line = lines[i];
-
-					var paragraph = Find(start);
-					var spanToInsert = insertSpan.WithText(line);
-					start = InsertElementAt(paragraph, start, i > 0, spanToInsert);
-				}
-				MeasureIfNeeded();
-				return;
+				// if we couldn't insert the inline element, we need to create a new paragraph
+				var paragraph = new ParagraphElement();
+				Add(paragraph);
+				result = paragraph.InsertAt(0, inlineElement);
 			}
-			else
-			{
-				var paragraph = Find(start);
-				InsertElementAt(paragraph, start, false, element);
+			_suspendMeasure--;
 
-				MeasureIfNeeded();
-			}
+			MeasureIfNeeded();
+			return result;
 		}
 
-		private int InsertElementAt(ParagraphElement? paragraph, int start, bool splitParagraph, IInlineElement element)
+		public override void Paint(Graphics graphics, RectangleF clipBounds)
 		{
-			if (paragraph != null)
+			foreach (var block in this)
 			{
-				if (splitParagraph)
-				{
-					var rightParagraph = paragraph.Split(start - paragraph.Start);
-					if (rightParagraph != null)
-					{
-						var paragraphIndex = IndexOf(paragraph);
-						rightParagraph.InsertInParagraph(0, element);
-						
-						Insert(paragraphIndex + 1, rightParagraph);
-						start = rightParagraph.Start + element.Length;
-						return start;
-					}
-				}
-				else if (element.Length > 0 && start >= paragraph.Start)
-				{
-					if (paragraph.InsertInParagraph(start - paragraph.Start, element))
-					{
-						Adjust(paragraph.Start, element.Length);
-						start += element.Length;
-						return start;
-					}
-				}
-				else
-					return start;
-			}
-
-			// create a new paragraph, couldn't insert in existing paragraph or split
-			var newParagraph = new ParagraphElement();
-			newParagraph.Attributes = GetAttributes(start, start);
-			if (element.Length > 0)
-			{
-				newParagraph.Add(element);
-			}
-			InsertAt(start, newParagraph);
-			start = newParagraph.End;
-			return start;
-		}
-
-		public void Paint(Graphics graphics, RectangleF clipBounds)
-		{
-			foreach (var paragraph in this)
-			{
-				if (!paragraph.Bounds.Intersects(clipBounds))
+				if (!block.Bounds.Intersects(clipBounds))
 					continue;
-				paragraph.Paint(graphics, clipBounds);
+				block.Paint(graphics, clipBounds);
 			}
 		}
 
@@ -290,32 +218,6 @@ namespace Eto.ExtendedRichTextArea.Model
 				Size = Measure(DefaultAttributes, AvailableSize, PointF.Empty);
 				Changed?.Invoke(this, EventArgs.Empty);
 			}
-		}
-
-		public bool GetIsValid()
-		{
-			var index = 0;
-			if (Count == 0)
-				return true;
-			for (int i = 0; i < Count; i++)
-			{
-				if (i > 0)
-					index++; // newline
-				var paragraph = this[i];
-				if (paragraph.Start != index)
-					return false;
-				var runIndex = 0;
-				foreach (var inline in paragraph)
-				{
-					if (inline.Start != runIndex)
-						return false;
-					runIndex += inline.Length;
-				}
-				if (paragraph.Length != runIndex)
-					return false;
-				index += runIndex;
-			}
-			return true;
 		}
 
 		public int Navigate(int start, DocumentNavigationMode type, PointF? caretLocation = null)
@@ -342,7 +244,6 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			return Start;
 		}
-
 
 		private int GetNextWord(int start)
 		{
@@ -409,14 +310,14 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			SizeF size = SizeF.Empty;
 			int start = 0;
-			var separatorLength = Separator?.Length ?? 0;
+			var separatorLength = SeparatorLength;
 			PointF elementLocation = location;
 			for (int i = 0; i < Count; i++)
 			{
 				if (i > 0)
 					start += separatorLength;
 				var element = this[i];
-				element.Start = start;
+				// element.Start = start;
 				var elementSize = element.Measure(defaultAttributes, availableSize, elementLocation);
 
 				size.Width = Math.Max(size.Width, elementSize.Width);
@@ -427,7 +328,6 @@ namespace Eto.ExtendedRichTextArea.Model
 				elementLocation.Y += height;
 				start += element.Length;
 			}
-			Length = start;
 			return size;
 		}
 		
@@ -436,103 +336,17 @@ namespace Eto.ExtendedRichTextArea.Model
 		public override PointF? GetPointAt(int start, out Line? line)
 		{
 			line = null;
-			var element = Find(start);
+			var element = FindAt(start).child;
 			var point = element?.GetPointAt(start - element.Start, out line);
 			return point ?? Bounds.Location;
 		}
 
-		internal void SetAttributes(int start, int end, Attributes? attributes)
+		public new void SetAttributes(int start, int end, Attributes? attributes)
 		{
-			// TODO: move this to ContainerElement
-			for (int i = 0; i < Count; i++)
-			{
-				var paragraph = this[i];
-				if (paragraph == null)
-					continue;
-				if (end <= paragraph.Start)
-					break;
-				if (start >= paragraph.End)
-					continue;
-
-				if (start <= paragraph.Start && end >= paragraph.End)
-				{
-					// encompasses entire paragraph, apply style to the paragraph itself
-					paragraph.Attributes = UpdateAttributes(attributes, paragraph.Attributes);
-				}
-
-				var paragraphStart = start - paragraph.Start;
-				var paragraphEnd = end - paragraph.Start;
-				for (int j = 0; j < paragraph.Count; j++)
-				{
-					var inline = paragraph[j];
-					if (inline == null)
-						continue;
-					if (paragraphEnd <= inline.Start)
-						break;
-					if (paragraphStart >= inline.End)
-						continue;
-
-					IElement applySpan = inline;
-					var docStart = inline.DocumentStart;
-					if (start > docStart && start < docStart + inline.Length)
-					{
-						// need to split and apply attributes to right side only
-						var right = inline.Split(start - docStart);
-						if (right != null && inline.Parent is IBlockElement container)
-						{
-							container.InsertAt(inline.End, right);
-
-							applySpan = right; // apply new attributes to the right side
-							docStart = right.DocumentStart;
-							if (end > docStart && end < docStart + applySpan.Length)
-							{
-								// need to split again as the end is in the middle of the right side
-								right = applySpan.Split(end - docStart);
-								if (right != null && applySpan.Parent is IBlockElement container2)
-								{
-									container2.InsertAt(applySpan.End, right);
-								}
-							}
-						}
-					}
-					if (end > docStart && end < docStart + applySpan.Length)
-					{
-						// need to split and apply attributes to left side
-						var right = applySpan.Split(end - docStart);
-						if (right != null && applySpan.Parent is IBlockElement container)
-						{
-							container.InsertAt(applySpan.End, right);
-						}
-					}
-					applySpan.Attributes = UpdateAttributes(attributes, applySpan.Attributes);
-				}
-
-			}
+			base.SetAttributes(start, end, attributes);
 			MeasureIfNeeded();
 		}
 
-		private static Attributes? UpdateAttributes(Attributes? attributes, Attributes? spanAttributes)
-		{
-			var existingAttributes = spanAttributes;
-
-			Attributes? newAttributes;
-			if (existingAttributes != null && attributes != null)
-			{
-				// need to merge the attributes into a new copy
-				newAttributes = existingAttributes.Merge(attributes, true);
-			}
-			else if (existingAttributes == null)
-			{
-				// just use a copy of the new attributes
-				newAttributes = attributes?.Clone();
-			}
-			else
-			{
-				newAttributes = null;
-			}
-
-			return newAttributes;
-		}
 		
 		public event EventHandler<OverrideAttributesEventArgs>? OverrideAttributes;
 

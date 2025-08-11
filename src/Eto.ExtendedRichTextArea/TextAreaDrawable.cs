@@ -61,7 +61,7 @@ namespace Eto.ExtendedRichTextArea
 			_caret.CalculateCaretBounds();
 			Size = Size.Ceiling(Document.Size);
 #if DEBUG
-			_isValid = Document.GetIsValid();
+			_isValid = Document.IsValid();
 #endif
 			Invalidate(false);
 
@@ -145,7 +145,7 @@ namespace Eto.ExtendedRichTextArea
 			{
 				using var invalidText = new FormattedText { Text = "INVALID", Font = SystemFonts.Bold(), ForegroundBrush = Brushes.Red };
 				var size = invalidText.Measure();
-				var point = new PointF(Size.Width - size.Width, 0);
+				var point = new PointF(Width - size.Width, 0);
 				e.Graphics.DrawText(invalidText, point);
 			}
 #endif

@@ -7,7 +7,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		/// The start index, relative to the parent element.
 		/// E.g. the first element in a container always has a start of 0.
 		/// </summary>
-		int Start { get; set; }
+		int Start { get; internal set; }
 		/// <summary>
 		/// Gets the length of the element.
 		/// </summary>
@@ -27,7 +27,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		/// <summary>
 		/// Gets or sets the parent element of this element.
 		/// </summary>
-		IElement? Parent { get; set; }
+		IBlockElement? Parent { get; set; }
 		/// <summary>
 		/// Splits the element at the specified index, returning the new element.
 		/// </summary>
@@ -37,6 +37,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		/// <param name="start">The index within this element to split at</param>
 		/// <returns>A new element containing the right portion after the split</returns>
 		IElement? Split(int start);
+		bool InsertAt(int start, IElement element);
 		int RemoveAt(int start, int length);
 		IEnumerable<(string text, int start)> EnumerateWords(int start, bool forward);
 		IEnumerable<IInlineElement> EnumerateInlines(int start, int end, bool trim);

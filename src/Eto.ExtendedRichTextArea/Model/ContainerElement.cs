@@ -6,17 +6,7 @@ using System.ComponentModel;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
-	public interface IBlockElement : IElement, IList
-	{
-		RectangleF Bounds { get; }
-		SizeF Measure(Attributes defaultAttributes, SizeF availableSize, PointF location);
-		int GetIndexAt(PointF point);
-		PointF? GetPointAt(int start, out Line? line);
-		IEnumerable<Chunk> EnumerateChunks(int start, int end);
-		IEnumerable<Line> EnumerateLines(int start, bool forward = true);
-		void InsertAt(int start, IElement element);
-	}
-	
+
 	public static class ElementExtensions
 	{
 		public static Document? GetDocument(this IElement element)
@@ -28,30 +18,134 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			return parent as Document;
 		}
-		
+
 	}
-	
+
+	public abstract class BlockContainerElement<T> : ContainerElement<T>
+		where T : class, IBlockElement
+	{
+		public override int GetIndexAt(PointF point)
+		{
+			if (point.Y < Bounds.Top)
+				return 0;
+			if (point.Y > Bounds.Bottom)
+				return Length;
+			for (int i = 0; i < Count; i++)
+			{
+				var element = this[i];
+
+				// too far, break!
+				if (point.Y < element.Bounds.Top)
+					break;
+				if (point.Y >= element.Bounds.Bottom)
+					continue;
+
+				// traverse containers
+				var index = element.GetIndexAt(point);
+				if (index >= 0)
+					return index + element.Start;
+			}
+			return Length;
+		}
+
+		public override PointF? GetPointAt(int start, out Line? line)
+		{
+			var separatorLength = SeparatorLength;
+			for (int i = 0; i < Count; i++)
+			{
+				var child = this[i];
+				if (start > child.Length)
+				{
+					start -= child.Length + separatorLength;
+					continue;
+				}
+				var point = child.GetPointAt(start, out line);
+				if (point.HasValue)
+				{
+					point = new PointF(point.Value.X, point.Value.Y);
+					return point;
+				}
+			}
+			line = null;
+			return null;
+
+		}
+
+		public override IEnumerable<Chunk> EnumerateChunks(int start, int end)
+		{
+			for (int i = 0; i < Count; i++)
+			{
+				var element = this[i];
+				if (element.Start >= end)
+					break;
+				if (element.End <= start)
+					continue;
+				var containerStart = Math.Max(start - element.Start, 0);
+				var containerEnd = Math.Min(end - element.Start, element.Length);
+				foreach (var inline in element.EnumerateChunks(containerStart, containerEnd))
+				{
+					yield return inline;
+				}
+			}
+		}
+
+		public override IEnumerable<Line> EnumerateLines(int start, bool forward = true)
+		{
+			var collection = forward ? this : this.Reverse();
+			foreach (var element in collection)
+			{
+				if (forward && element.End < start)
+					continue;
+				else if (!forward && element.Start > start)
+					continue;
+				var containerStart = Math.Max(start - element.Start, 0);
+				foreach (var line in element.EnumerateLines(containerStart, forward))
+				{
+					yield return line;
+				}
+			}
+			// empty container
+			if (Count == 0)
+				yield return new Line { Start = 0, DocumentStart = DocumentStart, Bounds = Bounds };
+
+		}
+
+		public override void Paint(Graphics graphics, RectangleF clipBounds)
+		{
+			for (int i = 0; i < Count; i++)
+			{
+				var element = this[i];
+				element.Paint(graphics, clipBounds);
+			}
+		}
+	}
+
+
 	public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		where T : class, IElement
 	{
 		public int Start { get; internal set; }
-		public int Length { get; protected set; }
+		public int Length { get; private set; }
 		public int End => Start + Length;
 		public RectangleF Bounds { get; private set; }
 		public int DocumentStart => Start + Parent?.DocumentStart ?? 0;
-		
-		
-		public IElement? Parent { get; private set; }
-		
-		IElement? IElement.Parent
+
+
+		public IBlockElement? Parent { get; private set; }
+
+		IBlockElement? IElement.Parent
 		{
 			get => Parent;
 			set => Parent = value;
 		}
-		
+
 		public virtual Attributes? Attributes { get; set; }
 
 		protected virtual string? Separator => null;
+		protected virtual int SeparatorLength => Separator?.Length ?? 0;
+
+		string? IBlockElement.Separator => Separator;
+		int IBlockElement.SeparatorLength => SeparatorLength;
 
 		int IElement.Start
 		{
@@ -106,9 +200,19 @@ namespace Eto.ExtendedRichTextArea.Model
 			var rightItem = index < Count ? this[index] : null;
 			base.InsertItem(index, item);
 			item.Parent = this;
-			var separatorLength = Separator?.Length ?? 0;
-			item.Start = (rightItem?.End ?? Length) + separatorLength;
-			Adjust(index, item.Length + separatorLength);
+			var adjust = item.Length;
+			if (rightItem != null)
+			{
+				item.Start = rightItem.Start;
+				adjust += SeparatorLength;
+			}
+			else
+			{
+				item.Start = index > 0 ? Length + SeparatorLength : 0;
+				if (Count > 1)
+					adjust += SeparatorLength;
+			}
+			Adjust(index, adjust);
 			MeasureIfNeeded();
 		}
 
@@ -118,7 +222,10 @@ namespace Eto.ExtendedRichTextArea.Model
 			element.Parent = null;
 			element.Start = 0;
 			base.RemoveItem(index);
-			Adjust(index, -(element.Length + Separator?.Length ?? 0));
+			var adjust = element.Length;
+			if (Count > 0)
+				adjust += SeparatorLength;
+			Adjust(index - 1, -adjust);
 			MeasureIfNeeded();
 		}
 
@@ -136,6 +243,8 @@ namespace Eto.ExtendedRichTextArea.Model
 		internal abstract ContainerElement<T> Create();
 		internal abstract T CreateElement();
 
+		IElement IBlockElement.CreateElement() => CreateElement();
+
 		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, PointF location)
 		{
 			var childAttributes = defaultAttributes.Merge(Attributes, false);
@@ -145,21 +254,32 @@ namespace Eto.ExtendedRichTextArea.Model
 		}
 
 		protected abstract SizeF MeasureOverride(Attributes defaultAttributes, SizeF availableSize, PointF location);
-		
-		internal T? Find(int position)
+
+		internal (T? child, int index, int position) FindAt(int position)
 		{
 			for (int i = 0; i < Count; i++)
 			{
 				var element = this[i];
 				if (position <= element.Start + element.Length)
-					return element;
+					return (element, i, Math.Max(0, position - element.Start));
 			}
-			return null;
+			return (null, -1, position);
+		}
+
+		internal int FindIndexAt(int position)
+		{
+			for (int i = 0; i < Count; i++)
+			{
+				var element = this[i];
+				if (position <= element.Start + element.Length)
+					return i;
+			}
+			return -1;
 		}
 
 		public IEnumerable<(string text, int start)> EnumerateWords(int start, bool forward)
 		{
-			var separatorLength = Separator?.Length ?? 0;
+			var separatorLength = SeparatorLength;
 			if (forward)
 			{
 				for (int i = 0; i < Count; i++)
@@ -200,39 +320,40 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 
-		public void InsertAt(int start, T element)
+		public virtual bool InsertAt(int start, IElement element)
 		{
-			element.Start = start;
-			for (int i = 0; i < Count; i++)
-			{
-				var child = this[i];
-				if (start > child.End)
-					continue;
+			var (child, index, position) = FindAt(start);
+			var childElement = child;
 
-				if (start > child.Start)
-				{
-					// split if needed
-					var right = child.Split(start - child.Start);
-					if (right != null && right is T newChild)
-					{
-						Insert(i, newChild);
-					}
-					i++; // insert after
-				}
-					
-				Insert(i, element);
-				MeasureIfNeeded();
-				return;
+			if (childElement?.InsertAt(position, element) == true)
+			{
+				return true;
 			}
-			Add(element);
-			MeasureIfNeeded();
+
+			if (element is not T newElement)
+				return false;
+
+			if (index < 0)
+			{
+				Add(newElement);
+				return true;
+			}
+
+			// split existing element if possible
+			var existing = this[index];
+			if (existing.Split(start - existing.Start) is T rightElement)
+			{
+				Insert(index + 1, rightElement);
+			}
+			// if we can't split, just insert after the existing element (if not empty)
+			Insert(index + 1, newElement);
+			return true;
 		}
-		
-		void IBlockElement.InsertAt(int start, IElement element) => InsertAt(start, (T)element);
+
 
 		public void Adjust(int startIndex, int length)
 		{
-			Length += length;
+			AdjustLength(length);
 			for (int j = startIndex + 1; j < Count; j++)
 			{
 				this[j].Start += length;
@@ -247,14 +368,14 @@ namespace Eto.ExtendedRichTextArea.Model
 				throw new ArgumentOutOfRangeException(nameof(start), "Index must be greater than or equal to zero");
 			BeginEdit();
 			var originalLength = length;
-			var separatorLength = Separator?.Length ?? 0;
+			var separatorLength = SeparatorLength;
 			// go backwards so we don't have to update indexes as we remove
 			for (int i = Count - 1; i >= 0; i--)
 			{
 				// if we've removed all the characters, we're done
 				if (length <= 0)
 					break;
-					
+
 				var element = this[i];
 				var elementStart = start;
 				var elementEnd = elementStart + length;
@@ -263,13 +384,14 @@ namespace Eto.ExtendedRichTextArea.Model
 				if (elementStart <= element.Start && elementEnd >= element.End && length >= element.Length + separatorLength)
 				{
 					Remove(element);
-					length -= element.Length + separatorLength;
+					length -= Count == 0 ? element.Length : element.Length + separatorLength;
 					continue;
 				}
 
 				if (elementStart >= element.Start && elementEnd < element.End)
 				{
-					length -= element.RemoveAt(elementStart - element.Start, length);
+					var removed = element.RemoveAt(elementStart - element.Start, length);
+					length -= removed;
 				}
 				else if (elementEnd > element.End && element is ParagraphElement paragraph)
 				{
@@ -280,12 +402,13 @@ namespace Eto.ExtendedRichTextArea.Model
 						if (nextElement is ParagraphElement nextParagraph)
 						{
 							// add the elements to this paragraph (if any)
+							Remove(nextElement);
 							foreach (var child in nextParagraph)
 							{
 								paragraph.Add(child);
 							}
-							Remove(nextElement);
-							length -= separatorLength;
+							if (Count > 0)
+								length -= separatorLength;
 							i++; // process this paragraph again, now that it's been merged
 						}
 					}
@@ -299,14 +422,18 @@ namespace Eto.ExtendedRichTextArea.Model
 						removeLength += removeStart;
 						removeStart = 0;
 					}
-						
+
 					if (removeLength > 0)
-						length -= element.RemoveAt(removeStart, removeLength);
+					{
+						var removed = element.RemoveAt(removeStart, removeLength);
+						length -= removed;
+					}
 				}
 				if (element.Length == 0 && length > separatorLength)
 				{
 					Remove(element);
-					length -= separatorLength;
+					if (Count > 0)
+						length -= separatorLength;
 				}
 			}
 			EndEdit();
@@ -326,7 +453,9 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		void IElement.MeasureIfNeeded() => MeasureIfNeeded();
 
-		IElement? IElement.Split(int start)
+		IElement? IElement.Split(int start) => Split(start);
+
+		protected IElement? Split(int start)
 		{
 			if (start >= Length || Start == start)
 				return null;
@@ -359,38 +488,14 @@ namespace Eto.ExtendedRichTextArea.Model
 					}
 				}
 			}
-			Length -= Length - start;
+			var offset = Length - start;
+			Parent?.Adjust(Parent.IndexOf(this), -offset);
 			return newRun;
 		}
 
-		public abstract PointF? GetPointAt(int index, out Line? line);
-		
-        public virtual int GetIndexAt(PointF point)
-        {
-			if (point.Y < Bounds.Top)
-				return 0;
-			if (point.Y > Bounds.Bottom)
-				return Length;
-			for (int i = 0; i < Count; i++)
-			{
-				var element = this[i];
+		public abstract PointF? GetPointAt(int start, out Line? line);
 
-				if (element is IBlockElement container)
-				{
-					// too far, break!
-					if (point.Y < container.Bounds.Top)
-						break;
-					if (point.Y >= container.Bounds.Bottom)
-						continue;
-						
-					// traverse containers
-					var index = container.GetIndexAt(point);
-					if (index >= 0)
-						return index + element.Start;
-				}
-			}
-			return Length;
-        }
+		public abstract int GetIndexAt(PointF point);
 
 		public IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines)
 		{
@@ -429,50 +534,9 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 
-		public virtual IEnumerable<Chunk> EnumerateChunks(int start, int end)
-		{
-			for (int i = 0; i < Count; i++)
-			{
-				var element = this[i];
-				if (element.Start >= end)
-					break;
-				if (element.End <= start)
-					continue;
-				if (element is IBlockElement container)
-				{
-					var containerStart = Math.Max(start - element.Start, 0);
-					var containerEnd = Math.Min(end - element.Start, element.Length);
-					foreach (var inline in container.EnumerateChunks(containerStart, containerEnd))
-					{
-						yield return inline;
-					}
-				}
-			}
-		}
-		public virtual IEnumerable<Line> EnumerateLines(int start, bool forward = true)
-		{
-			var collection = forward ? this : this.Reverse();
-			foreach (var element in collection)
-			{
-				if (forward && element.End < start)
-					continue;
-				else if (!forward && element.Start > start)
-					continue;
-				if (element is IBlockElement container)
-				{
-					var containerStart = Math.Max(start - element.Start, 0);
-					foreach (var line in container.EnumerateLines(containerStart, forward))
-					{
-						yield return line;
-					}
-				}
-			}
-			// empty paragraph
-			if (Count == 0)
-				yield return new Line { Start = 0, DocumentStart = DocumentStart, Bounds = Bounds };
-			
-		}
-		
+		public abstract IEnumerable<Chunk> EnumerateChunks(int start, int end);
+		public abstract IEnumerable<Line> EnumerateLines(int start, bool forward = true);
+
 		public string GetText(int start, int length)
 		{
 			var inlineText = EnumerateInlines(start, start + length, true).Select(r => r.Text);
@@ -481,5 +545,155 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public override string ToString() => Text;
 
+		public abstract void Paint(Graphics graphics, RectangleF clipBounds);
+
+
+		public virtual Attributes GetAttributes(Attributes defaultAttributes, int start, int end)
+		{
+			// TODO: move this to ContainerElement?
+			bool isRange = end > start;
+			Attributes? attributes = null;
+			foreach (var block in this)
+			{
+				if (end < block.Start)// || (end == paragraph.Start && isRange))
+					break;
+				if (start > block.End || (start == block.End && isRange))
+					continue;
+
+				var paragraphAttributes = defaultAttributes.Merge(block.Attributes, false);
+
+				if (block is IList blockList)
+				{
+
+					var paragraphStart = start - block.Start;
+					var paragraphEnd = end - block.Start;
+					foreach (IElement inline in blockList)
+					{
+						if (paragraphEnd <= inline.Start)// || (paragraphEnd == inline.Start && isRange))
+							break;
+						if (paragraphStart > inline.End || (paragraphStart == inline.End && isRange))
+							continue;
+
+						if (attributes == null)
+							attributes = paragraphAttributes.Merge(inline.Attributes, true);
+						else
+							attributes.ClearUnmatched(paragraphAttributes.Merge(inline.Attributes, false));
+					}
+				}
+
+				if (attributes == null)
+					attributes = paragraphAttributes.Clone();
+			}
+			return attributes ?? defaultAttributes.Clone();
+		}
+
+		internal static Attributes? UpdateAttributes(Attributes? attributes, Attributes? spanAttributes)
+		{
+			var existingAttributes = spanAttributes;
+
+			Attributes? newAttributes;
+			if (existingAttributes != null && attributes != null)
+			{
+				// need to merge the attributes into a new copy
+				newAttributes = existingAttributes.Merge(attributes, true);
+			}
+			else if (existingAttributes == null)
+			{
+				// just use a copy of the new attributes
+				newAttributes = attributes?.Clone();
+			}
+			else
+			{
+				newAttributes = null;
+			}
+
+			return newAttributes;
+		}
+
+		public virtual void SetAttributes(int start, int end, Attributes? attributes)
+		{
+			for (int i = 0; i < Count; i++)
+			{
+				var element = this[i];
+				if (element == null)
+					continue;
+				if (end <= element.Start)
+					break;
+				if (start >= element.End)
+					continue;
+
+				if (element is IBlockElement block)
+				{
+					block.SetAttributes(Math.Max(0, start - element.Start), Math.Min(end - element.Start, element.Length), attributes);
+					continue;
+				}
+
+				IElement applySpan = element;
+				var elementStart = element.Start;
+				if (start > elementStart && start < elementStart + element.Length)
+				{
+					// need to split and apply attributes to right side only
+					if (element.Split(start - elementStart) is T right)
+					{
+						Insert(i + 1, right);
+
+						applySpan = right; // apply new attributes to the right side
+						elementStart = right.Start;
+						if (end > elementStart && end < elementStart + applySpan.Length)
+						{
+							// need to split again as the end is in the middle of the right side
+							if (applySpan.Split(end - elementStart) is T right2)
+							{
+								Insert(i + 2, right2);
+							}
+						}
+					}
+				}
+				if (end > elementStart && end < elementStart + applySpan.Length)
+				{
+					// need to split and apply attributes to left side
+					if (applySpan.Split(end - elementStart) is T right)
+					{
+						Insert(i + 1, right);
+					}
+				}
+				applySpan.Attributes = UpdateAttributes(attributes, applySpan.Attributes);
+
+			}
+		}
+
+		internal void AdjustLength(int length)
+		{
+			Length += length;
+			if (Parent != null)
+			{
+				var idx = Parent.IndexOf(this);
+				if (idx >= 0)
+					Parent.Adjust(idx, length);
+			}
+		}
+
+		void IBlockElement.AdjustLength(int length) => AdjustLength(length);
+
+		public virtual bool IsValid()
+		{
+			var index = 0;
+			if (Count == 0)
+				return true;
+			var separatorLength = SeparatorLength;
+			for (int i = 0; i < Count; i++)
+			{
+				if (i > 0)
+					index += separatorLength;
+
+				var item = this[i];
+				if (item.Start != index)
+					return false;
+				if (item is IBlockElement block && !block.IsValid())
+					return false;
+				index += item.Length;
+			}
+			return Length == index;
+		}
 	}
 }

@@ -164,7 +164,7 @@ namespace Eto.ExtendedRichTextArea
 			Invalidate();
 		}
 		
-		public void Insert(IInlineElement element)
+		public void Insert(IElement element)
 		{
 			Document.BeginEdit();
 			if (_drawable.Selection != null)
@@ -174,7 +174,7 @@ namespace Eto.ExtendedRichTextArea
 			}
 			Document.InsertAt(_drawable.Caret.Index, element);
 			Document.EndEdit();
-			_drawable.Caret.Index += element.Length;
+			_drawable.Caret.Index = element.End;
 			_drawable.Caret.CalculateCaretBounds();
 			Invalidate();
 		}

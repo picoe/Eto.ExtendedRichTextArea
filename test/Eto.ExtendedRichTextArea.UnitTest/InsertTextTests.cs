@@ -93,6 +93,7 @@ public class InsertTextTests : TestBase
 	{
 		var document = new Document();
 		document.Text = initialText;
+		Assert.That(document.Text, Is.EqualTo(initialText));
 		// document.BeginEdit();
 		document.InsertText(insertIndex, text);
 		// document.EndEdit();

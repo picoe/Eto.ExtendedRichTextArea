@@ -16,11 +16,11 @@ namespace Eto.ExtendedRichTextArea.Model
 		Attributes? _resolvedAttributes;
 		public int DocumentStart => _documentStart ??= Start + Parent?.DocumentStart ?? 0;
 
-		public IElement? Parent { get; private set; }
+		public IBlockElement? Parent { get; private set; }
 		
 		public Attributes? Attributes { get; set; }
 		
-		IElement? IElement.Parent
+		IBlockElement? IElement.Parent
 		{
 			get => Parent;
 			set => Parent = value;
@@ -113,6 +113,11 @@ namespace Eto.ExtendedRichTextArea.Model
 		public IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines)
 		{
 			yield return this;
+		}
+
+		public bool InsertAt(int start, IElement element)
+		{
+			return false; // ImageElement cannot contain other elements
 		}
 	}
 }

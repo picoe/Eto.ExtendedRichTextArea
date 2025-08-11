@@ -27,10 +27,10 @@ namespace Eto.ExtendedRichTextArea.Model
 				_measureSize = null;
 			}
 		}
-		
-		public IElement? Parent { get; private set; }
-		
-		IElement? IElement.Parent
+
+		public IBlockElement? Parent { get; private set; }
+
+		IBlockElement? IElement.Parent
 		{
 			get => Parent;
 			set => Parent = value;
@@ -55,16 +55,20 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 
-		public SpanElement? Split(int index)
+		public SpanElement? Split(int start)
 		{
-			if (index >= Length || index <=0)
+			if (start >= Length || start <= 0)
 				return null;
 			var text = Text;
-			Text = text.Substring(0, index);
-			var newSpan = new SpanElement { 
-				Start = Start + index,
-				Text = text.Substring(index), Attributes = Attributes?.Clone() 
+			Text = text.Substring(0, start);
+			var newSpan = new SpanElement
+			{
+				Start = Start + start,
+				Text = text.Substring(start),
+				Attributes = Attributes?.Clone()
 			};
+			Parent?.Adjust(Parent.IndexOf(this), -newSpan.Length);
+			
 			return newSpan;
 		}
 
@@ -86,14 +90,15 @@ namespace Eto.ExtendedRichTextArea.Model
 			if (index + length > text.Length)
 				length = text.Length - index;
 			Text = text.Remove(index, length);
+			Parent?.Adjust(Parent.IndexOf(this), -length);
 			return length;
 		}
 
 		Attributes? _resolvedAttributes;
 		public Font Font => _resolvedAttributes?.Font ?? Document.GetDefaultFont();
 
-        public int GetIndexAt(Chunk chunk, PointF point)
-        {
+		public int GetIndexAt(Chunk chunk, PointF point)
+		{
 			if (point.X < chunk.Bounds.Left || point.X > chunk.Bounds.Right)
 				return -1;
 			// if ( || point.Y < chunk.Bounds.Top)
@@ -109,8 +114,8 @@ namespace Eto.ExtendedRichTextArea.Model
 				spanX += spanSize.Width;
 			}
 			return Length;
-        }
-		
+		}
+
 		public PointF? GetPointAt(Chunk chunk, int start)
 		{
 			if (start < 0 || start > chunk.Length)
@@ -145,7 +150,7 @@ namespace Eto.ExtendedRichTextArea.Model
 						last = i;
 					}
 				}
-				
+
 				for (int i = start; i < text.Length; i++)
 				{
 					if (char.IsWhiteSpace(text[i]))
@@ -176,15 +181,15 @@ namespace Eto.ExtendedRichTextArea.Model
 						last = i;
 					}
 				}
-				
-				
+
+
 				for (int i = start - 1; i >= 0; i--)
 				{
 					if (char.IsWhiteSpace(text[i]))
 					{
 						if (last != -1)
 						{
-							yield return (text.Substring(i + 1, last - i), i+1);
+							yield return (text.Substring(i + 1, last - i), i + 1);
 							last = -1;
 						}
 						continue;
@@ -203,7 +208,8 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			if (element is not SpanElement span)
 				return false;
-			return span.Attributes == Attributes;
+			
+			return span.Attributes == (_resolvedAttributes ?? Attributes);
 		}
 
 		public bool Merge(int index, IInlineElement element)
@@ -213,6 +219,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			if (!Matches(span))
 				return false;
 			Text = Text.Insert(index, span.Text);
+			Parent?.Adjust(Parent.IndexOf(this), span.Text.Length);
 			return true;
 		}
 
@@ -220,7 +227,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			if (end < start)
 				throw new ArgumentOutOfRangeException(nameof(end), "End must be greater than or equal to start");
-				
+
 			if (start < 0)
 			{
 				end += start;
@@ -254,7 +261,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			if (_resolvedAttributes == null || _formattedText == null)
 				return;
-				
+
 			var location = chunk.Bounds.Location;
 			location.Y += line.Baseline - _resolvedAttributes.Baseline ?? line.Baseline;
 
@@ -272,7 +279,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 
 			var start = chunk.InlineStart;
-			
+
 			void DrawBackground(Attributes attributes, float? left, float? right)
 			{
 				if (attributes.Background == null)
@@ -282,12 +289,12 @@ namespace Eto.ExtendedRichTextArea.Model
 					bounds.Left = left.Value;
 				if (right != null)
 					bounds.Right = right.Value;
-					
+
 				bounds.Y = line.Bounds.Y;
 				bounds.Height = line.Bounds.Height;
 				graphics.FillRectangle(attributes.Background, bounds);
 			}
-			
+
 			void DrawText(Attributes attributes, int end)
 			{
 				var text = Text.Substring(start, end - start);
@@ -295,7 +302,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				attributes.Apply(formattedText);
 				var width = formattedText.Measure().Width;
 				DrawBackground(attributes, location.X, location.X + width);
-				
+
 				graphics.DrawText(formattedText, location);
 				location.X += width;
 				start += text.Length;
@@ -326,7 +333,7 @@ namespace Eto.ExtendedRichTextArea.Model
 							// draw first part without override
 							DrawText(_resolvedAttributes, attrStart);
 						}
-						
+
 						var attributes = _resolvedAttributes.Merge(attr.Attributes, false);
 						DrawText(attributes, attrEnd);
 					}
@@ -352,7 +359,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			_formattedText ??= new FormattedText { Text = Text };
 			_resolvedAttributes = defaultAttributes.Merge(Attributes, false);
 			_resolvedAttributes.Apply(_formattedText);
-			
+
 			if (_measureSize == null)
 			{
 				_measureSize = _formattedText.Measure();
@@ -365,7 +372,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		{
 			if (end < start)
 				throw new ArgumentOutOfRangeException(nameof(end), "End must be greater than or equal to start");
-				
+
 			if (start < 0)
 			{
 				end += start;
@@ -393,6 +400,31 @@ namespace Eto.ExtendedRichTextArea.Model
 				yield break;
 			}
 			yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start, end - start) };
+		}
+
+		public bool InsertAt(int start, IElement element)
+		{
+			if (element is not SpanElement span)
+				return false;
+			if (start < 0 || start > Length)
+				throw new ArgumentOutOfRangeException(nameof(start), "Start must be between 0 and the length of the element");
+
+			if (span.Attributes != Attributes)
+				return false;
+
+			Parent?.Adjust(Parent.IndexOf(this), span.Length);
+			if (start == Length)
+			{
+				Text += span.Text;
+				return true;
+			}
+			if (start == 0)
+			{
+				Text = span.Text + Text;
+				return true;
+			}
+			Text = Text.Insert(start, span.Text);
+			return true;
 		}
 	}
 }

@@ -15,6 +15,9 @@ namespace Eto.ExtendedRichTextArea.TestApp
 	{
 		public ExtendedRichTextArea RichTextArea { get; }
 
+		TreeGridView _structure = new();
+		TreeGridView _lines = new();
+
 		public Bitmap CreateRandomBitmap(int width = 200, int height = 50)
 		{
 			var random = new Random();
@@ -148,7 +151,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 		
 		public MainForm()
 		{
-			Title = "My Eto Form";
+			Title = "ExtendedRichTextArea Test App";
 			MinimumSize = new Size(200, 200);
 
 #if UseDefaultRichTextArea
@@ -171,6 +174,17 @@ namespace Eto.ExtendedRichTextArea.TestApp
 				RichTextArea.Focus();
 			};
 
+			var insertListButton = new Button { Text = "Insert List" };
+			insertListButton.Click += (sender, e) =>
+			{
+				var list = new ListElement
+				{
+					new ListItemElement()
+				};
+				RichTextArea.Insert(list);
+				RichTextArea.Focus();
+			};
+
 			var setSelectedText = new Button { Text = "Set SelectedText" };
 			setSelectedText.Click += (sender, e) =>
 			{
@@ -190,61 +204,48 @@ namespace Eto.ExtendedRichTextArea.TestApp
 					RichTextArea.SelectionText = edit.Text;
 				}
 			};
-
-
-			var structure = new TreeGridView
+			
+			var clearButton = new Button { Text = "Clear" };
+			clearButton.Click += (sender, e) =>
 			{
-				Size = new Size(200, 300),
-				ShowHeader = false,
-				Columns = {
-					new GridColumn { DataCell = new TextBoxCell(0) }
+				RichTextArea.Document.Clear();
+				RichTextArea.Focus();
+			};
+
+
+			_structure.Size = new Size(200, 300);
+			_structure.ShowHeader = false;
+			_structure.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0) });
+			_structure.CellDoubleClick += (sender, e) =>
+			{
+				if (e.Item is TreeGridItem item && item.Tag != null)
+				{
+					var grid = new PropertyGrid { SelectedObject = item.Tag, Size = new Size(400, 300) };
+					var dlg = new Dialog<bool>
+					{
+						Title = "Properties",
+						Resizable = true,
+						// MinimumSize = new Size(300, 400),
+						Content = grid
+					};
+					dlg.PositiveButtons.Add(dlg.DefaultButton = new Button((s, ev) => dlg.Close(true)) { Text = "Ok" });
+					dlg.ShowModal(this);
 				}
 			};
 
-			var lines = new TreeGridView
-			{
-				Size = new Size(200, 300),
-				ShowHeader = false,
-				Columns = {
-					new GridColumn { DataCell = new TextBoxCell(0) }
-				}
-			};
+
+
+			_lines.Size = new Size(200, 300);
+			_lines.ShowHeader = false;
+			_lines.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0) });
 
 #if !UseDefaultRichTextArea
 			var changeTimer = new UITimer { Interval = 1 };
 			changeTimer.Elapsed += (sender, e) =>
 			{
 				changeTimer.Stop();
-				var items = new TreeGridItemCollection();
-				foreach (var block in RichTextArea.Document)
-				{
-					var blockItem = new TreeGridItem { Expanded = true };
-					var typeName = block.GetType().Name;
-					if (typeName.EndsWith("Element"))
-						typeName = typeName.Substring(0, typeName.Length - "Element".Length);
-					blockItem.Values = new object[] { $"{typeName}: {block.DocumentStart}:{block.Length}" };
-					if (block is IList list)
-					{
-						foreach (var inline in list.OfType<IElement>())
-						{
-							var inlineItem = new TreeGridItem();
-							inlineItem.Values = new object[] { $"{inline.GetType().Name}: {inline.DocumentStart}:{inline.Text}" };
-							blockItem.Children.Add(inlineItem);
-						}
-					}
-					items.Add(blockItem);
-				}
-				structure.DataStore = items;
-				
-				var linesItems = new TreeGridItemCollection();
-				foreach (var line in RichTextArea.Document.EnumerateLines(0))
-				{
-					var lineItem = new TreeGridItem();
-					lineItem.Values = new object[] { $"Line: {line.DocumentStart}:{line.Length}" };
-					linesItems.Add(lineItem);
-				}
-				lines.DataStore = linesItems;
-
+				UpdateStructure();
+				UpdateLines();
 			};
 
 			RichTextArea.Document.Changed += (sender, e) =>
@@ -270,17 +271,19 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			// para.FirstOrDefault()?.InsertAt(0, new Span {  Text = "Image:"});
 
 #endif
+			
 
 			var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
+			layout.Styles.Add(null, (Label lbl) => lbl.VerticalAlignment = VerticalAlignment.Center);
 
-			layout.AddSeparateRow(insertRandomTextButton, insertImageButton, setSelectedText, null);
+			layout.AddSeparateRow(insertRandomTextButton, setSelectedText, insertImageButton, insertListButton, clearButton, null);
 			layout.AddSeparateRow(AttributeControls(), null);
 			layout.BeginVertical();
 			layout.BeginHorizontal();
 			layout.Add(RichTextArea, xscale: true);
 			layout.BeginVertical();
-			layout.Add(structure, yscale: true);
-			layout.Add(lines, yscale: true);
+			layout.Add(_structure, yscale: true);
+			layout.Add(_lines, yscale: true);
 			layout.EndVertical();
 			layout.EndHorizontal();
 			layout.EndVertical();
@@ -289,6 +292,47 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			Shown += (sender, e) => RichTextArea.Focus();
 
 			CreateMenu();
+
+		}
+
+		static string NiceName(object obj)
+		{
+			var name = obj.GetType().Name;
+			if (name.EndsWith("Element"))
+				name = name.Substring(0, name.Length - "Element".Length);
+			return name;
+		}
+
+		private void UpdateStructure()
+		{
+			var items = new TreeGridItemCollection();
+			static TreeGridItem CreateNode(IElement element)
+			{
+				var item = new TreeGridItem { Expanded = true, Tag = element };
+				item.Values = [$"{NiceName(element)}: {element.DocumentStart}:{element.Length} - {element.Text?.Substring(0, Math.Min(element.Text.Length, 100))}"];
+				if (element is IList list)
+				{
+					foreach (var child in list.OfType<IElement>())
+					{
+						var childItem = CreateNode(child);
+						item.Children.Add(childItem);
+					}
+				}
+				return item;
+			}
+			
+			_structure.DataStore = new TreeGridItem { Children = { CreateNode(RichTextArea.Document) } };
+		}
+		private void UpdateLines()
+		{
+			var linesItems = new TreeGridItemCollection();
+			foreach (var line in RichTextArea.Document.EnumerateLines(0))
+			{
+				var lineItem = new TreeGridItem();
+				lineItem.Values = new object[] { $"Line: {line.DocumentStart}:{line.Length}" };
+				linesItems.Add(lineItem);
+			}
+			_lines.DataStore = linesItems;
 
 		}
 
