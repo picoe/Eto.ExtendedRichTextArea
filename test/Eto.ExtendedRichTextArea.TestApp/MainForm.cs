@@ -174,16 +174,26 @@ namespace Eto.ExtendedRichTextArea.TestApp
 				RichTextArea.Focus();
 			};
 
-			var insertListButton = new Button { Text = "Insert List" };
-			insertListButton.Click += (sender, e) =>
+			var insertListButton = new SegmentedButton();
+			
+			var insertListMenu = new MenuSegmentedItem { Text = "Insert List" };
+			
+			void InsertList(ListType type)
 			{
-				var list = new ListElement
-				{
-					new ListItemElement()
-				};
+				var list = new ListElement { Type = type };
+				list.Add(new ListItemElement());
 				RichTextArea.Insert(list);
 				RichTextArea.Focus();
+			}
+			insertListMenu.Menu = new ContextMenu
+			{
+				Items =
+				{
+					new ButtonMenuItem { Text = "Unordered List", Command = new Command((s, e) => InsertList(ListType.Unordered)) },
+					new ButtonMenuItem { Text = "Ordered List", Command = new Command((s, e) => InsertList(ListType.Ordered)) },
+				}
 			};
+			insertListButton.Items.Add(insertListMenu);
 
 			var setSelectedText = new Button { Text = "Set SelectedText" };
 			setSelectedText.Click += (sender, e) =>
