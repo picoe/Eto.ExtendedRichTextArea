@@ -15,11 +15,11 @@ public class NavigationTests : TestBase
 	[TestCase("Hello\n\nWorld", 6, DocumentNavigationMode.NextLine, 7)]
 	[TestCase("Hello\nand\nWorld", 5, DocumentNavigationMode.NextLine, 9)]
 
-	
+
 	[TestCase("Hello\nWorld", 6, DocumentNavigationMode.PreviousLine, 0)]
 	[TestCase("Hello\n\nWorld", 7, DocumentNavigationMode.PreviousLine, 6)]
 	[TestCase("Hello\nand\nWorld", 14, DocumentNavigationMode.PreviousLine, 9)]
-	
+
 	[TestCase("Hello\nWorld", 2, DocumentNavigationMode.EndOfLine, 5)]
 	[TestCase("Hello\nWorld", 0, DocumentNavigationMode.EndOfLine, 5)]
 	[TestCase("Hello\nWorld", 6, DocumentNavigationMode.EndOfLine, 11)]
@@ -30,6 +30,12 @@ public class NavigationTests : TestBase
 	[TestCase("Hello there fun\nWorld", 2, DocumentNavigationMode.NextWord, 6)]
 	[TestCase("Hello there fun\nWorld", 5, DocumentNavigationMode.NextWord, 6)]
 	[TestCase("Hello there fun\nWorld", 12, DocumentNavigationMode.NextWord, 15)]
+
+	[TestCase("Hello\x2028soft\x2028breaks", 0, DocumentNavigationMode.NextLine, 6)]
+	[TestCase("Hello\x2028soft\x2028breaks", 2, DocumentNavigationMode.NextLine, 8)]
+
+	[TestCase("Hello\x2028\x2028soft\x2028breaks", 7, DocumentNavigationMode.PreviousLine, 6)]
+	[TestCase("Hello\x2028\x2028soft\x2028breaks", 8, DocumentNavigationMode.PreviousLine, 6)]
 
 	public void NavigateShouldWork(string text, int start, DocumentNavigationMode mode, int expected)
 	{
@@ -44,7 +50,7 @@ public class NavigationTests : TestBase
 	public void NavigateWithFormattingShouldWork(string html, int start, DocumentNavigationMode mode, int expected)
 	{
 		var document = new Document();
-		new HtmlParser().ParseHtml(document, html);
+		new HtmlParser(document).ParseHtml(html);
 		var result = document.Navigate(start, mode);
 		Assert.That(result, Is.EqualTo(expected));
 	}	

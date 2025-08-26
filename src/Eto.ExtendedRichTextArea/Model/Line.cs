@@ -10,14 +10,12 @@ namespace Eto.ExtendedRichTextArea.Model
 	/// </summary>
 	public class Line : Collection<Chunk>
 	{
-		public int DocumentStart { get; set; }
-		public int DocumentEnd => DocumentStart + Length;
 		public int Start { get; set; }
-		public int Length => End - Start;
 		public int End { get; set; }
+		public int Length => End - Start;
 		public RectangleF Bounds { get; set; }		
 		public float Baseline { get; set; }
-
+		
 		internal void Paint(Graphics graphics, RectangleF clipBounds)
 		{
 			for (int i = 0; i < Count; i++)
@@ -36,10 +34,10 @@ namespace Eto.ExtendedRichTextArea.Model
 			if (point.Y < Bounds.Top)
 				return -1;
 			if (point.X > Bounds.Right)
-				return End;
+				return Length;
 			if (point.X < Bounds.Left)
-				return Start;
-			
+				return 0;
+
 			if (!Bounds.Contains(point))
 				return -1;
 								

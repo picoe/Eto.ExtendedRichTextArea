@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel;
 using System.Collections;
+using System.Text;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
@@ -21,13 +22,43 @@ namespace Eto.ExtendedRichTextArea.Model
 
 	public class Document : BlockContainerElement<IBlockElement>
 	{
-		internal override ContainerElement<IBlockElement> Create() => throw new InvalidOperationException();
+		protected override ContainerElement<IBlockElement> Create() => new Document();
 
-		internal override IBlockElement CreateElement() => new ParagraphElement();
+		protected override IBlockElement CreateElement() => new ParagraphElement();
 
 		public float ParagraphSpacing { get; set; }
 
 		protected override string Separator => "\n";
+
+		public void Save(DocumentFormat format, Stream stream)
+		{
+			if (format == null)
+				throw new ArgumentNullException(nameof(format));
+			if (stream == null)
+				throw new ArgumentNullException(nameof(stream));
+
+			if (!format.Save(this, stream))
+				throw new InvalidOperationException($"Failed to save document in {format.Name} format.");
+		}
+
+		public void Load(DocumentFormat format, Stream stream)
+		{
+			if (format == null)
+				throw new ArgumentNullException(nameof(format));
+			if (stream == null)
+				throw new ArgumentNullException(nameof(stream));
+
+			if (!format.Load(this, stream))
+				throw new InvalidOperationException($"Failed to load document in {format.Name} format.");
+		}
+
+		protected override ContainerElement<IBlockElement> Clone()
+		{
+			var clone = (Document)base.Clone();
+			clone.ParagraphSpacing = ParagraphSpacing;
+			clone._defaultAttributes = _defaultAttributes?.Clone();
+			return clone;
+		}
 
 		int _suspendMeasure;
 		Attributes? _defaultAttributes;
@@ -113,6 +144,7 @@ namespace Eto.ExtendedRichTextArea.Model
 		}
 
 		public WrapMode WrapMode { get; internal set; }
+		public event EventHandler<EventArgs>? Changing;
 
 		public DocumentRange GetRange(int start, int end)
 		{
@@ -122,8 +154,11 @@ namespace Eto.ExtendedRichTextArea.Model
 		public override void BeginEdit()
 		{
 			base.BeginEdit();
+
+			if (_suspendMeasure == 0)
+				Changing?.Invoke(this, EventArgs.Empty);
+
 			_suspendMeasure++;
-			// todo: save state for undo/redo
 		}
 
 		public override void EndEdit()
@@ -147,7 +182,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				point.Y = line.Bounds.Y;
 				lineHeight = line.Bounds.Height;
 			}
-			
+
 			return new RectangleF(point.X, point.Y, 1, lineHeight);
 		}
 
@@ -156,7 +191,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			return GetAttributes(DefaultAttributes, start, end);
 		}
 
-		public void Replace(int start, int length, SpanElement span)
+		public void Replace(int start, int length, TextElement span)
 		{
 			BeginEdit();
 			RemoveAt(start, length);
@@ -164,29 +199,16 @@ namespace Eto.ExtendedRichTextArea.Model
 			EndEdit();
 		}
 
-		void SaveState()
-		{
-			// This method can be used to save the current state of the document
-			// for undo/redo functionality or other purposes.
-			// Implementation details would depend on the specific requirements.
-			// This could involve storing the current document state in a stack or similar structure.
-
-			// copy the current document state
-			
-			
-		}
-
-
 		public void InsertText(int start, string text, Attributes? attributes = null)
 		{
-			InsertAt(start, new SpanElement { Text = text, Attributes = attributes?.Clone() });
+			InsertAt(start, new TextElement { Text = text, Attributes = attributes?.Clone() });
 		}
 
 		public override bool InsertAt(int start, IElement element)
 		{
 			start = Math.Max(0, Math.Min(start, Length));
 
-			_suspendMeasure++;
+			BeginEdit();
 			var result = base.InsertAt(start, element);
 			if (!result && element is IInlineElement inlineElement)
 			{
@@ -195,9 +217,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				Add(paragraph);
 				result = paragraph.InsertAt(0, inlineElement);
 			}
-			_suspendMeasure--;
-
-			MeasureIfNeeded();
+			EndEdit();
 			return result;
 		}
 
@@ -259,13 +279,13 @@ namespace Eto.ExtendedRichTextArea.Model
 		private int GetBeginningOfLine(int start)
 		{
 			var line = EnumerateLines(start, false).FirstOrDefault();
-			return line == null ? Start : line.DocumentStart;
+			return line == null ? Start : line.Start;
 		}
 
 		private int GetEndOfLine(int start)
 		{
 			var line = EnumerateLines(start).FirstOrDefault();
-			return line == null ? End : line.DocumentEnd;
+			return line == null ? End : line.End;
 		}
 
 		int GetNextLine(int start, PointF? caretLocation)
@@ -281,10 +301,10 @@ namespace Eto.ExtendedRichTextArea.Model
 			point.Y = line.Bounds.Y;
 			var idx = line.GetIndexAt(point);
 			if (idx >= 0)
-				return idx + line.DocumentStart;
+				return idx + line.Start;
 			if (point.X > line.Bounds.Right)
-				return line.DocumentEnd;
-			return line.DocumentStart;
+				return line.End;
+			return line.Start;
 		}
 
 		int GetPreviousLine(int start, PointF? caretLocation)
@@ -300,10 +320,10 @@ namespace Eto.ExtendedRichTextArea.Model
 			point.Y = line.Bounds.Y;
 			var idx = line.GetIndexAt(point);
 			if (idx >= 0)
-				return idx + line.DocumentStart;
+				return idx + line.Start;
 			if (point.X > line.Bounds.Right)
-				return line.DocumentEnd;
-			return line.DocumentStart;
+				return line.End;
+			return line.Start;
 		}
 
 		protected override SizeF MeasureOverride(Attributes defaultAttributes, SizeF availableSize, PointF location)
@@ -330,9 +350,9 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			return size;
 		}
-		
+
 		public PointF? GetPointAt(int start) => GetPointAt(start, out _);
-		
+
 		public override PointF? GetPointAt(int start, out Line? line)
 		{
 			line = null;
@@ -347,7 +367,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			MeasureIfNeeded();
 		}
 
-		
+
 		public event EventHandler<OverrideAttributesEventArgs>? OverrideAttributes;
 
 		internal void TriggerOverrideAttributes(Line line, Chunk chunk, Attributes attributes, out List<AttributeRange>? newAttributes)
@@ -355,62 +375,6 @@ namespace Eto.ExtendedRichTextArea.Model
 			var args = new OverrideAttributesEventArgs(line, chunk, attributes);
 			OverrideAttributes?.Invoke(this, args);
 			newAttributes = args.NewAttributes;
-		}
-	}
-
-	public class OverrideAttributesEventArgs : EventArgs
-	{
-		public Line Line { get; }
-		public Chunk Chunk { get; }
-		public Attributes Attributes { get; }
-
-		public int Start => Chunk.Start;
-		public int End => Chunk.End;
-		public int Length => Chunk.Length;
-		public string Text => Chunk.Element.Text;
-		
-		List<AttributeRange>? _newAttributes;
-		public List<AttributeRange> NewAttributes => _newAttributes ??= new List<AttributeRange>();
-
-		public OverrideAttributesEventArgs(Line line, Chunk chunk, Attributes attributes)
-		{
-			Line = line;
-			Chunk = chunk;
-			Attributes = attributes;
-		}
-	}
-
-	public struct AttributeRange
-	{
-		int? _end;
-		int? _length;
-		public int Start { get; set; }
-		public int End
-		{
-			get => _end ?? Start + _length ?? 0;
-			set
-			{
-				_end = value;
-				_length = null;
-			}
-		}
-		
-		public int Length
-		{
-			get => _length ?? _end ?? Start - Start;
-			set
-			{
-				_length = value;
-				_end = null;
-			}
-		}
-		public Attributes Attributes { get; set; }
-		
-		public AttributeRange(int start, int end, Attributes attributes)
-		{
-			Start = start;
-			_end = end;
-			Attributes = attributes;
 		}
 	}
 }

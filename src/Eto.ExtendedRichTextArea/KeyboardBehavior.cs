@@ -22,7 +22,7 @@ namespace Eto.ExtendedRichTextArea
 			_textArea.TextInput += TextArea_TextInput;
 			_textArea.KeyDown += TextArea_KeyDown;
 			_textArea.KeyDown += TextArea_KeyDown_Navigation;
-			if (Eto.Platform.Instance.IsMac)
+			if (Platform.Instance.IsMac)
 			{
 				_textArea.KeyDown += TextArea_KeyDown_Mac;
 			}
@@ -44,24 +44,6 @@ namespace Eto.ExtendedRichTextArea
 				_textArea.MapPlatformCommand(macPlatformCommand, command);
 		}
 
-		private void SetSelection(int lastCaretIndex, bool extendSelection)
-		{
-			if (lastCaretIndex == _caret.Index)
-				return;
-				
-			if (extendSelection)
-			{
-				if (_textArea.Selection != null)
-				{
-					lastCaretIndex = _textArea.Selection.OriginalStart;
-				}
-				_textArea.Selection = Document.GetRange(lastCaretIndex, _caret.Index);
-			}
-			else
-			{
-				_textArea.Selection = null; // Document.GetRange(_caret.Index, _caret.Index);
-			}
-		}
 
 		private void TextArea_KeyDown_Navigation(object? sender, KeyEventArgs e)
 		{
@@ -134,7 +116,7 @@ namespace Eto.ExtendedRichTextArea
 				}
 			}
 			if (e.Handled)
-				SetSelection(lastCaretIndex, extendSelection);
+				_textArea.SetSelection(lastCaretIndex, extendSelection);
 		}
 
 		private void TextArea_TextInput(object? sender, TextInputEventArgs e)
@@ -155,6 +137,12 @@ namespace Eto.ExtendedRichTextArea
 				case Keys.Control | Keys.A:
 					_textArea.Selection = Document.GetRange(0, _textArea.Document.Length);
 					e.Handled = true;
+					break;
+				case Keys.Application | Keys.Z:
+					e.Handled = _textArea.Undo();
+					break;
+				case Keys.Application | Keys.Y:
+					e.Handled = _textArea.Redo();
 					break;
 			}
 		}
@@ -189,6 +177,12 @@ namespace Eto.ExtendedRichTextArea
 				case Keys.Application | Keys.A:
 					_textArea.Selection = Document.GetRange(0, _textArea.Document.Length);
 					e.Handled = true;
+					break;
+				case Keys.Application | Keys.Z:
+					e.Handled = _textArea.Undo();
+					break;
+				case Keys.Application | Keys.Shift | Keys.Z:
+					e.Handled = _textArea.Redo();
 					break;
 			}
 		}
@@ -251,6 +245,10 @@ namespace Eto.ExtendedRichTextArea
 					break;
 				case Keys.Enter:
 					_textArea.TextArea.InsertText("\n");
+					e.Handled = true;
+					break;
+				case Keys.Shift | Keys.Enter:
+					_textArea.TextArea.InsertText("\x2028"); // line break
 					e.Handled = true;
 					break;
 			}

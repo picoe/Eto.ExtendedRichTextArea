@@ -15,8 +15,10 @@ namespace Eto.ExtendedRichTextArea.TestApp
 	{
 		public ExtendedRichTextArea RichTextArea { get; }
 
-		TreeGridView _structure = new();
-		TreeGridView _lines = new();
+		readonly TreeGridView _structure = new();
+		readonly TreeGridView _lines = new();
+
+		(RectangleF bounds, Color color)? _highlightedBounds;
 
 		public Bitmap CreateRandomBitmap(int width = 200, int height = 50)
 		{
@@ -100,6 +102,11 @@ namespace Eto.ExtendedRichTextArea.TestApp
 				attributesBinding.Child(a => a.Subscript));
 			subscriptCheckBox.CheckedChanged += (sender, e) => RichTextArea.Focus();
 
+			var underlineCheckBox = new CheckBox { Text = "Underline" };
+			underlineCheckBox.CheckedBinding.Bind(RichTextArea,
+				attributesBinding.Child(a => a.Underline));
+			underlineCheckBox.CheckedChanged += (sender, e) => RichTextArea.Focus();
+
 			// Size
 			var sizeDropDown = new ComboBox();
 			sizeDropDown.AutoComplete = true;
@@ -144,7 +151,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			return new TableLayout {
 				Spacing = new Size(4, 4),
 				Rows = {
-					new TableRow("Family", familyDropDown, "Typeface", typefaceDropDown, superscriptCheckBox, subscriptCheckBox, "Size", sizeDropDown, "Fg", foregroundSelector, "Bg", backgroundSelector),
+					new TableRow("Family", familyDropDown, "Typeface", typefaceDropDown, "Size", sizeDropDown, underlineCheckBox, superscriptCheckBox, subscriptCheckBox, "Fg", foregroundSelector, "Bg", backgroundSelector),
 				},
 			};
 		}
@@ -158,8 +165,10 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			var richTextArea = new RichTextArea { Size = new Size(700, 600) };
 #else
 			RichTextArea = new ExtendedRichTextArea { Size = new Size(700, 600) };
-#endif
 
+			var drawable = RichTextArea.FindChild<Drawable>();
+			drawable.Paint += drawable_Paint;
+#endif
 			var insertRandomTextButton = new Button { Text = "Insert Random Text" };
 			insertRandomTextButton.Click += (sender, e) =>
 			{
@@ -225,21 +234,12 @@ namespace Eto.ExtendedRichTextArea.TestApp
 
 			_structure.Size = new Size(200, 300);
 			_structure.ShowHeader = false;
-			_structure.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0) });
+			_structure.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0), Expand = true });
 			_structure.CellDoubleClick += (sender, e) =>
 			{
 				if (e.Item is TreeGridItem item && item.Tag != null)
 				{
-					var grid = new PropertyGrid { SelectedObject = item.Tag, Size = new Size(400, 300) };
-					var dlg = new Dialog<bool>
-					{
-						Title = "Properties",
-						Resizable = true,
-						// MinimumSize = new Size(300, 400),
-						Content = grid
-					};
-					dlg.PositiveButtons.Add(dlg.DefaultButton = new Button((s, ev) => dlg.Close(true)) { Text = "Ok" });
-					dlg.ShowModal(this);
+					ShowProperties(item.Tag);
 				}
 			};
 
@@ -247,15 +247,39 @@ namespace Eto.ExtendedRichTextArea.TestApp
 
 			_lines.Size = new Size(200, 300);
 			_lines.ShowHeader = false;
-			_lines.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0) });
+			_lines.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0), Expand = true });
+			_lines.CellDoubleClick += (sender, e) =>
+			{
+				if (e.Item is TreeGridItem item && item.Tag != null)
+				{
+					ShowProperties(item.Tag);
+				}
+			};
+			_lines.SelectedItemsChanged += (sender, e) =>
+			{
+				if (_highlightedBounds.HasValue)
+				{
+					var (bounds, color) = _highlightedBounds.Value;
+					_highlightedBounds = null;
+				}
+				if (_lines.SelectedItem is TreeGridItem item && item.Tag is Line line)
+				{
+					_highlightedBounds = (line.Bounds, Colors.Orange);
+				}
+				else if (_lines.SelectedItem is TreeGridItem chunkItem && chunkItem.Tag is Chunk chunk)
+				{
+					_highlightedBounds = (chunk.Bounds, Colors.Green);
+				}
+				RichTextArea.Invalidate();
+			};
 
 #if !UseDefaultRichTextArea
 			var changeTimer = new UITimer { Interval = 1 };
 			changeTimer.Elapsed += (sender, e) =>
 			{
 				changeTimer.Stop();
-				UpdateStructure();
-				UpdateLines();
+				Application.Instance.AsyncInvoke(UpdateStructure);
+				Application.Instance.AsyncInvoke(UpdateLines);
 			};
 
 			RichTextArea.Document.Changed += (sender, e) =>
@@ -281,28 +305,61 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			// para.FirstOrDefault()?.InsertAt(0, new Span {  Text = "Image:"});
 
 #endif
-			
+
+			var _status = new Label();
+			var binding = _status.Bind(c => c.Text, RichTextArea, r => $"Document Length: {r.Document.Length}, Selection: {r.Selection.Start}-{r.Selection.End} ({r.Selection.Length})");
+			RichTextArea.SelectionChanged += (s, e) => binding.Update();
 
 			var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
 			layout.Styles.Add(null, (Label lbl) => lbl.VerticalAlignment = VerticalAlignment.Center);
 
 			layout.AddSeparateRow(insertRandomTextButton, setSelectedText, insertImageButton, insertListButton, clearButton, null);
 			layout.AddSeparateRow(AttributeControls(), null);
-			layout.BeginVertical();
-			layout.BeginHorizontal();
-			layout.Add(RichTextArea, xscale: true);
-			layout.BeginVertical();
-			layout.Add(_structure, yscale: true);
-			layout.Add(_lines, yscale: true);
-			layout.EndVertical();
-			layout.EndHorizontal();
-			layout.EndVertical();
+			{
+				layout.BeginVertical();
+				layout.BeginHorizontal();
+				layout.Add(RichTextArea, xscale: true);
+				{
+					layout.BeginVertical();
+					layout.Add(_structure, yscale: true);
+					layout.Add(_lines, yscale: true);
+					layout.EndVertical();
+				}
+				layout.EndHorizontal();
+
+				layout.Add(_status);
+				layout.EndVertical();
+			}
 
 			Content = layout;
 			Shown += (sender, e) => RichTextArea.Focus();
 
 			CreateMenu();
 
+		}
+
+		private void drawable_Paint(object sender, PaintEventArgs e)
+		{
+			var highlight = _highlightedBounds;
+			if (highlight.HasValue)
+			{
+				var (bounds, color) = highlight.Value;
+				e.Graphics.DrawRectangle(color, bounds);
+			}
+		}
+
+		private void ShowProperties(object item)
+		{
+			var grid = new PropertyGrid { SelectedObject = item, Size = new Size(400, 300) };
+			var dlg = new Dialog<bool>
+			{
+				Title = "Properties",
+				Resizable = true,
+				// MinimumSize = new Size(300, 400),
+				Content = grid
+			};
+			dlg.PositiveButtons.Add(dlg.DefaultButton = new Button((s, ev) => dlg.Close(true)) { Text = "Ok" });
+			dlg.ShowModal(this);
 		}
 
 		static string NiceName(object obj)
@@ -338,12 +395,21 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			var linesItems = new TreeGridItemCollection();
 			foreach (var line in RichTextArea.Document.EnumerateLines(0))
 			{
-				var lineItem = new TreeGridItem();
-				lineItem.Values = new object[] { $"Line: {line.DocumentStart}:{line.Length}" };
+				var lineItem = new TreeGridItem { Expanded = true };
+				lineItem.Values = new object[] { $"Line: {line.Start}:{line.Length}" };
+				foreach (var chunk in line)
+				{
+					var chunkItem = new TreeGridItem();
+					chunkItem.Values = new object[] { $"Chunk ({NiceName(chunk.Element)}): {chunk.InlineStart}:{chunk.Length} - {chunk.Element.Text.Substring(chunk.InlineStart, Math.Min(chunk.Element.Text.Length - chunk.InlineStart, 100))}" };
+					chunkItem.Tag = chunk;
+					lineItem.Children.Add(chunkItem);
+				}
+				lineItem.Tag = line;
 				linesItems.Add(lineItem);
 			}
 			_lines.DataStore = linesItems;
-
+			_highlightedBounds = null;
+			Invalidate();
 		}
 
 		private void CreateMenu()

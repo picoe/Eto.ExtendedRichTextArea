@@ -15,7 +15,7 @@ public class InsertTextTests : TestBase
 		Assert.That(document.Length, Is.EqualTo(5));
 		Assert.That(document.Count, Is.EqualTo(1), "Should only be one paragraph");
 		Assert.That(document[0].Count, Is.EqualTo(1), "Should only be one inline element");
-		Assert.That(document[0][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
+		Assert.That(document[0][0], Is.TypeOf<TextElement>(), "Inline element should be a span");
     }
 	
 	[Test]
@@ -28,8 +28,8 @@ public class InsertTextTests : TestBase
 		Assert.That(document.Count, Is.EqualTo(2), "Should be two paragraphs");
 		Assert.That(document[0].Count, Is.EqualTo(1), "Should only be one inline element in first paragraph");
 		Assert.That(document[1].Count, Is.EqualTo(1), "Should only be one inline element in second paragraph");
-		Assert.That(document[0][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
-		Assert.That(document[1][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
+		Assert.That(document[0][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
+		Assert.That(document[1][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
 	}
 	
 	[Test]
@@ -44,8 +44,8 @@ public class InsertTextTests : TestBase
 		Assert.That(document.Count, Is.EqualTo(2), "Should be two paragraphs");
 		Assert.That(document[0].Count, Is.EqualTo(1), "Should only be one inline element in first paragraph");
 		Assert.That(document[1].Count, Is.EqualTo(1), "Should only be one inline element in second paragraph");
-		Assert.That(document[0][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
-		Assert.That(document[1][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
+		Assert.That(document[0][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
+		Assert.That(document[1][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
 	}
 	
 	[Test]
@@ -63,10 +63,10 @@ public class InsertTextTests : TestBase
 		Assert.That(document[1].Count, Is.EqualTo(1), "Should only be one inline element in second paragraph");
 		Assert.That(document[2].Count, Is.EqualTo(1), "Should only be one inline element in third paragraph");
 		Assert.That(document[3].Count, Is.EqualTo(1), "Should only be one inline element in fourth paragraph");
-		Assert.That(document[0][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
-		Assert.That(document[1][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
-		Assert.That(document[2][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
-		Assert.That(document[3][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
+		Assert.That(document[0][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
+		Assert.That(document[1][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
+		Assert.That(document[2][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
+		Assert.That(document[3][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
 	}
 	
 	[Test]
@@ -79,7 +79,7 @@ public class InsertTextTests : TestBase
 		document.InsertText(2, "\n");
 		Assert.That(document.Text, Is.EqualTo("He\nllo\nWorld"));
 	}
-	
+
 	[TestCase("Hello\nWorld", 2, "\n", "He\nllo\nWorld")]
 	[TestCase("Hello\nWorld", 4, "\nasdf", "Hell\nasdfo\nWorld")]
 	[TestCase("Hello", 3, "\nasdf", "Hel\nasdflo")]
@@ -89,6 +89,7 @@ public class InsertTextTests : TestBase
 	[TestCase("Hello\n\nWorld", 6, "asdf", "Hello\nasdf\nWorld")]
 	[TestCase("", 0, "exercitation\namet eu nostrud qui enim\nexercitation nisi culpa dolore\nut duis proident reprehenderit consectetur\nin esse cillum officia eu irure", "exercitation\namet eu nostrud qui enim\nexercitation nisi culpa dolore\nut duis proident reprehenderit consectetur\nin esse cillum officia eu irure")]
 	[TestCase("\n\n\n", 1, "exercitation\namet\nnisi\nut\nin", "\nexercitation\namet\nnisi\nut\nin\n\n")]
+	[TestCase("Hello\nWorld", 0, "\n", "\nHello\nWorld")]
 	public void InsertingTextShouldWork(string initialText, int insertIndex, string text, string expected)
 	{
 		var document = new Document();
@@ -109,8 +110,8 @@ public class InsertTextTests : TestBase
 		Assert.That(document.Length, Is.EqualTo(5));
 		Assert.That(document.Count, Is.EqualTo(1), "Should only be one paragraph");
 		Assert.That(document[0].Count, Is.EqualTo(1), "Should only be one inline element");
-		Assert.That(document[0][0], Is.TypeOf<SpanElement>(), "Inline element should be a span");
-		Assert.That(((SpanElement)document[0][0]).Attributes?.Font?.FamilyName, Is.EqualTo("Arial"));
+		Assert.That(document[0][0], Is.TypeOf<TextElement>(), "Inline element should be a span");
+		Assert.That(((TextElement)document[0][0]).Attributes?.Font?.FamilyName, Is.EqualTo("Arial"));
 	}
 	
 	
@@ -123,7 +124,7 @@ public class InsertTextTests : TestBase
 	public void InsertingParagraphWithFormattingShouldKeepFormatting(string html, int insertIndex, string insertText, int testIndex, string fontFamily)
 	{
 		var document = new Document();
-		new HtmlParser().ParseHtml(document, html);
+		new HtmlParser(document).ParseHtml(html);
 
 		document.InsertText(insertIndex, insertText);
 		var attributes = document.GetAttributes(testIndex, testIndex);

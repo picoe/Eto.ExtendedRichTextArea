@@ -7,120 +7,6 @@ using System.ComponentModel;
 namespace Eto.ExtendedRichTextArea.Model
 {
 
-	public static class ElementExtensions
-	{
-		public static Document? GetDocument(this IElement element)
-		{
-			var parent = element.Parent;
-			while (parent?.Parent != null)
-			{
-				parent = parent.Parent;
-			}
-			return parent as Document;
-		}
-
-	}
-
-	public abstract class BlockContainerElement<T> : ContainerElement<T>
-		where T : class, IBlockElement
-	{
-		public override int GetIndexAt(PointF point)
-		{
-			if (point.Y < Bounds.Top)
-				return 0;
-			if (point.Y > Bounds.Bottom)
-				return Length;
-			for (int i = 0; i < Count; i++)
-			{
-				var element = this[i];
-
-				// too far, break!
-				if (point.Y < element.Bounds.Top)
-					break;
-				if (point.Y >= element.Bounds.Bottom)
-					continue;
-
-				// traverse containers
-				var index = element.GetIndexAt(point);
-				if (index >= 0)
-					return index + element.Start;
-			}
-			return Length;
-		}
-
-		public override PointF? GetPointAt(int start, out Line? line)
-		{
-			var separatorLength = SeparatorLength;
-			for (int i = 0; i < Count; i++)
-			{
-				var child = this[i];
-				if (start > child.Length)
-				{
-					start -= child.Length + separatorLength;
-					continue;
-				}
-				var point = child.GetPointAt(start, out line);
-				if (point.HasValue)
-				{
-					point = new PointF(point.Value.X, point.Value.Y);
-					return point;
-				}
-			}
-			line = null;
-			return null;
-
-		}
-
-		public override IEnumerable<Chunk> EnumerateChunks(int start, int end)
-		{
-			for (int i = 0; i < Count; i++)
-			{
-				var element = this[i];
-				if (element.Start >= end)
-					break;
-				if (element.End <= start)
-					continue;
-				var containerStart = Math.Max(start - element.Start, 0);
-				var containerEnd = Math.Min(end - element.Start, element.Length);
-				foreach (var inline in element.EnumerateChunks(containerStart, containerEnd))
-				{
-					yield return inline;
-				}
-			}
-		}
-
-		public override IEnumerable<Line> EnumerateLines(int start, bool forward = true)
-		{
-			var collection = forward ? this : this.Reverse();
-			foreach (var element in collection)
-			{
-				if (forward && element.End < start)
-					continue;
-				else if (!forward && element.Start > start)
-					continue;
-				var containerStart = Math.Max(start - element.Start, 0);
-				foreach (var line in element.EnumerateLines(containerStart, forward))
-				{
-					yield return line;
-				}
-			}
-			// empty container
-			if (Count == 0)
-				yield return new Line { Start = 0, DocumentStart = DocumentStart, Bounds = Bounds };
-
-		}
-
-		public override void Paint(Graphics graphics, RectangleF clipBounds)
-		{
-			for (int i = 0; i < Count; i++)
-			{
-				var element = this[i];
-				element.Paint(graphics, clipBounds);
-			}
-		}
-	}
-
-
 	public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		where T : class, IElement
 	{
@@ -155,37 +41,45 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public string Text
 		{
-			get
-			{
-				if (Separator != null)
-					return string.Join(Separator, this.Select(r => r.Text));
-				return string.Concat(this.Select(r => r.Text));
-			}
+			get => GetText();
 			set
 			{
 				BeginEdit();
-				Clear();
-				if (!string.IsNullOrEmpty(value))
+				SetText(value);
+				EndEdit();
+			}
+		}
+
+		protected virtual void SetText(string value)
+		{
+			Clear();
+			if (!string.IsNullOrEmpty(value))
+			{
+				if (Separator != null)
 				{
-					if (Separator != null)
-					{
-						var lines = value.Split(new[] { Separator }, StringSplitOptions.None);
-						foreach (var line in lines)
-						{
-							var element = CreateElement();
-							element.Text = line;
-							Add(element);
-						}
-					}
-					else
+					var lines = value.Split(new[] { Separator }, StringSplitOptions.None);
+					foreach (var line in lines)
 					{
 						var element = CreateElement();
-						element.Text = value;
+						element.Text = line;
 						Add(element);
 					}
 				}
-				EndEdit();
+				else
+				{
+					var element = CreateElement();
+					element.Text = value;
+					Add(element);
+				}
 			}
+		}
+
+		protected virtual string GetText()
+		{
+			if (Separator != null)
+				return string.Join(Separator, this.Select(r => r.Text));
+				
+			return string.Concat(this.Select(r => r.Text));
 		}
 
 		protected override void ClearItems()
@@ -240,8 +134,8 @@ namespace Eto.ExtendedRichTextArea.Model
 			MeasureIfNeeded();
 		}
 
-		internal abstract ContainerElement<T> Create();
-		internal abstract T CreateElement();
+		protected abstract ContainerElement<T> Create();
+		protected abstract T CreateElement();
 
 		IElement IBlockElement.CreateElement() => CreateElement();
 
@@ -457,8 +351,9 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		protected IElement? Split(int start)
 		{
-			if (start >= Length || Start == start)
+			if (start >= Length)
 				return null;
+				
 			ContainerElement<T> CreateNew()
 			{
 				var newElement = Create();
@@ -467,6 +362,21 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 
 			ContainerElement<T>? newRun = null;
+
+			if (Start == start)
+			{
+				newRun = CreateNew();
+				for (int i = 0; i < Count; i++)
+				{
+					var element = this[i];
+					newRun.Add(element);
+				}
+				Clear();
+				Length = 0;
+				Parent?.Adjust(Parent.IndexOf(this), -newRun.Length);
+				return newRun;
+			}
+
 			for (int i = 0; i < Count; i++)
 			{
 				var element = this[i];
@@ -694,6 +604,37 @@ namespace Eto.ExtendedRichTextArea.Model
 				index += item.Length;
 			}
 			return Length == index;
+		}
+
+		protected virtual ContainerElement<T> Clone()
+		{
+			var clone = Create();
+			clone.Attributes = Attributes?.Clone();
+			clone.Start = Start;
+			foreach (var item in this)
+			{
+				var clonedItem = item.Clone() as T;
+				if (clonedItem != null)
+				{
+					clonedItem.Parent = clone;
+					clone.Add(clonedItem);
+				}
+			}
+			return clone;
+		}
+
+		object ICloneable.Clone() => Clone();
+
+		public void AddRange(IEnumerable<T> items)
+		{
+			BeginEdit();
+			foreach (var item in items)
+			{
+				if (item == null)
+					continue;
+				Add(item);
+			}
+			EndEdit();
 		}
 	}
 }

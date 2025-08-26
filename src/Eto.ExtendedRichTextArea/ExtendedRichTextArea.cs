@@ -6,18 +6,18 @@ using System.ComponentModel;
 
 namespace Eto.ExtendedRichTextArea
 {
-    public class ExtendedRichTextArea : Scrollable
+	public class ExtendedRichTextArea : Scrollable
 	{
 		readonly TextAreaDrawable _drawable;
-		
+
 		public Document Document
 		{
 			get => _drawable.Document;
 			set => _drawable.Document = value;
 		}
-		
+
 		Attributes? _selectionAttributes;
-		
+
 		public Attributes? SelectionAttributes
 		{
 			get
@@ -63,11 +63,13 @@ namespace Eto.ExtendedRichTextArea
 			set => _drawable.Selection = value;
 		}
 
-		 public string SelectionText
-		 {
-		 	get => _drawable.Selection?.Text ?? string.Empty;
-		 	set => Selection.Text = value;
-		 }
+		public string SelectionText
+		{
+			get => _drawable.Selection?.Text ?? string.Empty;
+			set => Selection.Text = value;
+		}
+		
+		public event EventHandler<EventArgs>? SelectionChanged;
 
 		public Font SelectionFont
 		{
@@ -96,20 +98,26 @@ namespace Eto.ExtendedRichTextArea
 
 		public event EventHandler<EventArgs>? SelectionBrushChanged;
 
-        public override void Focus()
-        {
-            _drawable.Focus();
-        }
+		public override void Focus()
+		{
+			_drawable.Focus();
+		}
 
-        public ExtendedRichTextArea()
+		public ExtendedRichTextArea()
 		{
 			_drawable = new TextAreaDrawable(this);
 			_drawable.Caret.IndexChanged += Drawable_CaretIndexChanged;
-			
+			_drawable.SelectionChanged += Drawable_SelectionChanged;
+
 			Content = _drawable;
 
 			BackgroundColor = SystemColors.ControlBackground;
 			Size = new Size(200, 100);
+		}
+
+		private void Drawable_SelectionChanged(object? sender, EventArgs e)
+		{
+			SelectionChanged?.Invoke(this, EventArgs.Empty);
 		}
 
 		protected override void OnSizeChanged(EventArgs e)
@@ -122,11 +130,11 @@ namespace Eto.ExtendedRichTextArea
 		}
 
 		private void Drawable_CaretIndexChanged(object? sender, EventArgs e)
-        {
+		{
 			var scrollSize = ClientSize;
 			PointF scrollPosition = ScrollPosition;
 			var caretBounds = _drawable.CaretBounds;
-			
+
 			if (caretBounds.Bottom > scrollPosition.Y + scrollSize.Height)
 			{
 				scrollPosition.Y = caretBounds.Bottom - scrollSize.Height;
@@ -135,7 +143,7 @@ namespace Eto.ExtendedRichTextArea
 			{
 				scrollPosition.Y = caretBounds.Top;
 			}
-			
+
 			if (caretBounds.Right > scrollPosition.X + scrollSize.Width)
 			{
 				scrollPosition.X = caretBounds.Right - scrollSize.Width;
@@ -144,9 +152,10 @@ namespace Eto.ExtendedRichTextArea
 			{
 				scrollPosition.X = caretBounds.Left;
 			}
-			
+
 			ScrollPosition = Point.Round(scrollPosition);
-        }
+			SelectionChanged?.Invoke(this, EventArgs.Empty);
+		}
 
 		public void InsertText(string text)
 		{
@@ -158,12 +167,13 @@ namespace Eto.ExtendedRichTextArea
 				_drawable.Selection = null;
 			}
 			Document.InsertText(_drawable.Caret.Index, text, SelectionAttributes);
-			Document.EndEdit();
 			_drawable.Caret.Index += text.Length;
+			_drawable.Selection = null;
 			_drawable.Caret.CalculateCaretBounds();
+			Document.EndEdit();
 			Invalidate();
 		}
-		
+
 		public void Insert(IElement element)
 		{
 			Document.BeginEdit();
@@ -173,10 +183,11 @@ namespace Eto.ExtendedRichTextArea
 				_drawable.Selection = null;
 			}
 			Document.InsertAt(_drawable.Caret.Index, element);
-			Document.EndEdit();
-			_drawable.Caret.Index = element.End;
+			_drawable.Caret.Index = element.DocumentStart + element.Length;
 			_drawable.Caret.CalculateCaretBounds();
+			Document.EndEdit();
 			Invalidate();
 		}
+		
 	}
 }

@@ -38,6 +38,16 @@
 				],
 			},
 			"problemMatcher": "$msCompile"
-		}
+		},
+		{
+			"label": "build-tests",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/test/Eto.ExtendedRichTextArea.UnitTest/Eto.ExtendedRichTextArea.UnitTest.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
 	]
 }

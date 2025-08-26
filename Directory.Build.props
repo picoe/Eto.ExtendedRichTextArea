@@ -1,7 +1,7 @@
 <Project>
 
   <PropertyGroup>
-    <LangVersion>latest</LangVersion>
+    <LangVersion>default</LangVersion>
 
 		<BasePath>$(MSBuildThisFileDirectory)</BasePath>
     <UseLocalEto Condition="$(UseLocalEto) == '' and $(SolutionName) == 'Eto.ExtendedRichTextArea.LocalEto'">True</UseLocalEto>
@@ -39,7 +39,7 @@
     <AssemblyVersionMajorMinor>$([System.Version]::Parse($([System.String]::Copy('$(Version)').Replace('.*', ''))).ToString(2))</AssemblyVersionMajorMinor>
     <DaysSince2000>$([System.DateTime]::Today.Subtract($([System.DateTime]::Parse('2000-01-01T00:00:00Z'))).TotalDays.ToString('0'))</DaysSince2000>
     <SecondsOfTodayHalved>$([MSBuild]::Divide($([System.DateTime]::Now.Subtract($([System.DateTime]::Today)).TotalSeconds), 2).ToString('0'))</SecondsOfTodayHalved>
-    <FileVersion>$(AssemblyVersionMajorMinor).$(DaysSince2000).$(SecondsOfTodayHalved)</FileVersion>
+    <FileVersion Condition="$(Configuration) == 'Release'">$(AssemblyVersionMajorMinor).$(DaysSince2000).$(SecondsOfTodayHalved)</FileVersion>
     
     <PackageProjectUrl>https://github.com/picoe/Eto.ExtendedRichTextArea</PackageProjectUrl>
     <RepositoryType>git</RepositoryType>

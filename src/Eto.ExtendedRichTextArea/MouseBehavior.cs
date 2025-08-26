@@ -13,6 +13,7 @@ namespace Eto.ExtendedRichTextArea
 		private PointF _mouseLocation;
 
 		private int _initialIndex;
+		private int _lastCaretIndex;
 		private bool _isSelectingByWord;
 
 		private (string text, int start)? _initialWord;
@@ -50,6 +51,7 @@ namespace Eto.ExtendedRichTextArea
 				_textArea.Selection = null;
 				_textArea.TextArea.SelectionAttributes = _textArea.Document.GetAttributes(_caret.Index, _caret.Index);
 			}
+
 			_isMouseDown = false;
 			_isSelectingByWord = false;
 		}
@@ -73,13 +75,15 @@ namespace Eto.ExtendedRichTextArea
 					}
 				}
 				_caret.Index = index;
-				_textArea.Selection = _textArea.Document.GetRange(_initialIndex, index);
+				// _textArea.Selection = _textArea.Document.GetRange(_initialIndex, index);
+				_textArea.SetSelection(_initialIndex, true);
 			}
 		}
 
 		private void TextArea_MouseDown(object? sender, MouseEventArgs e)
 		{
 			_isMouseDown = true;
+			_lastCaretIndex = _caret.Index;
 			_isSelectingByWord = false;
 			_mouseDownLocation = e.Location;
 			_mouseLocation = e.Location;
@@ -88,7 +92,12 @@ namespace Eto.ExtendedRichTextArea
 			{
 				_caret.Index = index;
 				_initialIndex = index;
-			}
+
+				var extendSelection = e.Buttons == MouseButtons.Primary && e.Modifiers == Keys.Shift;
+				if (extendSelection)
+					_initialIndex = _lastCaretIndex;
+				_textArea.SetSelection(_lastCaretIndex, extendSelection);
+			}			
 		}
 	}
 }

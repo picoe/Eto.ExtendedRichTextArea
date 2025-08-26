@@ -50,7 +50,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			Chunk? lastChunk = null;
 			foreach (var line in Document.EnumerateLines(Start))
 			{
-				if (line.DocumentStart >= End)
+				if (line.Start >= End)
 					break;
 					
 				RectangleF bounds = RectangleF.Empty;
@@ -65,7 +65,7 @@ namespace Eto.ExtendedRichTextArea.Model
 
 				foreach (var chunk in line)
 				{
-					var documentIndex = line.DocumentStart + chunk.Start;
+					var documentIndex = line.Start + chunk.Start;
 					if (documentIndex >= End)
 						break;
 					if (documentIndex + chunk.Length <= Start)
@@ -136,5 +136,10 @@ namespace Eto.ExtendedRichTextArea.Model
 		}
 		
 		public Attributes GetAttributes() => Document.GetAttributes(Start, End);
+
+		internal DocumentRange? Clone()
+		{
+			return new DocumentRange(Document, Start, End, OriginalStart);
+		}
 	}
 }

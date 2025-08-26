@@ -13,11 +13,18 @@ public abstract class ListType
 	public static ListType Unordered => new UnorderedListType();
 	public static ListType Ordered => new OrderedListType();
 	public abstract void Paint(ListItemElement list, Graphics graphics, RectangleF bounds);
+
+	public abstract string GetText(int index);
 }
 
 public class UnorderedListType : ListType
 {
 	public string BulletCharacter { get; set; } = "•"; // Default bullet character
+
+	public override string GetText(int index)
+	{
+		return BulletCharacter + " ";
+	}
 
 	public override void Paint(ListItemElement list, Graphics graphics, RectangleF bounds)
 	{
@@ -30,13 +37,18 @@ public class UnorderedListType : ListType
 			textSize.Width,
 			textSize.Height
 		);
-		graphics.DrawText(font, Brushes.Black, bulletBounds.Location, BulletCharacter);
+		graphics.DrawText(font, SystemColors.ControlText, bulletBounds.Location, BulletCharacter);
 	}
 }
 
 public class OrderedListType : ListType
 {
 	public string NumberFormat { get; set; } = "{0}. "; // Default number format
+
+	public override string GetText(int index)
+	{
+		return string.Format(NumberFormat, index + 1);
+	}
 
 	public override void Paint(ListItemElement list, Graphics graphics, RectangleF bounds)
 	{
@@ -50,17 +62,19 @@ public class OrderedListType : ListType
 			textSize.Width,
 			textSize.Height
 		);
-		graphics.DrawText(font, Brushes.Black, numberBounds.Location, numberText);
+		graphics.DrawText(font, SystemColors.ControlText, numberBounds.Location, numberText);
 	}
 }
 
 public class ListItemElement : ParagraphElement
 {
-	internal override ContainerElement<IInlineElement> Create() => new ListItemElement();
+	protected override ContainerElement<IInlineElement> Create() => new ListItemElement();
 
 	public int Level { get; set; } = 0; // Indentation level for nested lists
-	
+
 	internal int Index { get; set; }
+
+	float Indent => (Parent as ListElement)?.Type.Indent * (Level + 1) ?? 0;
 
 	public override void Paint(Graphics graphics, RectangleF clipBounds)
 	{
@@ -81,19 +95,38 @@ public class ListItemElement : ParagraphElement
 	{
 		if (Parent is not ListElement list)
 			return base.MeasureOverride(defaultAttributes, availableSize, location);
-			
+
 		var loc = location;
-		loc.X += (Level + 1) * list.Type.Indent; // Adjust for level
+		loc.X += Indent;
 		var childSize = base.MeasureOverride(defaultAttributes, availableSize, loc);
 		childSize.Width += loc.X;
 		return childSize;
+	}
+
+	public override PointF? GetPointAt(int start, out Line? line)
+	{
+		if (Count == 0 && Parent is ListElement list)
+		{
+			line = null;
+			return Bounds.Location + new PointF(Indent, 0);
+		}
+		return base.GetPointAt(start, out line);
+	}
+
+	protected override string GetText()
+	{
+		if (Parent is ListElement list)
+		{
+			return list.Type.GetText(Index) + base.GetText();
+		}
+		return base.GetText();
 	}
 }
 
 public class ListElement : BlockContainerElement<ListItemElement>
 {
-	internal override ContainerElement<ListItemElement> Create() => new ListElement();
-	internal override ListItemElement CreateElement() => new ListItemElement();
+	protected override ContainerElement<ListItemElement> Create() => new ListElement();
+	protected override ListItemElement CreateElement() => new ListItemElement();
 
 	public ListType Type { get; set; } = ListType.Unordered;
 	protected override string? Separator => "\n";
@@ -133,7 +166,7 @@ public class ListElement : BlockContainerElement<ListItemElement>
 		var (child, index, position) = FindAt(start);
 		if (child != null)
 		{
-			if (child.Length == 0 && element is SpanElement span && span.Text == "\n")
+			if (child.Length == 0 && element is TextElement span && span.Text == "\n")
 			{
 				// If the child is empty, we remove it from the list, and replace it with a paragraph in the parent
 				RemoveAt(index);
@@ -149,6 +182,16 @@ public class ListElement : BlockContainerElement<ListItemElement>
 			}
 		}
 		return base.InsertAt(start, element);
+	}
+
+	protected override ContainerElement<ListItemElement> Clone()
+	{
+		if (base.Clone() is not ListElement clone)
+			throw new InvalidOperationException("Failed to clone ListElement.");
+
+		clone.Type = Type;
+		clone.ItemSpacing = ItemSpacing;
+		return clone;
 	}
 
 }

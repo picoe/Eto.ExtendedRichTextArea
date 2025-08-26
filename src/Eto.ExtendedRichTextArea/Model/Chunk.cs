@@ -13,18 +13,18 @@ namespace Eto.ExtendedRichTextArea.Model
 		public IInlineElement Element { get; }
 		public RectangleF Bounds { get; }
 		public int Start { get; }
-		public int End { get; }
+		public int End => Start + Length;
 
-		public int Length => End - Start;
+		public int Length { get; }
 		
 		public int InlineStart { get; }
 		public int InlineEnd => InlineStart + Length;
 
-		public Chunk(IInlineElement element, int start, int end, RectangleF bounds, int inlineIndex = 0)
+		public Chunk(IInlineElement element, int start, int length, RectangleF bounds, int inlineIndex = 0)
 		{
 			Element = element;
 			Start = start;
-			End = end;
+			Length = length;
 			Bounds = bounds;
 			InlineStart = inlineIndex;
 		}

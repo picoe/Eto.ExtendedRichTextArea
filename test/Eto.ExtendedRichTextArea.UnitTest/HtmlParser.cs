@@ -1,3 +1,5 @@
+using System.Collections;
+
 using Eto.Drawing;
 using Eto.ExtendedRichTextArea.Model;
 
@@ -10,28 +12,43 @@ namespace Eto.ExtendedRichTextArea.UnitTest
 	// I created this to simplify tests with formatting for now.
 	class HtmlParser
 	{
-		ParagraphElement? _currentParagraph;
 		Attributes? _currentAttributes;
-		public void ParseHtml(Document document, string html)
+		readonly Document _document;
+
+		public HtmlParser(Document document)
+		{
+			_document = document;
+		}
+
+		public void ParseHtml(string html)
 		{
 			var htmlDoc = new HtmlDocument();
 			htmlDoc.LoadHtml(html);
-			_currentAttributes = document.DefaultAttributes;
-			foreach (var node in htmlDoc.DocumentNode.SelectNodes("//p"))
-			{
-				ParseNode(document, node);
-			};
-			AddParagraph(document);
-			
+			_currentAttributes = _document.DefaultAttributes;
+			ParseRun(_document, htmlDoc.DocumentNode);
 		}
-		
+
+		readonly Stack<Attributes> _attributeStack = new Stack<Attributes>();
+
 		void SetAttributes(Action<Attributes>? action = null)
 		{
 			_currentAttributes = _currentAttributes?.Clone() ?? new Attributes();
 			action?.Invoke(_currentAttributes);
 		}
+		
+		void SaveAttributes()
+		{
+			if (_currentAttributes != null)
+				_attributeStack.Push(_currentAttributes);
+		}
+		
+		void RestoreAttributes()
+		{
+			if (_attributeStack.Count > 0)
+				_currentAttributes = _attributeStack.Pop();
+		}
 
-		void ParseRun(Document document, HtmlNode node)
+		void ParseRun(IList document, HtmlNode node)
 		{
 			foreach (var child in node.ChildNodes)
 			{
@@ -41,12 +58,44 @@ namespace Eto.ExtendedRichTextArea.UnitTest
 			}
 		}
 
-		private void ParseNode(Document document, HtmlNode node)
+		private void ParseNode(IList container, HtmlNode node)
 		{
 			if (node.Name == "p")
 			{
-				AddParagraph(document);
+				AddParagraph<ParagraphElement>(_document, node);
 			}
+			else if (node.Name == "ul")
+			{
+				AddList(_document, ListType.Unordered, node);
+			}
+			else if (node.Name == "ol")
+			{
+				AddList(_document, ListType.Ordered, node);
+			}
+			else
+			{
+				AddParagraph<ParagraphElement>(container, node);
+			}
+
+		}
+
+		private void AddList(IList container, ListType type, HtmlNode node)
+		{
+			var list = new ListElement();
+			list.Type = type;
+			container.Add(list);
+
+			foreach (var item in node.SelectNodes("li"))
+			{
+				AddParagraph<ListItemElement>(list, item);
+			}
+		}
+
+		private void AddParagraph<T>(IList container, HtmlNode node)
+			where T : ParagraphElement, new()
+		{
+			var paragraph = new T();
+			SaveAttributes();
 
 			if (node.GetAttributeValue("style", null) is string style)
 			{
@@ -76,34 +125,59 @@ namespace Eto.ExtendedRichTextArea.UnitTest
 					}
 				}
 			}
+
+			paragraph.Attributes = _currentAttributes;
+			container.Add(paragraph);
 			
-			if (node.Name == "p")
-			{
-				if (_currentParagraph != null)
-					_currentParagraph.Attributes = _currentAttributes;
-				ParseRun(document, node);
-			}
-			else if (node.Name == "b")
-			{
-				SetAttributes(a => a.Typeface = a.Family?.Typefaces.FirstOrDefault(r => r.Bold));
-				ParseRun(document, node);
-			}
-			else if (node.HasChildNodes)
-			{
-				ParseRun(document, node);
-			}
-			else
-			{
-				var span = new SpanElement { Text = node.InnerText, Attributes = _currentAttributes };
-				_currentParagraph?.Add(span);
-			}
+			ParseInlines(paragraph, node);
+
+			RestoreAttributes();
+
 		}
 
-		private void AddParagraph(Document document)
+		private void ParseInlines(IList container, HtmlNode node)
 		{
-			if (_currentParagraph != null)
-				document.Add(_currentParagraph);
-			_currentParagraph = new ParagraphElement();
+			foreach (var child in node.ChildNodes)
+			{
+				if (child.Name == "b" || child.Name == "strong")
+				{
+					SaveAttributes();
+					SetAttributes(a => a.Typeface = a.Family?.Typefaces.FirstOrDefault(r => r.Bold));
+					ParseInlines(container, child);
+					RestoreAttributes();
+				}
+				else if (child.Name == "i" || child.Name == "em")
+				{
+					SaveAttributes();
+					SetAttributes(a => a.Typeface = a.Family?.Typefaces.FirstOrDefault(r => r.Italic));
+					ParseInlines(container, child);
+					RestoreAttributes();
+				}
+				else if (child.Name == "u")
+				{
+					SaveAttributes();
+					SetAttributes(a => a.Underline = true);
+					ParseInlines(container, child);
+					RestoreAttributes();
+				}
+				else if (child.Name == "#text")
+				{
+					var text = child.InnerText.Replace("\r", "").Replace("\n", " ");
+					if (!string.IsNullOrEmpty(text))
+					{
+						var textElement = new TextElement
+						{
+							Text = text,
+							Attributes = _currentAttributes
+						};
+						container.Add(textElement);
+					}
+				}
+				else
+				{
+					ParseInlines(container, child);
+				}
+			}
 		}
 	}
 }

@@ -3,14 +3,11 @@ using Eto.Drawing;
 
 namespace Eto.ExtendedRichTextArea.Model
 {
-
-	public class SpanElement : IInlineElement
+	public class TextElement : IInlineElement
 	{
 		FormattedText? _formattedText;
-
 		SizeF? _measureSize;
 		string? _text;
-
 		Attributes? _attributes;
 
 		/// <summary>
@@ -55,13 +52,13 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 
-		public SpanElement? Split(int start)
+		public TextElement? Split(int start)
 		{
 			if (start >= Length || start <= 0)
 				return null;
 			var text = Text;
 			Text = text.Substring(0, start);
-			var newSpan = new SpanElement
+			var newSpan = new TextElement
 			{
 				Start = Start + start,
 				Text = text.Substring(start),
@@ -74,11 +71,11 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		IElement? IElement.Split(int index) => Split(index);
 
-		internal SpanElement WithText(string text)
+		internal TextElement WithText(string text)
 		{
 			if (text == Text)
 				return this;
-			var span = new SpanElement { Text = text, Attributes = Attributes?.Clone() };
+			var span = new TextElement { Text = text, Attributes = Attributes?.Clone() };
 			return span;
 		}
 
@@ -206,7 +203,7 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public bool Matches(IInlineElement element)
 		{
-			if (element is not SpanElement span)
+			if (element is not TextElement span)
 				return false;
 			
 			return span.Attributes == (_resolvedAttributes ?? Attributes);
@@ -214,7 +211,7 @@ namespace Eto.ExtendedRichTextArea.Model
 
 		public bool Merge(int index, IInlineElement element)
 		{
-			if (element is not SpanElement span || index < 0 || index > Length)
+			if (element is not TextElement span || index < 0 || index > Length)
 				return false;
 			if (!Matches(span))
 				return false;
@@ -246,15 +243,15 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			if (start == 0)
 			{
-				yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(0, end) };
+				yield return new TextElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(0, end) };
 				yield break;
 			}
 			if (end == Length)
 			{
-				yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start) };
+				yield return new TextElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start) };
 				yield break;
 			}
-			yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start, end - start) };
+			yield return new TextElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start, end - start) };
 		}
 
 		public void Paint(Line line, Chunk chunk, Graphics graphics, RectangleF clipBounds)
@@ -326,21 +323,24 @@ namespace Eto.ExtendedRichTextArea.Model
 						if (attr.Start > docEnd)
 							break;
 						// ensure it's in range
-						var attrStart = Math.Max(0, attr.Start - docStart);
-						var attrEnd = Math.Min(attr.End - docStart, chunk.InlineEnd);
+						var attrStart = Math.Max(chunk.InlineStart, attr.Start - docStart + chunk.InlineStart);
+						var attrEnd = Math.Min(attr.End - docStart + chunk.InlineStart, chunk.InlineEnd);
 						if (attrStart > start)
 						{
 							// draw first part without override
 							DrawText(_resolvedAttributes, attrStart);
 						}
 
-						var attributes = _resolvedAttributes.Merge(attr.Attributes, false);
-						DrawText(attributes, attrEnd);
+						if (attrEnd > start)
+						{
+							var attributes = _resolvedAttributes.Merge(attr.Attributes, false);
+							DrawText(attributes, attrEnd);
+						}
 					}
 				}
 			}
 
-			if (start == chunk.InlineStart)
+			if (start == 0 && chunk.Length == Length)
 			{
 				// draw whole thing.
 				DrawBackground(_resolvedAttributes, null, null);
@@ -353,18 +353,27 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 
-		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, out float baseline)
+		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, int start, int length, out float baseline)
 		{
 			_documentStart = null;
 			_formattedText ??= new FormattedText { Text = Text };
 			_resolvedAttributes = defaultAttributes.Merge(Attributes, false);
 			_resolvedAttributes.Apply(_formattedText);
+			baseline = _resolvedAttributes.Baseline ?? 0;
+			
+			if (start > 0 || length < Text.Length)
+			{
+				// we need to create a new formatted text for the substring
+				_formattedText.Text = Text.Substring(start, length);
+				var size = _formattedText.Measure();
+				_formattedText.Text = Text; // reset to full text
+				return size;
+			}
 
 			if (_measureSize == null)
 			{
 				_measureSize = _formattedText.Measure();
 			}
-			baseline = _resolvedAttributes.Baseline ?? 0;
 			return _measureSize.Value;
 		}
 
@@ -391,20 +400,20 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			if (start == 0)
 			{
-				yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(0, end) };
+				yield return new TextElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(0, end) };
 				yield break;
 			}
 			if (end == Length)
 			{
-				yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start) };
+				yield return new TextElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start) };
 				yield break;
 			}
-			yield return new SpanElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start, end - start) };
+			yield return new TextElement { Start = start, Attributes = Attributes?.Clone(), Text = Text.Substring(start, end - start) };
 		}
 
 		public bool InsertAt(int start, IElement element)
 		{
-			if (element is not SpanElement span)
+			if (element is not TextElement span)
 				return false;
 			if (start < 0 || start > Length)
 				throw new ArgumentOutOfRangeException(nameof(start), "Start must be between 0 and the length of the element");
@@ -425,6 +434,17 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 			Text = Text.Insert(start, span.Text);
 			return true;
+		}
+
+		public object Clone()
+		{
+			return new TextElement
+			{
+				Start = Start,
+				Attributes = Attributes?.Clone(),
+				Text = Text,
+				Tag = Tag
+			};
 		}
 	}
 }

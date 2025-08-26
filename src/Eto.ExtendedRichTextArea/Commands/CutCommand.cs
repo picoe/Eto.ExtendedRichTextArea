@@ -22,9 +22,12 @@ namespace Eto.ExtendedRichTextArea.Commands
 			if (_textArea.Selection == null)
 				return;
 			using var clip = new Clipboard(); 
+			_textArea.Document.BeginEdit();
 			clip.Text = _textArea.Selection.Text;
+			_textArea.Caret.Index = _textArea.Selection.Start;
 			_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
 			_textArea.Selection = null;
+			_textArea.Document.EndEdit();
 		}
 	}
 }

@@ -6,8 +6,10 @@ namespace Eto.ExtendedRichTextArea.Model
 	{
 		List<Line>? _lines;
 
-		internal override ContainerElement<IInlineElement> Create() => new ParagraphElement();
-		internal override IInlineElement CreateElement() => new SpanElement();
+		public static readonly char SoftBreakCharacter = '\x2028'; // Unicode line separator
+
+		protected override ContainerElement<IInlineElement> Create() => new ParagraphElement();
+		protected override IInlineElement CreateElement() => new TextElement();
 
 		public override PointF? GetPointAt(int start, out Line? line)
 		{
@@ -16,6 +18,7 @@ namespace Eto.ExtendedRichTextArea.Model
 				line = null;
 				return null;
 			}
+			start += DocumentStart;
 			for (int i = 0; i < _lines.Count; i++)
 			{
 				Line? currentLine = _lines[i];
@@ -24,14 +27,15 @@ namespace Eto.ExtendedRichTextArea.Model
 				if (currentLine.End < start)
 					continue;
 				var lineStart = start - currentLine.Start;
-				foreach (var chunk in currentLine)
+
+				for (int j = 0; j < currentLine.Count; j++)
 				{
+					Chunk? chunk = currentLine[j];
 					if (chunk.Start <= lineStart && chunk.End >= lineStart)
 					{
 						line = currentLine;
 						return chunk.GetPointAt(lineStart - chunk.Start);
 					}
-					// lineStart -= chunk.Length;
 				}
 			}
 			line = null;
@@ -45,63 +49,95 @@ namespace Eto.ExtendedRichTextArea.Model
 
 			availableSize += (SizeF)location;
 			SizeF size = SizeF.Empty;
-			int start = 0;
-			var docStart = DocumentStart;
+			SizeF totalSize = SizeF.Empty;
+			int chunkStart = 0;
 			var separatorLength = SeparatorLength;
+			int lineStart = DocumentStart;
 			PointF elementLocation = location;
-			var line = new Line { Start = start, DocumentStart = docStart };
+			var line = new Line { Start = lineStart };
 			for (int i = 0; i < Count; i++)
 			{
 				if (i > 0)
-					start += separatorLength;
+					lineStart += separatorLength;
 				var element = this[i];
-				element.Start = start;
+				// element.Start = start; // shouldn't be needed anymore, but maybe do this in release mode to self-heal?
 
-				var available = availableSize - new SizeF(location.X, 0);
-				var elementSize = element.Measure(defaultAttributes, available, out var baseline);
-
-				if (elementLocation.X + elementSize.Width > availableSize.Width)
+				var elementStart = 0;
+				do
 				{
-					// wrap if needed!
-					if (elementLocation.X <= availableSize.Width)
+					var breakIndex = element.Text?.IndexOf(SoftBreakCharacter, elementStart) ?? 0; // line break
+					var elementLength = (breakIndex >= 0 ? breakIndex : element.Length) - elementStart;
+
+					var available = availableSize - new SizeF(location.X, 0);
+					var elementSize = element.Measure(defaultAttributes, available, elementStart, elementLength, out var baseline);
+
+					void NextLine()
 					{
-						// split into possibly multiple lines here
-						var chunk = new Chunk(element, start, start + element.Length, new RectangleF(elementLocation, elementSize));
-						line.Add(chunk);
-						start += element.Length;
+						line.End = lineStart;
+						line.Bounds = new RectangleF(location, size);
+						_lines.Add(line);
+						totalSize.Height += size.Height;
+						totalSize.Width = Math.Max(totalSize.Width, size.Width);
+
+						if (elementStart > 0)
+						{
+							lineStart++; // soft break
+						}
+
+						line = new Line { Start = lineStart };
+						location.Y += size.Height;
+						elementLocation = location;
+						size = SizeF.Empty;
+						chunkStart = 0;
 					}
 
-					line.End = start;
-					line.Bounds = new RectangleF(location, size);
-					_lines.Add(line);
+					if (elementStart > 0)
+					{
+						NextLine();
+						// line.Start++; // skip the line break character
+						// elementStart++; // start at 1 to skip the line break character
+					}
 
-					// new line for the rest of it!
-					line = new Line { Start = start, DocumentStart = docStart + start };
+					if (elementLocation.X + elementSize.Width > availableSize.Width)
+					{
+						// TODO: this isn't quite done yet, but we need to split elements that are too wide for the line
+						if (elementLocation.X <= availableSize.Width)
+						{
+							// split into possibly multiple lines here (if one element is very long)
+							var chunk = new Chunk(element, chunkStart, elementLength, new RectangleF(elementLocation, elementSize), elementStart);
+							line.Add(chunk);
+							lineStart += elementLength;
+						}
+
+						// new line for the rest of it!
+						NextLine();
+					}
+					else
+					{
+						var chunk = new Chunk(element, chunkStart, elementLength, new RectangleF(elementLocation, elementSize), elementStart);
+						line.Add(chunk);
+					}
 					line.Baseline = Math.Max(line.Baseline, baseline);
-					location.Y += size.Height;
-					elementLocation = location;
-					size = SizeF.Empty;
-				}
-				else
-				{
-					line.Baseline = Math.Max(line.Baseline, baseline);
-					var chunk = new Chunk(element, start, start + element.Length, new RectangleF(elementLocation, elementSize));
-					line.Add(chunk);
-				}
 
-				size.Height = Math.Max(size.Height, elementSize.Height);
-				size.Width += elementSize.Width;
-				elementLocation.X += elementSize.Width;
+					size.Height = Math.Max(size.Height, elementSize.Height);
+					size.Width += elementSize.Width;
+					elementLocation.X += elementSize.Width;
 
-				start += element.Length;
+					lineStart += elementLength;
+					chunkStart += elementLength;
+					elementStart += elementLength + 1; // skip soft line break
+				} while (elementStart <= element.Length);
 			}
-			line.End = start;
+			line.End = lineStart;
 			if (size.Height <= 0)
 				size.Height = Attributes?.Merge(defaultAttributes, false).Font?.LineHeight ?? Document.GetDefaultFont().LineHeight;
-
 			line.Bounds = new RectangleF(location, size);
 			_lines.Add(line);
-			return size;
+
+			totalSize.Height += size.Height;
+			totalSize.Width = Math.Max(totalSize.Width, size.Width);
+			
+			return totalSize;
 		}
 
 		public override int GetIndexAt(PointF point)
@@ -117,14 +153,14 @@ namespace Eto.ExtendedRichTextArea.Model
 					continue;
 				var index = line.GetIndexAt(point);
 				if (index >= 0)
-					return index + line.Start;
+					return index + line.Start - DocumentStart;
 			}
 			return -1;
 		}
 
 		public override bool InsertAt(int start, IElement element)
 		{
-			if (element is SpanElement insertSpan && Parent?.Separator != null)
+			if (element is TextElement insertSpan && Parent?.Separator != null)
 			{
 				var text = insertSpan.Text;
 				var lines = text.Split(new[] { Parent.Separator }, StringSplitOptions.None);
@@ -278,53 +314,34 @@ namespace Eto.ExtendedRichTextArea.Model
 			}
 		}
 
-		// public override void SetAttributes(int start, int end, Attributes? attributes)
-		// {
-		// 	for (int j = 0; j < Count; j++)
-		// 	{
-		// 		var inline = this[j];
-		// 		if (inline == null)
-		// 			continue;
-		// 		if (end <= inline.Start)
-		// 			break;
-		// 		if (start >= inline.End)
-		// 			continue;
+		public override bool IsValid()
+		{
+			if (!base.IsValid())
+				return false;
+				
+			/*
+			if (_lines == null || _lines.Count == 0)
+				return true;
 
-		// 		IElement applySpan = inline;
-		// 		var elementStart = inline.Start;
-		// 		if (start > elementStart && start < elementStart + inline.Length)
-		// 		{
-		// 			// need to split and apply attributes to right side only
-		// 			var right = inline.Split(start - elementStart);
-		// 			if (right != null && inline.Parent is IBlockElement container)
-		// 			{
-		// 				container.InsertAt(inline.End, right);
+			var idx = 0;
+			for (int i = 0; i < _lines.Count; i++)
+			{
+				Line? line = _lines[i];
+				if (line == null || line.Count == 0)
+					continue;
+				if (line.Start < 0 || line.End < line.Start || line.Bounds.IsEmpty)
+					return false;
+				for (int j = 0; j < line.Count; j++)
+				{
 
-		// 				applySpan = right; // apply new attributes to the right side
-		// 				elementStart = right.Start;
-		// 				if (end > elementStart && end < elementStart + applySpan.Length)
-		// 				{
-		// 					// need to split again as the end is in the middle of the right side
-		// 					right = applySpan.Split(end - elementStart);
-		// 					if (right != null && applySpan.Parent is IBlockElement container2)
-		// 					{
-		// 						container2.InsertAt(applySpan.End, right);
-		// 					}
-		// 				}
-		// 			}
-		// 		}
-		// 		if (end > elementStart && end < elementStart + applySpan.Length)
-		// 		{
-		// 			// need to split and apply attributes to left side
-		// 			var right = applySpan.Split(end - elementStart);
-		// 			if (right != null && applySpan.Parent is IBlockElement container)
-		// 			{
-		// 				container.InsertAt(applySpan.End, right);
-		// 			}
-		// 		}
-		// 		applySpan.Attributes = UpdateAttributes(attributes, applySpan.Attributes);
-		// 	}
-		// }
-		
+				}
+				if (line.Start != idx)
+					return false;
+				idx = line.End;
+			}*/
+
+			return true;
+		}
+
 	}
 }

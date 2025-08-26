@@ -37,7 +37,7 @@ namespace Eto.ExtendedRichTextArea.UnitTest
 		{
 			switch (element)
 			{
-				case SpanElement span:
+				case TextElement span:
 					var spanNode = html.CreateElement("span");
 					spanNode.InnerHtml = span.Text;
 					parent.AppendChild(spanNode);

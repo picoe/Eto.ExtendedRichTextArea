@@ -17,7 +17,13 @@ namespace Eto.ExtendedRichTextArea.Commands
 			if (!clip.ContainsText)
 				return;
 			if (_textArea.Selection != null)
+			{
+				_textArea.Document.BeginEdit();
 				_textArea.Selection.Text = clip.Text;
+				_textArea.Caret.Index = _textArea.Selection.End;
+				_textArea.Selection = null;
+				_textArea.Document.EndEdit();
+			}
 			else
 				_textArea.TextArea.InsertText(clip.Text);
 		}

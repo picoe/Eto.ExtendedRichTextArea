@@ -101,7 +101,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			return 0;
 		}
 
-		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, out float baseline)
+		public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, int start, int length, out float baseline)
 		{
 			_documentStart = null;
 			_resolvedAttributes = defaultAttributes.Merge(Attributes, false);
@@ -118,6 +118,17 @@ namespace Eto.ExtendedRichTextArea.Model
 		public bool InsertAt(int start, IElement element)
 		{
 			return false; // ImageElement cannot contain other elements
+		}
+
+		public object Clone()
+		{
+			return new ImageElement
+			{
+				Size = Size,
+				Start = Start,
+				Image = Image,
+				Attributes = Attributes?.Clone()
+			};
 		}
 	}
 }

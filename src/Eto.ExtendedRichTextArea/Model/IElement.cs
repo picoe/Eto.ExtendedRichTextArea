@@ -1,6 +1,6 @@
 namespace Eto.ExtendedRichTextArea.Model
 {
-	public interface IElement
+	public interface IElement : ICloneable
 	{
 		public Attributes? Attributes { get; set; }
 		/// <summary>

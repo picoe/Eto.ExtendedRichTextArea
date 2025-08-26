@@ -9,6 +9,7 @@ namespace Eto.ExtendedRichTextArea
 
 	class TextAreaDrawable : Drawable
 	{
+		const int MaxUndoRedoStackSize = 100;
 		Document? _document;
 		readonly CaretBehavior _caret;
 		readonly KeyboardBehavior _keyboard;
@@ -16,9 +17,10 @@ namespace Eto.ExtendedRichTextArea
 #if DEBUG
 		bool _isValid = true;
 #endif
-		Scrollable? _parentScrollable;		
+		Scrollable? _parentScrollable;
 		DocumentRange? _selection;
 		readonly ExtendedRichTextArea _textArea;
+		bool _isPerformingUndoRedo;
 
 		public Document Document
 		{
@@ -30,14 +32,23 @@ namespace Eto.ExtendedRichTextArea
 					_document.Changed -= Document_Changed;
 					_document.OverrideAttributes -= Document_OverrideAttributes;
 					_document.DefaultAttributesChanged -= Document_DefaultAttributesChanged;
+					_document.Changing -= Document_BeginEditEvent;
 				}
 				_document = value ?? new Document();
 				_document.Changed += Document_Changed;
 				_document.OverrideAttributes += Document_OverrideAttributes;
 				_document.DefaultAttributesChanged += Document_DefaultAttributesChanged;
+				_document.Changing += Document_BeginEditEvent;
 				_caret.Index = 0;
 				_caret.CalculateCaretBounds();
+				Invalidate(false);
+				ClearUndoRedoStacks();
 			}
+		}
+
+		private void Document_BeginEditEvent(object? sender, EventArgs e)
+		{
+			SaveState();
 		}
 
 		private void Document_DefaultAttributesChanged(object? sender, EventArgs e)
@@ -74,7 +85,7 @@ namespace Eto.ExtendedRichTextArea
 		internal KeyboardBehavior Keyboard => _keyboard;
 		internal MouseBehavior Mouse => _mouse;
 		internal ExtendedRichTextArea TextArea => _textArea;
-		
+
 		public TextAreaDrawable(ExtendedRichTextArea textArea) : base(false)
 		{
 			_textArea = textArea;
@@ -82,10 +93,8 @@ namespace Eto.ExtendedRichTextArea
 			_keyboard = new KeyboardBehavior(this, _caret);
 			_mouse = new MouseBehavior(this, _caret);
 			CanFocus = true;
-			
 		}
 
-		
 		public DocumentRange? Selection
 		{
 			get => _selection;
@@ -102,13 +111,13 @@ namespace Eto.ExtendedRichTextArea
 				else
 					_textArea.SelectionAttributes = Document.GetAttributes(_caret.Index, _caret.Index);
 				SelectionChanged?.Invoke(this, EventArgs.Empty);
-				
+
 				Invalidate(false);
 			}
 		}
-		
+
 		public event EventHandler<EventArgs>? SelectionChanged;
-		
+
 
 
 		protected override void OnLoad(EventArgs e)
@@ -164,7 +173,7 @@ namespace Eto.ExtendedRichTextArea
 			}
 			// _selection?.Paint(e.Graphics);
 
-			var screen = ParentWindow?.Screen ?? Screen.PrimaryScreen;	
+			var screen = ParentWindow?.Screen ?? Screen.PrimaryScreen;
 			Document.ScreenScale = screen.Scale;
 			Document.Paint(e.Graphics, clip);
 			_caret.Paint(e);
@@ -173,5 +182,83 @@ namespace Eto.ExtendedRichTextArea
 		internal float Scale => ParentWindow?.Screen.Scale ?? 1;
 
 		public RectangleF CaretBounds => _caret.CaretBounds;
+
+		FixedSizeStack<DocumentState> UndoStack { get; } = new(MaxUndoRedoStackSize);
+
+		FixedSizeStack<DocumentState> RedoStack { get; } = new(MaxUndoRedoStackSize);
+
+		public bool CanUndo => UndoStack.Count > 0;
+
+		public bool CanRedo => RedoStack.Count > 0;
+
+		public bool Undo()
+		{
+			if (CanUndo)
+			{
+				_isPerformingUndoRedo = true;
+				var state = UndoStack.Pop();
+				state.Restore(this);
+				RedoStack.Push(state);
+				_isPerformingUndoRedo = false;
+				Invalidate(false);
+				return true;
+			}
+			return false;
+		}
+
+		public bool Redo()
+		{
+			if (CanRedo)
+			{
+				_isPerformingUndoRedo = true;
+				var state = RedoStack.Pop();
+				state.Restore(this);
+				UndoStack.Push(state);
+				_isPerformingUndoRedo = false;
+				Invalidate(false);
+				return true;
+			}
+			return false;
+		}
+
+		void SaveState()
+		{
+			if (_isPerformingUndoRedo)
+				return;
+
+			var state = new DocumentState(this);
+			UndoStack.Push(state);
+			RedoStack.Clear();
+		}
+
+		private void ClearUndoRedoStacks()
+		{
+			UndoStack.Clear();
+			RedoStack.Clear();
+			_isPerformingUndoRedo = false;
+		}
+		
+		internal void SetSelection(int lastCaretIndex, bool extendSelection, bool useOriginalStart = true)
+		{
+			if (lastCaretIndex == _caret.Index)
+				return;
+				
+			if (extendSelection)
+			{
+				if (Selection != null)
+				{
+					if (useOriginalStart)
+						lastCaretIndex = Selection.OriginalStart;
+					else
+						lastCaretIndex = _caret.Index < Selection.Start ? Selection.End : Selection.Start;
+				}
+				Selection = Document.GetRange(lastCaretIndex, _caret.Index);
+			}
+			else
+			{
+				Selection = null; // Document.GetRange(_caret.Index, _caret.Index);
+			}
+		}
+		
 	}
 }
