@@ -251,6 +251,10 @@ namespace Eto.ExtendedRichTextArea
 					_textArea.TextArea.InsertText("\x2028"); // line break
 					e.Handled = true;
 					break;
+				case Keys.Tab:
+					_textArea.TextArea.InsertText("\t"); // tab
+					e.Handled = true;
+					break;
 			}
 
 			if (!e.Handled)

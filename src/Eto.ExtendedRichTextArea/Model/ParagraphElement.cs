@@ -42,6 +42,7 @@ namespace Eto.ExtendedRichTextArea.Model
 			return Bounds.Location;
 		}
 
+		static char[] s_specialChars = new[] { SoftBreakCharacter, '\t' };
 		protected override SizeF MeasureOverride(Attributes defaultAttributes, SizeF availableSize, PointF location)
 		{
 			_lines ??= new List<Line>();
@@ -65,8 +66,25 @@ namespace Eto.ExtendedRichTextArea.Model
 				var elementStart = 0;
 				do
 				{
-					var breakIndex = element.Text?.IndexOf(SoftBreakCharacter, elementStart) ?? 0; // line break
-					var elementLength = (breakIndex >= 0 ? breakIndex : element.Length) - elementStart;
+					var text = element.Text;
+					var idx = element.Text?.IndexOfAny(s_specialChars, elementStart) ?? 0; // line break
+
+					bool isSoftBreak = false;
+					bool isTabStop = false;
+					var elementLength = (idx >= 0 ? idx : element.Length) - elementStart;
+					if (idx >= 0 && element.Text![idx] == '\t')
+					{
+						// tab!
+						isTabStop = true;
+						// lineStart++;
+						// elementLocation.X += 50 - (int)elementLocation.X % 50; // tab every 50 pixels
+
+					}
+					else if (idx >= 0 && element.Text![idx] == SoftBreakCharacter)
+					{
+						// soft line break
+						isSoftBreak = true;
+					}
 
 					var available = availableSize - new SizeF(location.X, 0);
 					var elementSize = element.Measure(defaultAttributes, available, elementStart, elementLength, out var baseline);
@@ -79,7 +97,7 @@ namespace Eto.ExtendedRichTextArea.Model
 						totalSize.Height += size.Height;
 						totalSize.Width = Math.Max(totalSize.Width, size.Width);
 
-						if (elementStart > 0)
+						if (isSoftBreak)
 						{
 							lineStart++; // soft break
 						}
@@ -91,7 +109,7 @@ namespace Eto.ExtendedRichTextArea.Model
 						chunkStart = 0;
 					}
 
-					if (elementStart > 0)
+					if (isSoftBreak)
 					{
 						NextLine();
 						// line.Start++; // skip the line break character
@@ -125,7 +143,16 @@ namespace Eto.ExtendedRichTextArea.Model
 
 					lineStart += elementLength;
 					chunkStart += elementLength;
-					elementStart += elementLength + 1; // skip soft line break
+					elementStart += elementLength + 1; // skip soft line break or tab
+
+					if (isTabStop)
+					{
+						chunkStart++;
+						lineStart++;
+						// TODO: Make this configurable, and use custom tab stops per document and/or paragraph
+						elementLocation.X += 50 - (int)elementLocation.X % 50; // tab every 50 pixels
+					}
+					
 				} while (elementStart <= element.Length);
 			}
 			line.End = lineStart;
@@ -136,7 +163,7 @@ namespace Eto.ExtendedRichTextArea.Model
 
 			totalSize.Height += size.Height;
 			totalSize.Width = Math.Max(totalSize.Width, size.Width);
-			
+
 			return totalSize;
 		}
 
