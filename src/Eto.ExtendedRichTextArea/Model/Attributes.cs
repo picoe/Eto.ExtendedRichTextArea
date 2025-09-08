@@ -5,338 +5,380 @@ using System.Runtime.CompilerServices;
 
 using Eto.Drawing;
 
-namespace Eto.ExtendedRichTextArea.Model
+namespace Eto.ExtendedRichTextArea.Model;
+
+public class Attributes : INotifyPropertyChanged
 {
-	public class Attributes : INotifyPropertyChanged
+	// TODO: split out Font to its different attributes. 
+	// e.g. Font family, typeface, underline, etc, then create font based on those
+	Font? _font;
+	Font? _baseFont;
+	FontFamily? _family;
+	FontTypeface? _typeface;
+	Brush? _foreground;
+	Brush? _background;
+	bool? _underline;
+	bool? _strikethrough;
+	float? _offset;
+	float? _size;
+
+	public bool IsEmpty => _family == null && _typeface == null && _foreground == null && _background == null && _underline == null && _strikethrough == null && _offset == null;
+
+	public event PropertyChangedEventHandler? PropertyChanged;
+
+	protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
 	{
-		// TODO: split out Font to its different attributes. 
-		// e.g. Font family, typeface, underline, etc, then create font based on those
-		Font? _font;
-		FontFamily? _family;
-		FontTypeface? _typeface;
-		Brush? _foreground;
-		Brush? _background;
-		bool? _underline;
-		bool? _strikethrough;
-		float? _offset;
-		float? _size;
-		
-		public bool IsEmpty => _family == null && _typeface == null && _foreground == null && _background == null && _underline == null && _strikethrough == null && _offset == null;
+		PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+	}
 
-		public event PropertyChangedEventHandler? PropertyChanged;
-		
-		protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-		{
-			PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-		}
+	public Font? BaseFont => _baseFont ??= CreateFont(true);
 
-		public Font? Font
+	public Font? Font
+	{
+		get => _font ??= CreateFont(false);
+		set
 		{
-			get => _font ??= CreateFont();
-			set
-			{
-				_font = value;
-				_family = value?.Family;
-				_typeface = value?.Typeface;
-				_size = value?.Size;
-				_underline = value?.FontDecoration.HasFlag(FontDecoration.Underline);
-				_strikethrough = value?.FontDecoration.HasFlag(FontDecoration.Strikethrough);
-				OnPropertyChanged(nameof(Family));
-				OnPropertyChanged(nameof(Typeface));
-				OnPropertyChanged(nameof(Size));
-				OnPropertyChanged(nameof(Underline));
-				OnPropertyChanged(nameof(Strikethrough));
-				OnPropertyChanged();
-			}
+			_font = value;
+			_baseFont = null;
+			_family = value?.Family;
+			_typeface = value?.Typeface;
+			_size = value?.Size;
+			_underline = value?.FontDecoration.HasFlag(FontDecoration.Underline);
+			_strikethrough = value?.FontDecoration.HasFlag(FontDecoration.Strikethrough);
+			OnPropertyChanged(nameof(Family));
+			OnPropertyChanged(nameof(Typeface));
+			OnPropertyChanged(nameof(Size));
+			OnPropertyChanged(nameof(Underline));
+			OnPropertyChanged(nameof(Strikethrough));
+			OnPropertyChanged();
 		}
+	}
 
-		internal float? Baseline
+	internal float? Baseline
+	{
+		get
 		{
-			get
-			{
-				var baseline = Font?.Baseline;
-				if (baseline == null)
-					return null;
-				if (Platform.Instance.IsWpf)
-					baseline *= 96f / 72f;
-				return baseline.Value;
-			}
+			var baseline = BaseFont?.Baseline;
+			if (baseline == null)
+				return null;
+			if (Platform.Instance.IsWpf)
+				baseline *= 96f / 72f;
+			return baseline.Value;
 		}
+	}
+	
+	internal float? LineHeight
+	{
+		get
+		{
+			var lineHeight = BaseFont?.LineHeight;
+			if (lineHeight == null)
+				return null;
+			return lineHeight.Value * Scale;
+		}
+	}
+	
+	static float Scale => Platform.Instance.IsWpf ? 96f / 72f : 1f;
+	
+	internal float? LineOffset
+	{
+		get
+		{
+			var font = Font;
+			if (font == null)
+				return 0;
 
-		public float? Size
-		{
-			get => _size;
-			set
-			{
-				_size = value;
-				_font = null;
-				OnPropertyChanged();
-				OnPropertyChanged(nameof(Font));
-			}
+			if (Superscript == true)
+				return 0;
+			if (Subscript == true)
+				return LineHeight - font.LineHeight * Scale;
+			return 0;
 		}
-		
-		public FontFamily? Family
-		{
-			get => _family ?? _typeface?.Family;
-			set
-			{
-				if (_family == value)
-					return;
-				_family = value;
-				_font = null;
-				_typeface = null;
-				OnPropertyChanged();
-				OnPropertyChanged(nameof(Typeface));
-				OnPropertyChanged(nameof(Font));
-			}
-		}
-		
-		public FontTypeface? Typeface
-		{
-			get => _typeface;
-			set
-			{
-				if (_typeface == value)
-					return;
-				_typeface = value;
-				_font = null;
-				_family = null;
-				OnPropertyChanged();
-				OnPropertyChanged(nameof(Family));
-				OnPropertyChanged(nameof(Font));
-			}
-		}
+	}
 
-		private Font? CreateFont()
+	public float? Size
+	{
+		get => _size;
+		set
 		{
-			if (_family == null && _typeface == null)
-				return Document.GetDefaultFont();
-			var typeface = _typeface ?? _family?.Typefaces.FirstOrDefault();
+			_size = value;
+			_font = null;
+			_baseFont = null;
+			OnPropertyChanged();
+			OnPropertyChanged(nameof(Font));
+		}
+	}
 
-			var decoration = FontDecoration.None; 
-			if (_underline == true)
-				decoration |= FontDecoration.Underline;
-			if (_strikethrough == true)
-				decoration |= FontDecoration.Strikethrough;
-			var size = _size ?? 12;
+	public FontFamily? Family
+	{
+		get => _family ?? _typeface?.Family;
+		set
+		{
+			if (_family == value)
+				return;
+			_family = value;
+			_font = null;
+			_baseFont = null;
+			_typeface = null;
+			OnPropertyChanged();
+			OnPropertyChanged(nameof(Typeface));
+			OnPropertyChanged(nameof(Font));
+		}
+	}
+
+	public FontTypeface? Typeface
+	{
+		get => _typeface;
+		set
+		{
+			if (_typeface == value)
+				return;
+			_typeface = value;
+			_font = null;
+			_baseFont = null;
+			_family = null;
+			OnPropertyChanged();
+			OnPropertyChanged(nameof(Family));
+			OnPropertyChanged(nameof(Font));
+		}
+	}
+
+	private Font? CreateFont(bool baseFont)
+	{
+		if (_family == null && _typeface == null)
+			return Document.GetDefaultFont();
+		var typeface = _typeface ?? _family?.Typefaces.FirstOrDefault();
+
+		var decoration = FontDecoration.None;
+		if (_underline == true)
+			decoration |= FontDecoration.Underline;
+		if (_strikethrough == true)
+			decoration |= FontDecoration.Strikethrough;
+		var size = _size ?? 12;
+		if (!baseFont)
+		{
 			if (Superscript == true || Subscript == true)
 				size *= 0.65f;
-			return new Font(typeface, size, decoration);
 		}
+		return new Font(typeface, size, decoration);
+	}
 
-		public Brush? Foreground
+	public Brush? Foreground
+	{
+		get => _foreground;
+		set
 		{
-			get => _foreground;
-			set
-			{
-				_foreground = value;
-				OnPropertyChanged();
-			}
+			_foreground = value;
+			OnPropertyChanged();
 		}
+	}
 
-		public Brush? Background
+	public Brush? Background
+	{
+		get => _background;
+		set
 		{
-			get => _background;
-			set
-			{
-				_background = value;
-				OnPropertyChanged();
-			}
+			_background = value;
+			OnPropertyChanged();
 		}
-		
-		public bool? Underline
-		{
-			get => _underline;
-			set
-			{
-				_underline = value;
-				_font = null;
-				OnPropertyChanged();
-				OnPropertyChanged(nameof(Font));
-			}
-		}
-		public bool? Strikethrough
-		{
-			get => _strikethrough;
-			set
-			{
-				_strikethrough = value;
-				_font = null;
-				OnPropertyChanged();
-				OnPropertyChanged(nameof(Font));
-			}
-		}
-		public float? Offset
-		{
-			get => _offset;
-			set
-			{
-				_offset = value;
-				OnPropertyChanged();
-			}
-		}
+	}
 
-		public bool? Superscript
+	public bool? Underline
+	{
+		get => _underline;
+		set
 		{
-			get => _offset > 0;
-			set
-			{
-				_font = null;
-				if (value == true)
-					_offset = 2;
-				else
-					_offset = 0;
-				OnPropertyChanged(nameof(Offset));
-				OnPropertyChanged(nameof(Subscript));
-				OnPropertyChanged();
-			}
+			_underline = value;
+			_font = null;
+			_baseFont = null;
+			OnPropertyChanged();
+			OnPropertyChanged(nameof(Font));
 		}
+	}
+	public bool? Strikethrough
+	{
+		get => _strikethrough;
+		set
+		{
+			_strikethrough = value;
+			_font = null;
+			_baseFont = null;
+			OnPropertyChanged();
+			OnPropertyChanged(nameof(Font));
+		}
+	}
+	public float? Offset
+	{
+		get => _offset;
+		set
+		{
+			_offset = value;
+			OnPropertyChanged();
+		}
+	}
 
-		public bool? Subscript
+	public bool? Superscript
+	{
+		get => _offset > 0;
+		set
 		{
-			get => _offset < 0;
-			set
-			{
-				_font = null;
-				if (value == true)
-					_offset = -2;
-				else
-					_offset = 0;
-				OnPropertyChanged(nameof(Offset));
-				OnPropertyChanged(nameof(Superscript));
-				OnPropertyChanged();
-			}
+			_font = null;
+			_baseFont = null;
+			if (value == true)
+				_offset = 2;
+			else
+				_offset = 0;
+			OnPropertyChanged(nameof(Offset));
+			OnPropertyChanged(nameof(Subscript));
+			OnPropertyChanged();
 		}
+	}
 
-		public Attributes Clone()
+	public bool? Subscript
+	{
+		get => _offset < 0;
+		set
 		{
-			return new Attributes
-			{
-				_family = _family,
-				_typeface = _typeface,
-				_size = _size,
-				_foreground = _foreground,
-				_background = _background,
-				_underline = _underline,
-				_strikethrough = _strikethrough,
-				_offset = _offset
-			};
+			_font = null;
+			_baseFont = null;
+			if (value == true)
+				_offset = -2;
+			else
+				_offset = 0;
+			OnPropertyChanged(nameof(Offset));
+			OnPropertyChanged(nameof(Superscript));
+			OnPropertyChanged();
 		}
-		
-		public Attributes Merge(Attributes? attributes, bool copy)
+	}
+
+	public Attributes Clone()
+	{
+		return new Attributes
 		{
-			if (!copy)
-			{
-				if (attributes == null || attributes.IsEmpty)
-					return this;
-				if (IsEmpty)
-					return attributes;
-			}
-			var clone = Clone();
-			if (attributes == null)
-				return clone;
-				
-			if (attributes._family != null)
-				clone.Family = attributes._family;
-			if (attributes._typeface != null)
-				clone.Typeface = attributes._typeface;
-			if (clone._typeface == null && clone.Family != null)
-			{
-				var fontStyle = _typeface?.FontStyle ?? FontStyle.None;
-				clone.Typeface = clone.Family.Typefaces.FirstOrDefault(r => r.FontStyle == fontStyle);
-			}
-				
-			if (attributes._size != null)
-				clone.Size = attributes._size;
-			if (attributes._foreground != null)
-				clone.Foreground = attributes._foreground;
-			if (attributes._background != null)
-				clone.Background = attributes._background;
-			if (attributes._underline != null)
-				clone.Underline = attributes._underline;
-			if (attributes._strikethrough != null)
-				clone.Strikethrough = attributes._strikethrough;
-			if (attributes._offset != null)
-				clone.Offset = attributes._offset;
+			_family = _family,
+			_typeface = _typeface,
+			_size = _size,
+			_foreground = _foreground,
+			_background = _background,
+			_underline = _underline,
+			_strikethrough = _strikethrough,
+			_offset = _offset
+		};
+	}
+
+	public Attributes Merge(Attributes? attributes, bool copy)
+	{
+		if (!copy)
+		{
+			if (attributes == null || attributes.IsEmpty)
+				return this;
+			if (IsEmpty)
+				return attributes;
+		}
+		var clone = Clone();
+		if (attributes == null)
 			return clone;
-		}
-		
-		internal void ClearUnmatched(Attributes? attributes)
+
+		if (attributes._family != null)
+			clone.Family = attributes._family;
+		if (attributes._typeface != null)
+			clone.Typeface = attributes._typeface;
+		if (clone._typeface == null && clone.Family != null)
 		{
-			if (_family != attributes?.Family)
-				_family = null;
-			if (_typeface != attributes?._typeface)
+			var fontStyle = _typeface?.FontStyle ?? FontStyle.None;
+			clone.Typeface = clone.Family.Typefaces.FirstOrDefault(r => r.FontStyle == fontStyle);
+		}
+
+		if (attributes._size != null)
+			clone.Size = attributes._size;
+		if (attributes._foreground != null)
+			clone.Foreground = attributes._foreground;
+		if (attributes._background != null)
+			clone.Background = attributes._background;
+		if (attributes._underline != null)
+			clone.Underline = attributes._underline;
+		if (attributes._strikethrough != null)
+			clone.Strikethrough = attributes._strikethrough;
+		if (attributes._offset != null)
+			clone.Offset = attributes._offset;
+		return clone;
+	}
+
+	internal void ClearUnmatched(Attributes? attributes)
+	{
+		if (_family != attributes?.Family)
+			_family = null;
+		if (_typeface != attributes?._typeface)
+		{
+			if (_typeface != null && _typeface.Family == attributes?.Family)
 			{
-				if (_typeface != null && _typeface.Family == attributes?.Family)
-				{
-					_family = _typeface.Family;
-				}
-				_typeface = null;
+				_family = _typeface.Family;
 			}
-			if (_size != attributes?._size)
-				_size = null;
-			if (_foreground != attributes?._foreground)
-				_foreground = null;
-			if (_background != attributes?._background)
-				_background = null;
-			if (_underline != attributes?._underline)
-				_underline = null;
-			if (_strikethrough != attributes?._strikethrough)
-				_strikethrough = null;
-			if (_offset != attributes?._offset)
-				_offset = null;
+			_typeface = null;
 		}
-		
-		public override bool Equals(object? obj)
-		{
-			if (obj == null || obj is not Attributes other)
-				return false;
+		if (_size != attributes?._size)
+			_size = null;
+		if (_foreground != attributes?._foreground)
+			_foreground = null;
+		if (_background != attributes?._background)
+			_background = null;
+		if (_underline != attributes?._underline)
+			_underline = null;
+		if (_strikethrough != attributes?._strikethrough)
+			_strikethrough = null;
+		if (_offset != attributes?._offset)
+			_offset = null;
+	}
 
-			if (ReferenceEquals(this, obj))
-				return true;
+	public override bool Equals(object? obj)
+	{
+		if (obj == null || obj is not Attributes other)
+			return false;
 
-			return 
-				_typeface == other._typeface &&
-				_family == other._family &&
-				_size == other._size &&
-				_foreground == other._foreground &&
-				_background == other._background &&
-				_underline == other._underline &&
-				_strikethrough == other._strikethrough &&
-				_offset == other._offset;				
-		}
-		
-		public static bool operator ==(Attributes? attributes1, Attributes? attributes2)
-		{
-			if (ReferenceEquals(attributes1, null) && ReferenceEquals(attributes2, null))
-				return true;
-			return attributes1?.Equals(attributes2) == true;
-		}
+		if (ReferenceEquals(this, obj))
+			return true;
 
-		public static bool operator !=(Attributes? attributes1, Attributes? attributes2)
-		{
-			if (ReferenceEquals(attributes1, null) && ReferenceEquals(attributes2, null))
-				return false;
-			return attributes1?.Equals(attributes2) == false;
-		}
-		
-		public override int GetHashCode()
-		{
-			return
-				Font?.GetHashCode() ?? 0 ^
-				Foreground?.GetHashCode() ?? 0 ^
-				Background?.GetHashCode() ?? 0 ^
-				Underline?.GetHashCode() ?? 0 ^
-				Strikethrough?.GetHashCode() ?? 0 ^
-				Offset?.GetHashCode() ?? 0;
-		}
-		
-		public void Apply(FormattedText formattedText)
-		{
-			if (Font != null)
-				formattedText.Font = Font;
-			if (Foreground != null)
-				formattedText.ForegroundBrush = Foreground;
-		}
+		return
+			_typeface == other._typeface &&
+			_family == other._family &&
+			_size == other._size &&
+			_foreground == other._foreground &&
+			_background == other._background &&
+			_underline == other._underline &&
+			_strikethrough == other._strikethrough &&
+			_offset == other._offset;
+	}
+
+	public static bool operator ==(Attributes? attributes1, Attributes? attributes2)
+	{
+		if (ReferenceEquals(attributes1, null) && ReferenceEquals(attributes2, null))
+			return true;
+		return attributes1?.Equals(attributes2) == true;
+	}
+
+	public static bool operator !=(Attributes? attributes1, Attributes? attributes2)
+	{
+		if (ReferenceEquals(attributes1, null) && ReferenceEquals(attributes2, null))
+			return false;
+		return attributes1?.Equals(attributes2) == false;
+	}
+
+	public override int GetHashCode()
+	{
+		return
+			Font?.GetHashCode() ?? 0 ^
+			Foreground?.GetHashCode() ?? 0 ^
+			Background?.GetHashCode() ?? 0 ^
+			Underline?.GetHashCode() ?? 0 ^
+			Strikethrough?.GetHashCode() ?? 0 ^
+			Offset?.GetHashCode() ?? 0;
+	}
+
+	public void Apply(FormattedText formattedText)
+	{
+		if (Font != null)
+			formattedText.Font = Font;
+		if (Foreground != null)
+			formattedText.ForegroundBrush = Foreground;
 	}
 }

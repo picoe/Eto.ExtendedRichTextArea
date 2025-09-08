@@ -36,6 +36,8 @@
   
   <ItemGroup>
     <Using Include="NUnit.Framework" />
+    <Using Include="Eto.ExtendedRichTextArea" />
+    <Using Include="Eto.ExtendedRichTextArea.Model" />
   </ItemGroup>
 
 </Project>

@@ -17,7 +17,10 @@
 					"${workspaceFolder}/test/Eto.ExtendedRichTextArea.TestApp.Mac/Eto.ExtendedRichTextArea.TestApp.Mac64.csproj"
 				],
 			},
-			"problemMatcher": "$msCompile"
+			"problemMatcher": "$msCompile",
+			"presentation": {
+				"clear": true
+			}	
 		},
 		{
 			"label": "build-localeto",
@@ -37,7 +40,10 @@
 					"/p:UseLocalEto=true"
 				],
 			},
-			"problemMatcher": "$msCompile"
+			"problemMatcher": "$msCompile",
+			"presentation": {
+				"clear": true
+			}	
 		},
 		{
 			"label": "build-tests",
@@ -47,7 +53,10 @@
 				"build",
 				"${workspaceFolder}/test/Eto.ExtendedRichTextArea.UnitTest/Eto.ExtendedRichTextArea.UnitTest.csproj"
 			],
-			"problemMatcher": "$msCompile"
+			"problemMatcher": "$msCompile",
+			"presentation": {
+				"clear": true
+			}
 		},
 	]
 }

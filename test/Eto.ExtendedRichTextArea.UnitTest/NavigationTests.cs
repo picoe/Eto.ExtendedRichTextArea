@@ -31,11 +31,11 @@ public class NavigationTests : TestBase
 	[TestCase("Hello there fun\nWorld", 5, DocumentNavigationMode.NextWord, 6)]
 	[TestCase("Hello there fun\nWorld", 12, DocumentNavigationMode.NextWord, 15)]
 
-	[TestCase("Hello\x2028soft\x2028breaks", 0, DocumentNavigationMode.NextLine, 6)]
-	[TestCase("Hello\x2028soft\x2028breaks", 2, DocumentNavigationMode.NextLine, 8)]
+	[TestCase("hello\x2028soft\x2028breaks", 0, DocumentNavigationMode.NextLine, 6)]
+	[TestCase("hello\x2028soft\x2028breaks", 2, DocumentNavigationMode.NextLine, 8)]
 
-	[TestCase("Hello\x2028\x2028soft\x2028breaks", 7, DocumentNavigationMode.PreviousLine, 6)]
-	[TestCase("Hello\x2028\x2028soft\x2028breaks", 8, DocumentNavigationMode.PreviousLine, 6)]
+	[TestCase("hello\x2028\x2028soft\x2028breaks", 7, DocumentNavigationMode.PreviousLine, 6)]
+	[TestCase("hello\x2028\x2028soft\x2028breaks", 8, DocumentNavigationMode.PreviousLine, 6)]
 
 	public void NavigateShouldWork(string text, int start, DocumentNavigationMode mode, int expected)
 	{

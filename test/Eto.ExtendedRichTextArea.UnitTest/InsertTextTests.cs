@@ -6,18 +6,18 @@ namespace Eto.ExtendedRichTextArea.UnitTest;
 public class InsertTextTests : TestBase
 {
 
-    [Test]
-    public void InsertSingleLineTextShouldHaveCorrectResults()
-    {
-        var document = new Document();
+	[Test]
+	public void InsertSingleLineTextShouldHaveCorrectResults()
+	{
+		var document = new Document();
 		document.InsertText(0, "Hello");
 		Assert.That(document.Text, Is.EqualTo("Hello"));
 		Assert.That(document.Length, Is.EqualTo(5));
 		Assert.That(document.Count, Is.EqualTo(1), "Should only be one paragraph");
 		Assert.That(document[0].Count, Is.EqualTo(1), "Should only be one inline element");
 		Assert.That(document[0][0], Is.TypeOf<TextElement>(), "Inline element should be a span");
-    }
-	
+	}
+
 	[Test]
 	public void InsertMultiLineTextShouldHaveCorrectResults()
 	{
@@ -31,7 +31,7 @@ public class InsertTextTests : TestBase
 		Assert.That(document[0][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
 		Assert.That(document[1][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
 	}
-	
+
 	[Test]
 	public void InsertTextInExistingMultiLineTextShouldHaveCorrectResults()
 	{
@@ -47,7 +47,7 @@ public class InsertTextTests : TestBase
 		Assert.That(document[0][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
 		Assert.That(document[1][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
 	}
-	
+
 	[Test]
 	public void InsertTextWithNewLinesInExistingMultiLineTextShouldHaveCorrectResults()
 	{
@@ -68,14 +68,14 @@ public class InsertTextTests : TestBase
 		Assert.That(document[2][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
 		Assert.That(document[3][0], Is.TypeOf<TextElement>(), "Inline element should be a text element");
 	}
-	
+
 	[Test]
 	public void InsertingNewlineShouldOnlyAddOneParagraph()
 	{
 		var document = new Document();
 		document.InsertText(0, "Hello\nWorld");
 		Assert.That(document.Text, Is.EqualTo("Hello\nWorld"));
-		
+
 		document.InsertText(2, "\n");
 		Assert.That(document.Text, Is.EqualTo("He\nllo\nWorld"));
 	}
@@ -100,7 +100,7 @@ public class InsertTextTests : TestBase
 		// document.EndEdit();
 		Assert.That(document.Text, Is.EqualTo(expected));
 	}
-	
+
 	[Test]
 	public void InsertingWithDifferentFontShouldWork()
 	{
@@ -113,14 +113,15 @@ public class InsertTextTests : TestBase
 		Assert.That(document[0][0], Is.TypeOf<TextElement>(), "Inline element should be a span");
 		Assert.That(((TextElement)document[0][0]).Attributes?.Font?.FamilyName, Is.EqualTo("Arial"));
 	}
-	
-	
+
+
 	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 0, "Courier New")]
 	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 4, "Courier New")]
 	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 5, "Courier New")]
 	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 6, "Courier New")]
 	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 7, "Courier New")]
 	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 8, "Courier New")]
+	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 6, "\n", 6, "Courier New")]
 	public void InsertingParagraphWithFormattingShouldKeepFormatting(string html, int insertIndex, string insertText, int testIndex, string fontFamily)
 	{
 		var document = new Document();
@@ -129,6 +130,6 @@ public class InsertTextTests : TestBase
 		document.InsertText(insertIndex, insertText);
 		var attributes = document.GetAttributes(testIndex, testIndex);
 		Assert.That(attributes?.Family?.Name, Is.EqualTo(fontFamily));
-		
+
 	}
 }

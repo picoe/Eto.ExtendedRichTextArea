@@ -7,64 +7,6 @@ using Eto.Drawing;
 
 namespace Eto.ExtendedRichTextArea.Model;
 
-public abstract class ListType
-{
-	public float Indent { get; set; } = 20;
-	public static ListType Unordered => new UnorderedListType();
-	public static ListType Ordered => new OrderedListType();
-	public abstract void Paint(ListItemElement list, Graphics graphics, RectangleF bounds);
-
-	public abstract string GetText(int index);
-}
-
-public class UnorderedListType : ListType
-{
-	public string BulletCharacter { get; set; } = "•"; // Default bullet character
-
-	public override string GetText(int index)
-	{
-		return BulletCharacter + " ";
-	}
-
-	public override void Paint(ListItemElement list, Graphics graphics, RectangleF bounds)
-	{
-		// Draw bullet points for unordered lists
-		var font = Fonts.Sans(12);
-		var textSize = graphics.MeasureString(font, BulletCharacter);
-		var bulletBounds = new RectangleF(
-			bounds.X + (bounds.Width - textSize.Width) / 2,
-			bounds.Y + (bounds.Height - textSize.Height) / 2,
-			textSize.Width,
-			textSize.Height
-		);
-		graphics.DrawText(font, SystemColors.ControlText, bulletBounds.Location, BulletCharacter);
-	}
-}
-
-public class OrderedListType : ListType
-{
-	public string NumberFormat { get; set; } = "{0}. "; // Default number format
-
-	public override string GetText(int index)
-	{
-		return string.Format(NumberFormat, index + 1);
-	}
-
-	public override void Paint(ListItemElement list, Graphics graphics, RectangleF bounds)
-	{
-		// Draw numbers for ordered lists
-		var font = Fonts.Sans(12);
-		var numberText = string.Format(NumberFormat, list.Index + 1); // Use the child's calculated index for numbering
-		var textSize = graphics.MeasureString(font, numberText);
-		var numberBounds = new RectangleF(
-			bounds.X + (bounds.Width - textSize.Width) / 2,
-			bounds.Y + (bounds.Height - textSize.Height) / 2,
-			textSize.Width,
-			textSize.Height
-		);
-		graphics.DrawText(font, SystemColors.ControlText, numberBounds.Location, numberText);
-	}
-}
 
 public class ListItemElement : ParagraphElement
 {
@@ -81,7 +23,7 @@ public class ListItemElement : ParagraphElement
 		if (Parent is ListElement list)
 		{
 			var bulletBounds = new RectangleF(
-				Bounds.X,
+				Bounds.X + list.Type.Indent * Level,
 				Bounds.Y,
 				list.Type.Indent,
 				Bounds.Height
@@ -96,6 +38,9 @@ public class ListItemElement : ParagraphElement
 		if (Parent is not ListElement list)
 			return base.MeasureOverride(defaultAttributes, availableSize, location);
 
+		// TODO: Indent should be based on the font and tabstops, and could be per-row
+		// e.g. if the font used for the list text is larger than space allowed,
+		// then it should go to the next tab stop.  See word's behaviour for reference.
 		var loc = location;
 		loc.X += Indent;
 		var childSize = base.MeasureOverride(defaultAttributes, availableSize, loc);
@@ -121,6 +66,32 @@ public class ListItemElement : ParagraphElement
 		}
 		return base.GetText();
 	}
+
+	public override bool InsertAt(int start, IElement element)
+	{
+		if (start == 0 && element is TextElement text && text.Text == "\t")
+		{
+			Level++;
+			return false;
+		}
+
+		return base.InsertAt(start, element);
+	}
+	
+	protected override IElement? Split(int start)
+	{
+		if (base.Split(start) is ListItemElement rightElement)
+		{
+			rightElement.Level = Level;
+			return rightElement;
+		}
+		if (start == Length)
+		{
+			return new ListItemElement { Level = Level };
+		}
+		return null;
+	}
+	
 }
 
 public class ListElement : BlockContainerElement<ListItemElement>
@@ -130,7 +101,7 @@ public class ListElement : BlockContainerElement<ListItemElement>
 
 	public ListType Type { get; set; } = ListType.Unordered;
 	protected override string? Separator => "\n";
-	public float ItemSpacing { get; set; } = 2;
+	public float ItemSpacing { get; set; }
 
 	protected override SizeF MeasureOverride(Attributes defaultAttributes, SizeF availableSize, PointF location)
 	{
@@ -183,7 +154,7 @@ public class ListElement : BlockContainerElement<ListItemElement>
 		}
 		return base.InsertAt(start, element);
 	}
-
+	
 	protected override ContainerElement<ListItemElement> Clone()
 	{
 		if (base.Clone() is not ListElement clone)

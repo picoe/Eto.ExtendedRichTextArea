@@ -57,7 +57,10 @@ namespace Eto.ExtendedRichTextArea.TestApp
 
 		Control AttributeControls()
 		{
-			var attributesBinding = Binding.Property((ExtendedRichTextArea r) => r.SelectionAttributes);
+			var attributesBinding = Binding.Property((ExtendedRichTextArea r) => r.SelectionAttributes).Convert(
+				r => r,
+				r => r
+			);
 			
 			// Family
 			var familyDropDown = new DropDown();
@@ -130,7 +133,9 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			sizeDropDown.Bind(c => c.Text, RichTextArea,
 				attributesBinding
 				.Child(c => c.Size)
-				.Convert(size => size.ToString(), s => float.TryParse(s, out var v) ? v : null));
+				.Convert(
+					size => size.ToString(),
+					s => float.TryParse(s, out var v) ? v : null));
 
 			// Color
 			var foregroundSelector = new ColorPicker { AllowAlpha = true };
@@ -234,7 +239,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 
 			_structure.Size = new Size(200, 300);
 			_structure.ShowHeader = false;
-			_structure.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0), Expand = true });
+			_structure.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0), AutoSize = true });
 			_structure.CellDoubleClick += (sender, e) =>
 			{
 				if (e.Item is TreeGridItem item && item.Tag != null)
@@ -247,7 +252,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 
 			_lines.Size = new Size(200, 300);
 			_lines.ShowHeader = false;
-			_lines.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0), Expand = true });
+			_lines.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0), AutoSize = true });
 			_lines.CellDoubleClick += (sender, e) =>
 			{
 				if (e.Item is TreeGridItem item && item.Tag != null)
@@ -285,6 +290,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			RichTextArea.Document.Changed += (sender, e) =>
 			{
 				changeTimer.Start();
+				_highlightedBounds = null;
 			};
 
 			RichTextArea.Document.DefaultFont = new Font("Arial", SystemFonts.Default().Size);
@@ -307,7 +313,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 #endif
 
 			var _status = new Label();
-			var binding = _status.Bind(c => c.Text, RichTextArea, r => $"Document Length: {r.Document.Length}, Selection: {r.Selection.Start}-{r.Selection.End} ({r.Selection.Length})");
+			var binding = _status.Bind(c => c.Text, RichTextArea, r => $"Document Length: {r.Document.Length}, Selection: {r.Selection.Start}-{r.Selection.End} ({r.Selection.Length}), Caret: {r.CaretIndex}");
 			RichTextArea.SelectionChanged += (s, e) => binding.Update();
 
 			var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
@@ -376,7 +382,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			static TreeGridItem CreateNode(IElement element)
 			{
 				var item = new TreeGridItem { Expanded = true, Tag = element };
-				item.Values = [$"{NiceName(element)}: {element.DocumentStart}:{element.Length} - {element.Text?.Substring(0, Math.Min(element.Text.Length, 100))}"];
+				item.Values = [$"{NiceName(element)}: {element.DocumentStart}:{element.Length} - {element.Text?.Substring(0, Math.Min(element.Text.Length, 100)).Replace('\n', ' ').Replace('\x2028', ' ')}"];
 				if (element is IList list)
 				{
 					foreach (var child in list.OfType<IElement>())
@@ -400,7 +406,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 				foreach (var chunk in line)
 				{
 					var chunkItem = new TreeGridItem();
-					chunkItem.Values = new object[] { $"Chunk ({NiceName(chunk.Element)}): {chunk.InlineStart}:{chunk.Length} - {chunk.Element.Text.Substring(chunk.InlineStart, Math.Min(chunk.Element.Text.Length - chunk.InlineStart, 100))}" };
+					chunkItem.Values = new object[] { $"Chunk ({NiceName(chunk.Element)}): {chunk.InlineStart}:{chunk.Length} - {chunk.Text.Substring(0, Math.Min(chunk.Text.Length, 100))}" };
 					chunkItem.Tag = chunk;
 					lineItem.Children.Add(chunkItem);
 				}
