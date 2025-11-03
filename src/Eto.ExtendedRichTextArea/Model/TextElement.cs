@@ -449,4 +449,8 @@ public class TextElement : IInlineElement
 			Tag = Tag
 		};
 	}
+
+	public void OnKeyDown(int start, int end, KeyEventArgs args)
+	{
+	}
 }

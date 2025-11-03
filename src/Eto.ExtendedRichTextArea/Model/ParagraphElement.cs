@@ -207,18 +207,31 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 			if (lines.Length > 1)
 			{
 				var insertParagraph = this;
+				
 				for (int i = 0; i < lines.Length; i++)
 				{
 					if (i > 0)
 					{
-						// next line splits or adds a new paragraph
-						var right = ((IBlockElement)insertParagraph).Split((int)start) ?? Parent.CreateElement();
-						if (right != null && right is ParagraphElement rightParagraph)
+						if (start > 0)
 						{
-							// Parent.Adjust(Parent.IndexOf(this), -right.Length);
-							// if we split, we need to insert right paragraph after the current paragraph
-							Parent.Insert(Parent.IndexOf(insertParagraph) + 1, right);
-							insertParagraph = rightParagraph;
+							// next line splits or adds a new paragraph
+							var right = ((IBlockElement)insertParagraph).Split(start) ?? Parent.CreateElement();
+							if (right != null && right is ParagraphElement rightParagraph)
+							{
+								// Parent.Adjust(Parent.IndexOf(this), -right.Length);
+								// if we split, we need to insert right paragraph after the current paragraph
+								Parent.Insert(Parent.IndexOf(insertParagraph) + 1, right);
+								insertParagraph = rightParagraph;
+								start = 0;
+							}
+						}
+						else
+						{
+							// inserting at start, so just add a new paragraph before
+							var newParagraph = (ParagraphElement)Parent.CreateElement();
+							newParagraph.Attributes = Attributes?.Clone();
+							Parent.Insert(Parent.IndexOf(insertParagraph), newParagraph);
+							insertParagraph = newParagraph;
 							start = 0;
 						}
 					}

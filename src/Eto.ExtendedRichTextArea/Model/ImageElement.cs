@@ -1,5 +1,6 @@
 ﻿
 using Eto.Drawing;
+using Eto.Forms;
 
 namespace Eto.ExtendedRichTextArea.Model;
 
@@ -131,5 +132,9 @@ public class ImageElement : IInlineElement
 			Image = Image,
 			Attributes = Attributes?.Clone()
 		};
+	}
+
+	public void OnKeyDown(int start, int end, KeyEventArgs args)
+	{
 	}
 }

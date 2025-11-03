@@ -1,3 +1,5 @@
+using Eto.Forms;
+
 namespace Eto.ExtendedRichTextArea.Model;
 
 public interface IElement : ICloneable
@@ -50,4 +52,5 @@ public interface IElement : ICloneable
 	IEnumerable<IInlineElement> EnumerateInlines(int start, int end, bool trim);
 	IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines);
 	void MeasureIfNeeded();
+	void OnKeyDown(int start, int end, KeyEventArgs args);
 }

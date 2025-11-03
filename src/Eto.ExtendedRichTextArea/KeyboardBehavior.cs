@@ -21,15 +21,6 @@ class KeyboardBehavior
 		_textArea = textArea;
 		_textArea.TextInput += TextArea_TextInput;
 		_textArea.KeyDown += TextArea_KeyDown;
-		_textArea.KeyDown += TextArea_KeyDown_Navigation;
-		if (Platform.Instance.IsMac)
-		{
-			_textArea.KeyDown += TextArea_KeyDown_Mac;
-		}
-		else
-		{
-			_textArea.KeyDown += TextArea_KeyDown_Generic;
-		}
 
 		AddCommand(new CutCommand(textArea), "cut");
 		AddCommand(new CopyCommand(textArea), "copy");
@@ -47,6 +38,8 @@ class KeyboardBehavior
 
 	private void TextArea_KeyDown_Navigation(object? sender, KeyEventArgs e)
 	{
+		if (e.Handled)
+			return;
 		var extendSelection = e.Modifiers.HasFlag(Keys.Shift);
 		var lastCaretIndex = _caret.Index;
 
@@ -212,6 +205,43 @@ class KeyboardBehavior
 
 	private void TextArea_KeyDown(object? sender, KeyEventArgs e)
 	{
+		if (_textArea.Selection != null)
+			((IElement)_textArea.Document).OnKeyDown(_textArea.Selection.Start, _textArea.Selection.End, e);
+
+		if (e.Handled)
+			return;
+
+		if (Platform.Instance.IsMac)
+			TextArea_KeyDown_Mac(sender, e);
+		else
+			TextArea_KeyDown_Generic(sender, e);
+
+		if (e.Handled)
+			return;
+
+		TextArea_KeyDown_Navigation(sender, e);
+
+		if (e.Handled)
+			return;
+
+		TextArea_KeyDown_Manipulation(e);
+
+		if (e.Handled)
+			return;
+
+		foreach (var command in _commands)
+		{
+			if (command.Enabled && command.Shortcut == e.KeyData)
+			{
+				command.Execute();
+				e.Handled = true;
+				break;
+			}
+		}
+	}
+	
+	private void TextArea_KeyDown_Manipulation(KeyEventArgs e)
+	{
 		switch (e.KeyData)
 		{
 			case Keys.Backspace:
@@ -259,20 +289,5 @@ class KeyboardBehavior
 				e.Handled = true;
 				break;
 		}
-
-		if (!e.Handled)
-		{
-			foreach (var command in _commands)
-			{
-				if (command.Enabled && command.Shortcut == e.KeyData)
-				{
-					command.Execute();
-					e.Handled = true;
-					break;
-				}
-			}
-		}
-
-
 	}
 }

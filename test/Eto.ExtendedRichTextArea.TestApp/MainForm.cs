@@ -316,6 +316,17 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			var binding = _status.Bind(c => c.Text, RichTextArea, r => $"Document Length: {r.Document.Length}, Selection: {r.Selection.Start}-{r.Selection.End} ({r.Selection.Length}), Caret: {r.CaretIndex}");
 			RichTextArea.SelectionChanged += (s, e) => binding.Update();
 
+			var mainSplitter = new Splitter { Orientation = Orientation.Horizontal, FixedPanel = SplitterFixedPanel.Panel2 };
+			mainSplitter.Panel1 = RichTextArea;
+			mainSplitter.Panel2 = new Splitter
+			{
+				Orientation = Orientation.Vertical,
+				FixedPanel = SplitterFixedPanel.None,
+				Panel1 = _structure,
+				Panel2 = _lines
+			};
+
+			// layout
 			var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
 			layout.Styles.Add(null, (Label lbl) => lbl.VerticalAlignment = VerticalAlignment.Center);
 
@@ -323,16 +334,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			layout.AddSeparateRow(AttributeControls(), null);
 			{
 				layout.BeginVertical();
-				layout.BeginHorizontal();
-				layout.Add(RichTextArea, xscale: true);
-				{
-					layout.BeginVertical();
-					layout.Add(_structure, yscale: true);
-					layout.Add(_lines, yscale: true);
-					layout.EndVertical();
-				}
-				layout.EndHorizontal();
-
+				layout.Add(mainSplitter, yscale: true);
 				layout.Add(_status);
 				layout.EndVertical();
 			}

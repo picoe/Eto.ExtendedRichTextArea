@@ -17,6 +17,7 @@ public class ExtendedRichTextArea : Scrollable
 	}
 
 	Attributes? _selectionAttributes;
+	Attributes? _lastSelectionAttributes;
 
 	public Attributes? SelectionAttributes
 	{
@@ -46,6 +47,10 @@ public class ExtendedRichTextArea : Scrollable
 			return;
 		if (e.PropertyName == nameof(Attributes.Font)) // not actually a property we apply
 			return;
+			
+		if (_lastSelectionAttributes != null && _selectionAttributes.Equals(_lastSelectionAttributes))
+			return;
+		_lastSelectionAttributes = _selectionAttributes.Clone();
 
 		UpdateSelectionAttributes();
 	}

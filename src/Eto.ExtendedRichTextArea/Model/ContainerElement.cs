@@ -4,6 +4,7 @@ using Eto.Forms;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 
 namespace Eto.ExtendedRichTextArea.Model;
 
@@ -11,12 +12,22 @@ namespace Eto.ExtendedRichTextArea.Model;
 public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 	where T : class, IElement
 {
-	public int Start { get; internal set; }
+	int _start;
+	public int Start
+	{
+		get => _start;
+		internal set
+		{
+			_start = value;
+			if (_start < 0)
+				throw new ArgumentOutOfRangeException(nameof(Start), "Start must be greater than or equal to zero");
+		}
+	}
 	public int Length { get; private set; }
 	public int End => Start + Length;
 	public RectangleF Bounds { get; private set; }
 	public int DocumentStart => Start + Parent?.DocumentStart ?? 0;
-	
+
 	Attributes? _resolvedAttributes;
 
 	public Attributes ActualAttributes => _resolvedAttributes ?? Attributes ?? new Attributes();
@@ -94,6 +105,21 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		EndEdit();
 	}
 
+	/// <summary>
+	/// Ensures the collection is still valid (in debug).
+	/// </summary>
+	/// <exception cref="InvalidOperationException">Thrown when the collection is invalid.</exception>
+	[Conditional("DEBUG")]
+	internal void EnsureValid()
+	{
+		if (!IsValid())
+			throw new InvalidOperationException("The collection has been modified and is no longer valid.");
+		if (!(Parent?.GetType().GetMethod("IsValid")?.Invoke(Parent, null) as bool? ?? true))
+			throw new InvalidOperationException("The collection's parent has been modified and is no longer valid.");
+		if (this.GetDocument()?.IsValid() == false)
+			throw new InvalidOperationException("The collection has been modified and the document is no longer valid.");
+	}
+
 	protected override void InsertItem(int index, T item)
 	{
 		var rightItem = index < Count ? this[index] : null;
@@ -112,6 +138,7 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 				adjust += SeparatorLength;
 		}
 		Adjust(index, adjust);
+		EnsureValid();
 		MeasureIfNeeded();
 	}
 
@@ -125,6 +152,7 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		if (Count > 0)
 			adjust += SeparatorLength;
 		Adjust(index - 1, -adjust);
+		EnsureValid();
 		MeasureIfNeeded();
 	}
 
@@ -136,6 +164,7 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		item.Parent = this;
 		item.Start = old.Start;
 		Adjust(index, item.Length - old.Length);
+		EnsureValid();
 		MeasureIfNeeded();
 	}
 
@@ -248,12 +277,12 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		Insert(index + 1, newElement);
 		// if (Count == 1 && Attributes == null)
 		// 	Attributes = newElement.Attributes?.Clone();
-		
+
 		return true;
 	}
 
 
-	public void Adjust(int startIndex, int length)
+	protected void Adjust(int startIndex, int length)
 	{
 		AdjustLength(length);
 		for (int j = startIndex + 1; j < Count; j++)
@@ -261,7 +290,9 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 			this[j].Start += length;
 		}
 	}
-	
+
+	void IBlockElement.Adjust(int startIndex, int length) => Adjust(startIndex, length);
+
 	public int RemoveAt(int start, int length)
 	{
 		if (length < 0)
@@ -337,7 +368,7 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 				// don't remove the last TextElement of a Paragraph, so we keep formatting
 				// var shouldRemove = element is not TextElement || Parent is not ParagraphElement || Count > 1;
 				// if (shouldRemove)
-					Remove(element);
+				Remove(element);
 				if (Count > 0)
 					length -= separatorLength;
 			}
@@ -375,7 +406,12 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 
 		ContainerElement<T>? newRun = null;
 
-		if (start == Start)
+		if (start == 0)
+		{
+			return null;
+		}
+
+		/*if (start == 0)
 		{
 			newRun = CreateNew();
 			T? firstElement = null;
@@ -395,10 +431,10 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 			Clear();
 			if (firstElement != null)
 				Add(firstElement);
-			Length = 0;
-			Parent?.Adjust(Parent.IndexOf(this), -newRun.Length);
+			// Length = 0;
+			// Parent?.Adjust(Parent.IndexOf(this), -newRun.Length);
 			return newRun;
-		}
+		}*/
 
 		for (int i = 0; i < Count; i++)
 		{
@@ -408,7 +444,6 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 				Remove(element);
 				i--;
 				newRun ??= CreateNew();
-				element.Start = newRun.Length;
 				newRun.Add(element);
 			}
 			else if (element.End > start)
@@ -416,13 +451,13 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 				newRun ??= CreateNew();
 				if (element.Split(start - element.Start) is T newElement)
 				{
-					newElement.Start = newRun.Length;
 					newRun.Add(newElement);
 				}
 			}
 		}
-		var offset = Length - start;
-		Parent?.Adjust(Parent.IndexOf(this), -offset);
+		var offset = start - Length;
+		Parent?.Adjust(Parent.IndexOf(this), offset);
+		EnsureValid();
 		return newRun;
 	}
 
@@ -546,9 +581,16 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		if (start <= 0 && end >= Length)
 		{
 			Attributes = UpdateAttributes(attributes, Attributes);
-			foreach (var item in this)
+			foreach (var element in this)
 			{
-				item.Attributes = null;
+				if (element is IBlockElement block)
+				{
+					block.SetAttributes(Math.Max(0, start - element.Start), Math.Min(end - element.Start, element.Length), attributes);
+					continue;
+				}
+				
+				if (element.Attributes != null)
+					element.Attributes = UpdateAttributes(attributes, element.Attributes);
 			}
 			return;
 		}
@@ -670,9 +712,17 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		EndEdit();
 	}
 
+	protected virtual void OnKeyDown(int start, int end, KeyEventArgs args)
+	{
+		var (child, index, position) = FindAt(start);
+		child?.OnKeyDown(start - child.Start, end - child.Start, args);
+	}
+
+	void IElement.OnKeyDown(int start, int end, KeyEventArgs args) => OnKeyDown(start, end, args);
+
 	// public IElement GetElementAt(int index)
 	// {
-		
+
 	// }
 
 	// public bool HandleMouseDown(MouseEventArgs args)
@@ -687,5 +737,5 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 	// 	return false;
 
 	// }
-	
+
 }
