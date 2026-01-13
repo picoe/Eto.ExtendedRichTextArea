@@ -205,8 +205,11 @@ class KeyboardBehavior
 
 	private void TextArea_KeyDown(object? sender, KeyEventArgs e)
 	{
-		if (_textArea.Selection != null)
-			((IElement)_textArea.Document).OnKeyDown(_textArea.Selection.Start, _textArea.Selection.End, e);
+		// Always call OnKeyDown on the document, even when there's no selection.
+		// Use caret position for both start and end when Selection is null.
+		var start = _textArea.Selection?.Start ?? _caret.Index;
+		var end = _textArea.Selection?.End ?? _caret.Index;
+		((IElement)_textArea.Document).OnKeyDown(start, end, e);
 
 		if (e.Handled)
 			return;
