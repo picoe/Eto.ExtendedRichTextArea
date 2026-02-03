@@ -135,11 +135,15 @@ public class ExtendedRichTextArea : Scrollable
 		_drawable.Focus();
 	}
 
+	public new bool HasFocus => _drawable.HasFocus;
+
 	public ExtendedRichTextArea()
 	{
 		_drawable = new TextAreaDrawable(this);
 		_drawable.Caret.IndexChanged += Drawable_CaretIndexChanged;
 		_drawable.SelectionChanged += Drawable_SelectionChanged;
+		_drawable.GotFocus += (s, e) => OnGotFocus(e);
+		_drawable.LostFocus += (s, e) => OnLostFocus(e);
 
 		Content = _drawable;
 
