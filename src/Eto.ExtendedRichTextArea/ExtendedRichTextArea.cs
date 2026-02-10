@@ -161,8 +161,8 @@ public class ExtendedRichTextArea : Scrollable
 		base.OnSizeChanged(e);
 		// When wrapping is enabled, we need to specify how much space we have
 		// It's not working just yet.
-		// if (_drawable != null)
-		// 	_drawable.Document.AvailableSize = ClientSize;
+		if (_drawable != null)
+			_drawable.Document.AvailableSize = ClientSize;
 	}
 
 	private void Drawable_CaretIndexChanged(object? sender, EventArgs e)

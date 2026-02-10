@@ -6,6 +6,25 @@ namespace Eto.ExtendedRichTextArea.Model;
 public class ParagraphElement : ContainerElement<IInlineElement>
 {
 	List<Line>? _lines;
+	WrapMode? _wrapMode;
+
+	public WrapMode? WrapMode
+	{
+		get => _wrapMode;
+		set
+		{
+			_wrapMode = value;
+			this.GetDocument()?.MeasureIfNeeded();
+		}
+	}
+
+	protected override ContainerElement<IInlineElement> Clone()
+	{
+		var clone = (ParagraphElement)base.Clone();
+		clone._wrapMode = _wrapMode;
+		return clone;
+	}
+
 
 	protected override ContainerElement<IInlineElement> Create() => new ParagraphElement();
 	protected override IInlineElement CreateElement() => new TextElement();
@@ -43,13 +62,47 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 		return Bounds.Location;
 	}
 
+	public static (int index, float width) FindSplitIndex(int length, float maxWidth, Func<int, float> measure)
+	{
+		int lo = 0;
+		int hi = length; // inclusive upper bound via "lo < hi" pattern
+		float width = 0;
+
+		while (lo < hi)
+		{
+			int mid = (lo + hi + 1) / 2; // bias upward to avoid infinite loop
+			width = measure(mid);
+
+			if (width <= maxWidth)
+				lo = mid;
+			else
+				hi = mid - 1;
+		}
+
+		return (Math.Max(lo, 1), width);
+	}
+
+	public static int BackUpToWordBoundary(string text, int idx)
+	{
+		if (idx <= 0) return 0;
+		if (idx >= text.Length) return text.Length;
+
+		// If we're in the middle of a word, back up to whitespace.
+		int i = idx;
+		while (i > 0 && !char.IsWhiteSpace(text[i - 1]))
+			i--;
+
+		// If we backed up to 0 (single huge word), just split at idx.
+		return i == 0 ? idx : i;
+	}
+
 	static readonly char[] SpecialChars = new[] { SpecialCharacters.SoftBreakCharacter, SpecialCharacters.TabCharacter };
 	protected override SizeF MeasureOverride(Attributes defaultAttributes, SizeF availableSize, PointF location)
 	{
 		_lines ??= new List<Line>();
 		_lines.Clear();
 
-		availableSize += (SizeF)location;
+		// availableSize += (SizeF)location;
 		SizeF size = SizeF.Empty;
 		SizeF totalSize = SizeF.Empty;
 		int chunkStart = 0;
@@ -58,6 +111,8 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 		PointF chunkLocation = location;
 		var line = new Line { Start = lineStart };
 		var paragraphAttributes = defaultAttributes.Merge(Attributes, false);
+		var document = this.GetDocument();
+		var wrapMode = WrapMode ?? document?.WrapMode ?? Forms.WrapMode.Word;
 		for (int i = 0; i < Count; i++)
 		{
 			if (i > 0)
@@ -83,7 +138,7 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 					hasSoftBreak = true;
 				}
 
-				var available = availableSize - new SizeF(location.X, 0);
+				var available = availableSize - new SizeF(chunkLocation.X, 0);
 				var elementSize = element.Measure(paragraphAttributes, available, inlineStart, elementLength, out var baseline);
 
 				void NextLine()
@@ -101,41 +156,68 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 					chunkStart = 0;
 				}
 
-				if (chunkLocation.X + elementSize.Width > availableSize.Width)
+				void AddChunk(Chunk chunk)
 				{
-					// TODO: this isn't quite done yet, but we need to split elements that are too wide for the line
-					if (chunkLocation.X <= availableSize.Width)
+					line.Add(chunk);
+					line.Baseline = Math.Max(line.Baseline, baseline);
+
+					size.Height = Math.Max(size.Height, chunk.Bounds.Height);
+					size.Width += chunk.Bounds.Width;
+					chunkLocation.X += chunk.Bounds.Width;
+
+					lineStart += chunk.Length;
+					chunkStart += chunk.Length;
+					inlineStart += chunk.Length;
+				}
+
+				if (wrapMode != Forms.WrapMode.None && elementSize.Width > available.Width)
+				{
+					// split into multiple chunks if it's too wide
+					var split = FindSplitIndex(
+						elementLength,
+						available.Width,
+						idx => element.Measure(paragraphAttributes, available, inlineStart, idx, out baseline).Width);
+
+					if (wrapMode == Forms.WrapMode.Word && !string.IsNullOrEmpty(element.Text))
 					{
-						// split into possibly multiple lines here (if one element is very long)
-						var chunk = new Chunk(element, chunkStart, elementLength, new RectangleF(chunkLocation, elementSize), inlineStart);
-						line.Add(chunk);
-						lineStart += elementLength;
+						// split at word boundary if possible and re-measure new width
+						split.index = BackUpToWordBoundary(element.Text, inlineStart + split.index) - inlineStart;
+						split.width = element.Measure(paragraphAttributes, available, inlineStart, split.index, out baseline).Width;
 					}
 
-					// new line for the rest of it!
-					NextLine();
+					// couldn't split, just add the whole thing
+					if (split.index <= 0 && chunkStart == 0)
+						split.index = elementLength;
+
+					if (split.index > 0)
+					{
+						elementSize.Width = split.width;
+						var chunk = new Chunk(element, chunkStart, split.index, new RectangleF(chunkLocation, elementSize), inlineStart);
+						AddChunk(chunk);
+					}
+
+					// new line for the rest of the text in the next iteration
+					if (split.index < elementLength)
+						NextLine();
 				}
 				else
 				{
 					var chunk = new Chunk(element, chunkStart, elementLength, new RectangleF(chunkLocation, elementSize), inlineStart);
-					line.Add(chunk);
+					AddChunk(chunk);
 				}
-				line.Baseline = Math.Max(line.Baseline, baseline);
-
-				size.Height = Math.Max(size.Height, elementSize.Height);
-				size.Width += elementSize.Width;
-				chunkLocation.X += elementSize.Width;
-
-				lineStart += elementLength;
-				chunkStart += elementLength;
-				inlineStart += elementLength;
 
 				if (hasTabStop)
 				{
 					var indent = GetNextTabStop(chunkLocation.X) - chunkLocation.X;
 
-					// add a chunk for the tab stop so it renders
 					elementSize.Width = indent;
+					if (chunkLocation.X + elementSize.Width > availableSize.Width)
+					{
+						// tab stop goes beyond the available width, so move to the next line
+						NextLine();
+					}
+					
+					// add a chunk for the tab stop so it renders
 					var chunk = new Chunk(element, chunkStart, 1, new RectangleF(chunkLocation, elementSize), inlineStart);
 					line.Add(chunk);
 
@@ -207,7 +289,7 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 			if (lines.Length > 1)
 			{
 				var insertParagraph = this;
-				
+
 				for (int i = 0; i < lines.Length; i++)
 				{
 					if (i > 0)
