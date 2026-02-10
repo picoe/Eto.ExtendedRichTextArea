@@ -178,7 +178,7 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 						available.Width,
 						idx => element.Measure(paragraphAttributes, available, inlineStart, idx, out baseline).Width);
 
-					if (wrapMode == Forms.WrapMode.Word && !string.IsNullOrEmpty(element.Text))
+					if (wrapMode == Forms.WrapMode.Word && element.Text?.Length > 0)
 					{
 						// split at word boundary if possible and re-measure new width
 						split.index = BackUpToWordBoundary(element.Text, inlineStart + split.index) - inlineStart;
