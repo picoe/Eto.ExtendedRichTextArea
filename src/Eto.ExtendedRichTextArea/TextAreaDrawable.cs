@@ -61,7 +61,7 @@ class TextAreaDrawable : Drawable
 
 	private void Document_OverrideAttributes(object? sender, OverrideAttributesEventArgs e)
 	{
-		if (Selection?.Length > 0)
+		if (Selection?.Length > 0 && HasFocus)
 			e.NewAttributes.Add(new AttributeRange(Selection.Start, Selection.End, HighlightAttributes));
 	}
 
