@@ -35,6 +35,9 @@ public class ExtendedRichTextArea : Scrollable
 			if (_selectionAttributes != null)
 				_selectionAttributes.PropertyChanged -= SelectionAttributes_PropertyChanged;
 			_selectionAttributes = value;
+			// needs to be cleared otherwise applying 'bold' for example
+			// a 2nd time doesn't work.
+			_lastSelectionAttributes = null;
 			if (_selectionAttributes != null)
 				_selectionAttributes.PropertyChanged += SelectionAttributes_PropertyChanged;
 			SelectionAttributesChanged?.Invoke(this, EventArgs.Empty);
