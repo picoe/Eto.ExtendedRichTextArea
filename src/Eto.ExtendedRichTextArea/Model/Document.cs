@@ -54,14 +54,6 @@ public class Document : BlockContainerElement<IBlockElement>
 			throw new InvalidOperationException($"Failed to load document in {format.Name} format.");
 	}
 
-	protected override ContainerElement<IBlockElement> Clone()
-	{
-		var clone = (Document)base.Clone();
-		clone.ParagraphSpacing = ParagraphSpacing;
-		clone._defaultAttributes = _defaultAttributes?.Clone();
-		return clone;
-	}
-
 	int _suspendMeasure;
 	Attributes? _defaultAttributes;
 	float _screenScale = Screen.PrimaryScreen.Scale;
@@ -144,8 +136,22 @@ public class Document : BlockContainerElement<IBlockElement>
 		get => DefaultAttributes.Foreground ?? new SolidBrush(SystemColors.ControlText);
 		set => DefaultAttributes.Foreground = value;
 	}
+	
+	WrapMode _wrapMode;
 
-	public WrapMode WrapMode { get; internal set; }
+	public WrapMode WrapMode
+	{
+		get => _wrapMode;
+		set
+		{
+			if (_wrapMode != value)
+			{
+				_wrapMode = value;
+				MeasureIfNeeded();
+			}
+		}
+	}
+	
 	public event EventHandler<EventArgs>? Changing;
 
 	public DocumentRange GetRange(int start, int end)
@@ -382,4 +388,13 @@ public class Document : BlockContainerElement<IBlockElement>
 	}
 
 	internal float GetNextTabStop(float x) => TabStops?.GetNextTabStop(x) ?? FixedTabStops.DefaultTabStop - (int)x % FixedTabStops.DefaultTabStop;
+	
+	protected override ContainerElement<IBlockElement> Clone()
+	{
+		var clone = (Document)base.Clone();
+		clone.ParagraphSpacing = ParagraphSpacing;
+		clone._defaultAttributes = _defaultAttributes?.Clone();
+		clone._wrapMode = WrapMode;
+		return clone;
+	}
 }

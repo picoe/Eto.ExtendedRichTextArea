@@ -32,7 +32,9 @@ class CaretBehavior
 		{
 			InvalidateCaret(_caretBounds);
 		}
-		_caretVisible = true;
+		// Only show caret if the control has focus
+		if (_textArea.HasFocus)
+			_caretVisible = true;
 		CalculateCaretBounds();
 		InvalidateCaret();
 		if (_textArea.Selection == null && updateSelectionAttributes)

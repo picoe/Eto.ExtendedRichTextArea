@@ -54,6 +54,13 @@ namespace Eto.ExtendedRichTextArea.TestApp
 
 			return bitmap;
 		}
+		
+		Control WrapModeDropDown()
+		{
+			var dropDown = new EnumDropDown<WrapMode>();
+			dropDown.SelectedValueBinding.Bind(RichTextArea, r => r.Document.WrapMode);
+			return dropDown;
+		}
 
 		Control AttributeControls()
 		{
@@ -330,7 +337,7 @@ namespace Eto.ExtendedRichTextArea.TestApp
 			var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
 			layout.Styles.Add(null, (Label lbl) => lbl.VerticalAlignment = VerticalAlignment.Center);
 
-			layout.AddSeparateRow(insertRandomTextButton, setSelectedText, insertImageButton, insertListButton, clearButton, null);
+			layout.AddSeparateRow(insertRandomTextButton, setSelectedText, insertImageButton, insertListButton, clearButton, "Wrap", WrapModeDropDown(), null);
 			layout.AddSeparateRow(AttributeControls(), null);
 			{
 				layout.BeginVertical();

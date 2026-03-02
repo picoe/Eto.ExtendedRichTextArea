@@ -250,8 +250,8 @@ class KeyboardBehavior
 			case Keys.Backspace:
 				if (_textArea.Selection?.Length > 0)
 				{
-					_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
 					var start = _textArea.Selection.Start;
+					_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
 					_caret.SetIndex(start, false);
 					_textArea.SetSelection(null, true);
 				}
@@ -267,8 +267,8 @@ class KeyboardBehavior
 			case Keys.Delete:
 				if (_textArea.Selection?.Length > 0)
 				{
-					_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
 					var start = _textArea.Selection.Start;
+					_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
 					_caret.SetIndex(start, false);
 					_textArea.SetSelection(null, true);
 				}

@@ -38,7 +38,11 @@ class TextAreaDrawable : Drawable
 			_document.OverrideAttributes += Document_OverrideAttributes;
 			_document.DefaultAttributesChanged += Document_DefaultAttributesChanged;
 			_document.Changing += Document_BeginEditEvent;
+			_selection = null; // Clear stale selection from previous document
 			_caret.SetIndex(0, true);
+			// Always refresh SelectionAttributes from the new document.
+			// SetIndex above may skip the update when the caret is already at 0.
+			_textArea.SelectionAttributes = _document.GetAttributes(0, 0);
 			Invalidate(false);
 			ClearUndoRedoStacks();
 		}
@@ -61,7 +65,7 @@ class TextAreaDrawable : Drawable
 
 	private void Document_OverrideAttributes(object? sender, OverrideAttributesEventArgs e)
 	{
-		if (Selection?.Length > 0)
+		if (Selection?.Length > 0 && HasFocus)
 			e.NewAttributes.Add(new AttributeRange(Selection.Start, Selection.End, HighlightAttributes));
 	}
 

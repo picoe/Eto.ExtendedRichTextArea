@@ -35,6 +35,9 @@ public class ExtendedRichTextArea : Scrollable
 			if (_selectionAttributes != null)
 				_selectionAttributes.PropertyChanged -= SelectionAttributes_PropertyChanged;
 			_selectionAttributes = value;
+			// needs to be cleared otherwise applying 'bold' for example
+			// a 2nd time doesn't work.
+			_lastSelectionAttributes = null;
 			if (_selectionAttributes != null)
 				_selectionAttributes.PropertyChanged += SelectionAttributes_PropertyChanged;
 			SelectionAttributesChanged?.Invoke(this, EventArgs.Empty);
@@ -135,11 +138,15 @@ public class ExtendedRichTextArea : Scrollable
 		_drawable.Focus();
 	}
 
+	public new bool HasFocus => _drawable.HasFocus;
+
 	public ExtendedRichTextArea()
 	{
 		_drawable = new TextAreaDrawable(this);
 		_drawable.Caret.IndexChanged += Drawable_CaretIndexChanged;
 		_drawable.SelectionChanged += Drawable_SelectionChanged;
+		_drawable.GotFocus += (s, e) => OnGotFocus(e);
+		_drawable.LostFocus += (s, e) => OnLostFocus(e);
 
 		Content = _drawable;
 
@@ -157,8 +164,8 @@ public class ExtendedRichTextArea : Scrollable
 		base.OnSizeChanged(e);
 		// When wrapping is enabled, we need to specify how much space we have
 		// It's not working just yet.
-		// if (_drawable != null)
-		// 	_drawable.Document.AvailableSize = ClientSize;
+		if (_drawable != null)
+			_drawable.Document.AvailableSize = ClientSize;
 	}
 
 	private void Drawable_CaretIndexChanged(object? sender, EventArgs e)
