@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="$(UseLocalEto) != 'True'">
-    <PackageReference Include="Eto.Platform.Wpf" Version="2.8.3" />
+    <PackageReference Include="Eto.Platform.Wpf" />
   </ItemGroup>
 
 	<ItemGroup Condition="$(UseLocalEto) == 'True'">

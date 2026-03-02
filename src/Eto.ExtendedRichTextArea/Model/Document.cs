@@ -31,6 +31,8 @@ public class Document : BlockContainerElement<IBlockElement>
 	public TabStopsType TabStops { get; set; } = TabStopsType.Fixed(36);
 
 	protected override string Separator => "\n";
+	
+	public DocumentRange DocumentRange => GetRange(0, Length);
 
 	public void Save(DocumentFormat format, Stream stream)
 	{
@@ -39,7 +41,7 @@ public class Document : BlockContainerElement<IBlockElement>
 		if (stream == null)
 			throw new ArgumentNullException(nameof(stream));
 
-		if (!format.Save(this, stream))
+		if (!format.Save(DocumentRange, stream))
 			throw new InvalidOperationException($"Failed to save document in {format.Name} format.");
 	}
 
@@ -50,7 +52,7 @@ public class Document : BlockContainerElement<IBlockElement>
 		if (stream == null)
 			throw new ArgumentNullException(nameof(stream));
 
-		if (!format.Load(this, stream))
+		if (!format.Load(DocumentRange, stream))
 			throw new InvalidOperationException($"Failed to load document in {format.Name} format.");
 	}
 
@@ -152,6 +154,21 @@ public class Document : BlockContainerElement<IBlockElement>
 		}
 	}
 	
+	TextAlignment _textAlignment;
+
+	public TextAlignment TextAlignment
+	{
+		get => _textAlignment;
+		set
+		{
+			if (_textAlignment != value)
+			{
+				_textAlignment = value;
+				MeasureIfNeeded();
+			}
+		}
+	}
+	
 	public event EventHandler<EventArgs>? Changing;
 
 	public DocumentRange GetRange(int start, int end)
@@ -179,17 +196,16 @@ public class Document : BlockContainerElement<IBlockElement>
 		}
 	}
 
-	public RectangleF CalculateCaretBounds(int start, Font font, Screen? screen)
+	public RectangleF CalculateCaretBounds(int start, Font font)
 	{
-		var scale = screen?.Scale ?? 1;
-		var lineHeight = (font.Baseline + font.Descent) * scale;
+		var lineHeight = (font.Baseline + font.Descent) * ScreenScale;
 		var point = GetPointAt(start, out var line) ?? Bounds.Location;
 		if (line != null)
 		{
 			point.Y = line.Bounds.Y;
 			// lineHeight = line.Baseline * scale;
 			if (line.Baseline > 0)
-				point.Y += line.Baseline - font.Baseline * scale;
+				point.Y += line.Baseline - font.Baseline * ScreenScale;
 		}
 
 		return new RectangleF(point.X, point.Y, 1, lineHeight);
@@ -207,9 +223,29 @@ public class Document : BlockContainerElement<IBlockElement>
 		InsertAt(start, span);
 		EndEdit();
 	}
+	
+	public void Replace(int start, int length, IEnumerable<IElement> elements)
+	{
+		BeginEdit();
+		RemoveAt(start, length);
+		foreach (var element in elements)
+		{
+			InsertAt(start, element);
+			start += element.Length;
+		}
+		EndEdit();
+	}
 
 	public void InsertText(int start, string text, Attributes? attributes = null)
 	{
+		if (string.IsNullOrEmpty(text))
+		{
+			InsertAt(start, new TextElement { Text = text, Attributes = attributes?.Clone() });
+			return;
+		}
+
+		// Normalize line endings so document text is consistently '\n'.
+		text = text.Replace("\r\n", "\n").Replace("\r", "\n");
 		InsertAt(start, new TextElement { Text = text, Attributes = attributes?.Clone() });
 	}
 
@@ -245,6 +281,12 @@ public class Document : BlockContainerElement<IBlockElement>
 		if (_suspendMeasure == 0)
 		{
 			Size = Measure(DefaultAttributes, AvailableSize, PointF.Empty);
+			var size = Size;
+			if (!float.IsPositiveInfinity(AvailableSize.Width) && AvailableSize.Width > 0)
+				size.Width = Math.Max(size.Width, AvailableSize.Width - 2);
+			if (!float.IsPositiveInfinity(AvailableSize.Height) && AvailableSize.Height > 0)
+				size.Height = Math.Max(size.Height, AvailableSize.Height);
+			Align(size);
 			Changed?.Invoke(this, EventArgs.Empty);
 		}
 	}
@@ -388,13 +430,19 @@ public class Document : BlockContainerElement<IBlockElement>
 	}
 
 	internal float GetNextTabStop(float x) => TabStops?.GetNextTabStop(x) ?? FixedTabStops.DefaultTabStop - (int)x % FixedTabStops.DefaultTabStop;
-	
+
 	protected override ContainerElement<IBlockElement> Clone()
 	{
 		var clone = (Document)base.Clone();
 		clone.ParagraphSpacing = ParagraphSpacing;
 		clone._defaultAttributes = _defaultAttributes?.Clone();
 		clone._wrapMode = WrapMode;
+		clone._textAlignment = TextAlignment;
 		return clone;
+	}
+	
+	public IElement? FindElementAt(int index)
+	{
+		return Enumerate(index, index, false, true)?.LastOrDefault();
 	}
 }

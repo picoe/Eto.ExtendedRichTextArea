@@ -25,6 +25,10 @@ class KeyboardBehavior
 		AddCommand(new CutCommand(textArea), "cut");
 		AddCommand(new CopyCommand(textArea), "copy");
 		AddCommand(new PasteCommand(textArea), "paste");
+		AddCommand(new UndoCommand(textArea));
+		AddCommand(new RedoCommand(textArea));
+		AddCommand(new BoldCommand(textArea));
+		AddCommand(new ItalicCommand(textArea));
 
 	}
 
@@ -131,12 +135,6 @@ class KeyboardBehavior
 				_textArea.SetSelection(Document.GetRange(0, _textArea.Document.Length), true);
 				e.Handled = true;
 				break;
-			case Keys.Control | Keys.Z:
-				e.Handled = _textArea.Undo();
-				break;
-			case Keys.Control | Keys.Y:
-				e.Handled = _textArea.Redo();
-				break;
 		}
 	}
 
@@ -170,12 +168,6 @@ class KeyboardBehavior
 			case Keys.Application | Keys.A:
 				_textArea.SetSelection(Document.GetRange(0, _textArea.Document.Length), true);
 				e.Handled = true;
-				break;
-			case Keys.Application | Keys.Z:
-				e.Handled = _textArea.Undo();
-				break;
-			case Keys.Application | Keys.Shift | Keys.Z:
-				e.Handled = _textArea.Redo();
 				break;
 		}
 	}

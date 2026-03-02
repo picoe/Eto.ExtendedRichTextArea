@@ -1,0 +1,37 @@
+name: Build and Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    name: Build and Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Eto.ExtendedRichTextArea.sln -p:UseLocalEto=False
+
+      - name: Build
+        run: dotnet build Eto.ExtendedRichTextArea.sln --configuration Release --no-restore -p:UseLocalEto=False
+
+      - name: Test
+        run: dotnet test test/Eto.ExtendedRichTextArea.UnitTest/Eto.ExtendedRichTextArea.UnitTest.csproj --configuration Release --no-build -p:UseLocalEto=False

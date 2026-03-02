@@ -8,13 +8,15 @@
 			"windows": {
 				"args": [
 					"build",
-					"${workspaceFolder}/test/Eto.ExtendedRichTextArea.TestApp.Wpf/Eto.ExtendedRichTextArea.TestApp.Wpf.csproj"
+					"${workspaceFolder}/test/Eto.ExtendedRichTextArea.TestApp.Wpf/Eto.ExtendedRichTextArea.TestApp.Wpf.csproj",
+					"/p:UseLocalEto=false"
 				],
 			},
 			"osx": {
 				"args": [
 					"build",
-					"${workspaceFolder}/test/Eto.ExtendedRichTextArea.TestApp.Mac/Eto.ExtendedRichTextArea.TestApp.Mac64.csproj"
+					"${workspaceFolder}/test/Eto.ExtendedRichTextArea.TestApp.Mac/Eto.ExtendedRichTextArea.TestApp.Mac64.csproj",
+					"/p:UseLocalEto=false"
 				],
 			},
 			"problemMatcher": "$msCompile",

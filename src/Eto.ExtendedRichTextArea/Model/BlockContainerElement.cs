@@ -99,4 +99,17 @@ public abstract class BlockContainerElement<T> : ContainerElement<T>
 			element.Paint(graphics, clipBounds);
 		}
 	}
+
+	protected override float AlignOverride(SizeF totalSize)
+	{
+		float? minOffset = null;
+		for (int i = 0; i < Count; i++)
+		{
+			var element = this[i];
+			var offset = element.Align(totalSize);
+			minOffset = minOffset == null ? offset : Math.Min(offset, minOffset.Value);
+		}
+		return minOffset ?? 0;
+	}
+
 }

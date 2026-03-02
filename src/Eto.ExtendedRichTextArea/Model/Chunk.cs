@@ -11,7 +11,7 @@ namespace Eto.ExtendedRichTextArea.Model;
 public class Chunk
 {
 	public IInlineElement Element { get; }
-	public RectangleF Bounds { get; }
+	public RectangleF Bounds { get; set; }
 	public int Start { get; }
 	public int End => Start + Length;
 

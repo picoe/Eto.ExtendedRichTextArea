@@ -380,7 +380,7 @@ public class TextElement : IInlineElement
 		return _measureSize.Value;
 	}
 
-	public IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines)
+	public IEnumerable<IElement> Enumerate(int start, int end, bool trim, bool includeChildren)
 	{
 		if (end < start)
 			throw new ArgumentOutOfRangeException(nameof(end), "End must be greater than or equal to start");
@@ -396,7 +396,7 @@ public class TextElement : IInlineElement
 			end = Length;
 		if (end <= 0)
 			yield break;
-		if ((start == 0 && end == Length) || !trimInlines)
+		if ((start == 0 && end == Length) || !trim)
 		{
 			yield return this;
 			yield break;

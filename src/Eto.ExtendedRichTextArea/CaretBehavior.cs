@@ -37,7 +37,7 @@ class CaretBehavior
 			_caretVisible = true;
 		CalculateCaretBounds();
 		InvalidateCaret();
-		if (_textArea.Selection == null && updateSelectionAttributes)
+		if (!_textArea.HasSelection && updateSelectionAttributes)
 			_textArea.TextArea.SelectionAttributes = Document.GetAttributes(_caretIndex, _caretIndex);
 
 		IndexChanged?.Invoke(_textArea, EventArgs.Empty);
@@ -115,7 +115,7 @@ class CaretBehavior
 		else
 		{
 			var attributes = _textArea.Document.GetAttributes(_caretIndex, _caretIndex);
-			_caretBounds = _textArea.Document.CalculateCaretBounds(_caretIndex, attributes.BaseFont ?? _textArea.TextArea.SelectionFont, _textArea.ParentWindow?.Screen);
+			_caretBounds = _textArea.Document.CalculateCaretBounds(_caretIndex, attributes.BaseFont ?? _textArea.TextArea.SelectionFont);
 		}
 	}
 

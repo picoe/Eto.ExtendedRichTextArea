@@ -5,7 +5,16 @@ namespace Eto.ExtendedRichTextArea.Model;
 
 public class ListItemElement : ParagraphElement
 {
-	protected override ContainerElement<IInlineElement> Create() => new ListItemElement();
+	public ListItemElement()
+	{
+		
+	}
+	protected override ContainerElement<IInlineElement> Create() => new ListItemElement
+	{
+		Level = Level,
+		WrapMode = WrapMode,
+		TextAlignment = TextAlignment
+	};
 
 	public int Level { get; set; } = 0; // Indentation level for nested lists
 
@@ -96,9 +105,16 @@ public class ListItemElement : ParagraphElement
 		// then it should go to the next tab stop.  See word's behaviour for reference.
 		var loc = location;
 		loc.X += Indent;
+		// availableSize.Width -= Indent;
 		var childSize = base.MeasureOverride(defaultAttributes, availableSize, loc);
 		childSize.Width += loc.X;
 		return childSize;
+	}
+
+	protected override float AlignOverride(SizeF totalSize)
+	{
+		totalSize.Width -= Indent;
+		return base.AlignOverride(totalSize);
 	}
 
 	public override PointF? GetPointAt(int start, out Line? line)
@@ -140,7 +156,7 @@ public class ListItemElement : ParagraphElement
 		}
 		if (start == Length)
 		{
-			return new ListItemElement { Level = Level };
+			return Create(); 
 		}
 		return null;
 	}

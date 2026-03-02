@@ -11,6 +11,7 @@ public interface IBlockElement : IElement, IList
 	RectangleF Bounds { get; }
 	IElement CreateElement();
 	SizeF Measure(Attributes defaultAttributes, SizeF availableSize, PointF location);
+	float Align(SizeF totalSize);
 	int GetIndexAt(PointF point);
 	PointF? GetPointAt(int start, out Line? line);
 	IEnumerable<Chunk> EnumerateChunks(int start, int end);
