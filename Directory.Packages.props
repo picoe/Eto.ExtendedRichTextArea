@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    
+    <EtoFormsVersion>2.11.0</EtoFormsVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Eto.Forms" Version="$(EtoFormsVersion)" />
+    <PackageVersion Include="Eto.Platform.Gtk" Version="$(EtoFormsVersion)" />
+    <PackageVersion Include="Eto.Platform.Mac64" Version="$(EtoFormsVersion)" />
+    <PackageVersion Include="Eto.Platform.macOS" Version="$(EtoFormsVersion)" />
+    <PackageVersion Include="Eto.Platform.Wpf" Version="$(EtoFormsVersion)" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
+    <PackageVersion Include="NUnit" Version="4.4.0" />
+    <PackageVersion Include="NUnit.Analyzers" Version="4.11.0" />
+    <PackageVersion Include="NUnit3TestAdapter" Version="5.2.0" />
+  </ItemGroup>
+</Project>

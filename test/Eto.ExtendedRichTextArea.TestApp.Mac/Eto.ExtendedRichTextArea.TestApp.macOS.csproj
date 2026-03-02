@@ -13,7 +13,7 @@
   </ItemGroup>
 	
   <ItemGroup Condition="$(UseLocalEto) != 'True'">
-    <PackageReference Include="Eto.Platform.macOS" Version="2.8.3" />
+    <PackageReference Include="Eto.Platform.macOS" />
   </ItemGroup>
 
 	<ItemGroup Condition="$(UseLocalEto) == 'True'">

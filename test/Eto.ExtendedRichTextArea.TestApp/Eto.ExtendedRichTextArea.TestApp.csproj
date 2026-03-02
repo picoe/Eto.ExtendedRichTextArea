@@ -10,7 +10,7 @@
 	</ItemGroup>
 
   <ItemGroup Condition="$(UseLocalEto) != 'True'">
-    <PackageReference Include="Eto.Forms" Version="2.8.3" />
+    <PackageReference Include="Eto.Forms" />
   </ItemGroup>
 
 	<ItemGroup Condition="$(UseLocalEto) == 'True'">
