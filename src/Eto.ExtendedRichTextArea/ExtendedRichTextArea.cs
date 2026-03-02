@@ -19,7 +19,7 @@ public class ExtendedRichTextArea : Scrollable
 	Attributes? _selectionAttributes;
 	Attributes? _lastSelectionAttributes;
 
-	public Attributes? SelectionAttributes
+	public Attributes SelectionAttributes
 	{
 		get
 		{
@@ -28,7 +28,7 @@ public class ExtendedRichTextArea : Scrollable
 			_selectionAttributes ??= Document.DefaultAttributes.Clone();
 			if (_selectionAttributes != null)
 				_selectionAttributes.PropertyChanged += SelectionAttributes_PropertyChanged;
-			return _selectionAttributes;
+			return _selectionAttributes!;
 		}
 		set
 		{
@@ -60,22 +60,18 @@ public class ExtendedRichTextArea : Scrollable
 
 	private void UpdateSelectionAttributes()
 	{
-		_drawable.Selection?.SetAttributes(_selectionAttributes);
+		if (_selectionAttributes != null)
+			_drawable.Selection.Attributes = _selectionAttributes;
 	}
 
 	public event EventHandler<EventArgs>? SelectionAttributesChanged;
 
 	public DocumentRange Selection
 	{
-		get
-		{
-			if (_drawable.Selection == null)
-				_drawable.SetSelection(Document.GetRange(_drawable.Caret.Index, _drawable.Caret.Index), false);
-			return _drawable.Selection!;
-		}
+		get => _drawable.Selection;
 		set => _drawable.SetSelection(value, true);
 	}
-
+	
 	public string SelectionText
 	{
 		get => _drawable.Selection?.Text ?? string.Empty;
@@ -86,7 +82,9 @@ public class ExtendedRichTextArea : Scrollable
 	
 	protected virtual void OnSelectionChanged(EventArgs e)
 	{
+		_selectionElements = null;
 		SelectionChanged?.Invoke(this, e);
+		SelectionElementsChanged?.Invoke(this, e);
 	}
 
 	public Font SelectionFont
@@ -118,7 +116,8 @@ public class ExtendedRichTextArea : Scrollable
 	
 	protected virtual void OnCaretIndexChanged(EventArgs e)
 	{
-		CaretIndexChanged?.Invoke(this, e);
+		CaretIndexChanged?.Invoke(this, EventArgs.Empty);
+		CaretElementChanged?.Invoke(this, EventArgs.Empty);
 	}
 
 	public int CaretIndex
@@ -131,11 +130,32 @@ public class ExtendedRichTextArea : Scrollable
 		}
 	}
 
+	public event EventHandler<EventArgs>? CaretElementChanged;
+
+	public IElement? CaretElement => Document.FindElementAt(CaretIndex);
+
+	public event EventHandler<EventArgs>? SelectionElementsChanged;
+
+
+	IEnumerable<IElement>? _selectionElements;
+	public IEnumerable<IElement> SelectionElements
+	{
+		get => _selectionElements ??= Document.Enumerate(Selection.Start, Selection.End, false, true).ToList();
+		set => Document.Replace(Selection.Start, Selection.Length, value);
+	}
+
+
 	public event EventHandler<EventArgs>? SelectionBrushChanged;
 
 	public override void Focus()
 	{
 		_drawable.Focus();
+	}
+	
+	public new ContextMenu ContextMenu
+	{
+		get => _drawable.ContextMenu;
+		set => _drawable.ContextMenu = value;
 	}
 
 	public new bool HasFocus => _drawable.HasFocus;
@@ -216,7 +236,7 @@ public class ExtendedRichTextArea : Scrollable
 	public void Insert(IElement element)
 	{
 		Document.BeginEdit();
-		if (_drawable.Selection != null)
+		if (_drawable.HasSelection)
 		{
 			Document.RemoveAt(_drawable.Selection.Start, _drawable.Selection.Length);
 			_drawable.SetSelection(null, false);

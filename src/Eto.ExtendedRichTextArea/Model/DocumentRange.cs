@@ -24,6 +24,8 @@ public class DocumentRange
 	}
 
 	public int OriginalStart { get; }
+	
+	public bool Contains(int index) => index >= Start && index < End;
 
 	List<RectangleF>? _bounds;
 
@@ -130,18 +132,95 @@ public class DocumentRange
 			graphics.FillRectangle(SystemColors.Highlight, bounds);
 		}
 	}
+	
+	public event EventHandler<EventArgs>? AttributesChanged;
 
-	public void SetAttributes(Attributes? selectionAttributes)
+	Attributes? _attributes;
+
+	public Attributes Attributes
 	{
-		_bounds = null;
-		Document.SetAttributes(Start, End, selectionAttributes);
+		get => _attributes ??= Document.GetAttributes(Start, End);
+		set
+		{
+			_bounds = null;
+			_attributes = null;
+			Document.SetAttributes(Start, End, value);
+			AttributesChanged?.Invoke(this, EventArgs.Empty);
+		}
 	}
-
-	public Attributes GetAttributes() => Document.GetAttributes(Start, End);
 
 	internal DocumentRange? Clone()
 	{
 		return new DocumentRange(Document, Start, End, OriginalStart);
+	}
+
+	internal void ReplaceWithBlocks(IEnumerable<IBlockElement> blocks)
+	{
+		if (blocks == null)
+			throw new ArgumentNullException(nameof(blocks));
+
+		var inserted = blocks.ToList();
+		var isWholeDocumentReplace = Start == 0 && Length == Document.Length;
+
+		if (isWholeDocumentReplace)
+		{
+			Document.BeginEdit();
+			try
+			{
+				Document.Clear();
+				foreach (var block in inserted)
+					Document.Add(block);
+
+				End = Document.Length;
+				_bounds = null;
+			}
+			finally
+			{
+				Document.EndEdit();
+			}
+			return;
+		}
+
+		var originalDocumentLength = Document.Length;
+		Document.BeginEdit();
+		try
+		{
+			Document.RemoveAt(Start, Length);
+
+			var insertAt = Start;
+			var startIndex = 0;
+
+			// If the first block is a paragraph, merge its inlines into the current paragraph.
+			if (inserted.Count > 0 && inserted[0] is ParagraphElement firstParagraph)
+			{
+				foreach (var inline in firstParagraph.ToList())
+				{
+					if (inline.Clone() is not IInlineElement inlineClone)
+						continue;
+
+					Document.InsertAt(insertAt, inlineClone);
+					insertAt += inlineClone.Length;
+				}
+				startIndex = 1;
+			}
+
+			for (var i = startIndex; i < inserted.Count; i++)
+			{
+				var block = inserted[i];
+				Document.InsertAt(insertAt, block);
+				insertAt += block.Length;
+				if (i < inserted.Count - 1)
+					insertAt += ((IBlockElement)Document).SeparatorLength;
+			}
+
+			var insertedLength = Document.Length - (originalDocumentLength - Length);
+			End = Start + Math.Max(0, insertedLength);
+			_bounds = null;
+		}
+		finally
+		{
+			Document.EndEdit();
+		}
 	}
 
 	public static bool operator ==(DocumentRange? left, DocumentRange? right)
@@ -164,6 +243,8 @@ public class DocumentRange
 			return this == other;
 		return false;
 	}
+	
+	public IEnumerable<IElement> GetElements() => Document.Enumerate(Start, End, true, false);
 
 	public override int GetHashCode()
 	{

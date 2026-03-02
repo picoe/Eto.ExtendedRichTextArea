@@ -465,7 +465,7 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 
 	public abstract int GetIndexAt(PointF point);
 
-	public IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines)
+	public IEnumerable<IElement> Enumerate(int start, int end, bool trim, bool includeChildren)
 	{
 		for (int i = 0; i < Count; i++)
 		{
@@ -474,12 +474,39 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 				break;
 			if (element.End < start)
 				continue;
-			yield return element;
-			var elementStart = Math.Max(start - element.Start, 0);
-			var elementEnd = Math.Min(end - element.Start, element.Length);
-			foreach (var child in element.Enumerate(elementStart, elementEnd, trimInlines))
+			if (trim)
 			{
-				yield return child;
+				if (element.Start < start)
+				{
+					element = (T)element.Clone();
+					var splitStart = start - element.Start;
+					if (splitStart <= 0)
+						element.RemoveAt(0, element.Length);
+					else
+						element = element.Split(splitStart) as T ?? element;
+					element.Start = start;
+				}
+				
+				if (element.End > end)
+				{
+					element = (T)element.Clone();
+					var splitEnd = end - element.Start;
+					if (splitEnd <= 0)
+						element.RemoveAt(0, element.Length);
+					else
+						element.Split(splitEnd);
+				}
+			}
+			yield return element;
+			
+			if (includeChildren)
+			{
+				var elementStart = Math.Max(start - element.Start, 0);
+				var elementEnd = Math.Min(end - element.Start, element.Length);
+				foreach (var child in element.Enumerate(elementStart, elementEnd, trim, includeChildren))
+				{
+					yield return child;
+				}
 			}
 		}
 	}
@@ -507,7 +534,7 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 
 	public string GetText(int start, int end)
 	{
-		var inlineText = EnumerateInlines(start, end, true).Select(r => r.Text);
+		var inlineText = Enumerate(start, end, true, false).Select(r => r.Text);
 		return Separator != null ? string.Join(Separator, inlineText) : string.Concat(inlineText);
 	}
 
@@ -524,25 +551,21 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		for (int i = 0; i < Count; i++)
 		{
 			var element = this[i];
-			if (end < element.Start || (end == element.Start && isRange))
+			if (end < element.Start || (end == element.Start && (isRange || attributes != null)))
 				break;
 			if (start > element.End || (start == element.End && isRange))
 				continue;
 
 			Attributes? elementAttributes;
 			if (element is IBlockElement block)
-			{
 				elementAttributes = block.GetAttributes(containerAttributes, Math.Max(0, start - element.Start), Math.Min(end - element.Start, element.Length));
-			}
 			else
-			{
-				elementAttributes = element.Attributes;
-			}
+				elementAttributes = containerAttributes.Merge(element.Attributes, true);
 
 			if (attributes == null)
-				attributes = containerAttributes.Merge(elementAttributes, true);
+				attributes = elementAttributes;
 			else
-				attributes.ClearUnmatched(containerAttributes.Merge(elementAttributes, false));
+				attributes.ClearUnmatched(elementAttributes);
 
 			if (end <= element.Start)
 				break;
@@ -581,15 +604,12 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		if (start <= 0 && end >= Length)
 		{
 			Attributes = UpdateAttributes(attributes, Attributes);
-			foreach (var element in this)
+			for (int i = 0; i < Count; i++)
 			{
+				var element = this[i];
 				if (element is IBlockElement block)
-				{
 					block.SetAttributes(Math.Max(0, start - element.Start), Math.Min(end - element.Start, element.Length), attributes);
-					continue;
-				}
-				
-				if (element.Attributes != null)
+				else
 					element.Attributes = UpdateAttributes(attributes, element.Attributes);
 			}
 			return;
@@ -719,6 +739,17 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 	}
 
 	void IElement.OnKeyDown(int start, int end, KeyEventArgs args) => OnKeyDown(start, end, args);
+
+	public float Align(SizeF totalSize)
+	{
+		var offset = AlignOverride(totalSize);
+		var bounds = Bounds;
+		bounds.X += offset;
+		Bounds = bounds;
+		return offset;
+	}
+
+	protected abstract float AlignOverride(SizeF totalSize);
 
 	// public IElement GetElementAt(int index)
 	// {

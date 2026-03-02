@@ -1,28 +1,31 @@
 using Eto.Forms;
 
-namespace Eto.ExtendedRichTextArea.Commands
+namespace Eto.ExtendedRichTextArea.Commands;
+
+class CopyCommand : Command
 {
-	class CopyCommand : Command
+	internal readonly TextAreaDrawable _textArea;
+	public CopyCommand(TextAreaDrawable textArea)
 	{
-		readonly TextAreaDrawable _textArea;
-		public CopyCommand(TextAreaDrawable textArea)
-		{
-			Shortcut = Application.Instance.CommonModifier | Keys.C;
-			_textArea = textArea;
-			_textArea.SelectionChanged += TextArea_SelectionChanged;
-		}
+		MenuText = Application.Instance.Localize(typeof(ExtendedRichTextArea), "Copy");
+		Shortcut = Application.Instance.CommonModifier | Keys.C;
+		_textArea = textArea;
+		_textArea.SelectionChanged += TextArea_SelectionChanged;
+	}
 
-		private void TextArea_SelectionChanged(object? sender, EventArgs e)
-		{
-			Enabled = _textArea.Selection?.Length > 0;
-		}
+	private void TextArea_SelectionChanged(object? sender, EventArgs e)
+	{
+		Enabled = _textArea.Selection?.Length > 0;
+	}
 
-		protected override void OnExecuted(EventArgs e)
+	protected override void OnExecuted(EventArgs e)
+	{
+		if (!_textArea.HasSelection)
+			return;
+		var clip = new Clipboard();
+		foreach (var format in DocumentFormat.AllFormats)
 		{
-			if (_textArea.Selection == null)
-				return;
-			var clip = new Clipboard(); 
-			clip.Text = _textArea.Selection.Text;
+			format.WriteDataObject(_textArea.Selection, clip);
 		}
 	}
 }

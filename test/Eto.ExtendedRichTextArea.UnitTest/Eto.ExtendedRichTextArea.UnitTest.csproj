@@ -17,7 +17,6 @@
     <PackageReference Include="NUnit" Version="4.4.0" />
     <PackageReference Include="NUnit.Analyzers" Version="4.11.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="5.2.0" />
-    <PackageReference Include="HtmlAgilityPack" Version="1.11.71" />
   </ItemGroup>
   
   <ItemGroup>

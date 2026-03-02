@@ -50,7 +50,8 @@ public class NavigationTests : TestBase
 	public void NavigateWithFormattingShouldWork(string html, int start, DocumentNavigationMode mode, int expected)
 	{
 		var document = new Document();
-		new HtmlParser(document).ParseHtml(html);
+		var loaded = DocumentFormat.Html.LoadFromString(document.DocumentRange, html);
+		Assert.That(loaded, Is.True);
 		var result = document.Navigate(start, mode);
 		Assert.That(result, Is.EqualTo(expected));
 	}	

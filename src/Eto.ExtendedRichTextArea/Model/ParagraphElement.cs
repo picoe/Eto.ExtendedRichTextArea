@@ -18,15 +18,32 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 		}
 	}
 
+	TextAlignment? _textAlignment;
+	public TextAlignment? TextAlignment
+	{
+		get => _textAlignment;
+		set
+		{
+			_textAlignment = value;
+			this.GetDocument()?.MeasureIfNeeded();
+		}
+	}
+
 	protected override ContainerElement<IInlineElement> Clone()
 	{
 		var clone = (ParagraphElement)base.Clone();
 		clone._wrapMode = _wrapMode;
+		clone._textAlignment = _textAlignment;
 		return clone;
 	}
 
 
-	protected override ContainerElement<IInlineElement> Create() => new ParagraphElement();
+	protected override ContainerElement<IInlineElement> Create() => new ParagraphElement
+	{
+		WrapMode = WrapMode,
+		TextAlignment = TextAlignment
+	};
+	
 	protected override IInlineElement CreateElement() => new TextElement();
 
 	public override PointF? GetPointAt(int start, out Line? line)
@@ -67,6 +84,7 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 		int lo = 0;
 		int hi = length; // inclusive upper bound via "lo < hi" pattern
 		float width = 0;
+		float goodWidth = 0;
 
 		while (lo < hi)
 		{
@@ -74,12 +92,15 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 			width = measure(mid);
 
 			if (width <= maxWidth)
+			{
 				lo = mid;
+				goodWidth = width;
+			}
 			else
 				hi = mid - 1;
 		}
 
-		return (Math.Max(lo, 1), width);
+		return (Math.Max(lo, 1), goodWidth);
 	}
 
 	public static int BackUpToWordBoundary(string text, int idx)
@@ -113,6 +134,7 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 		var paragraphAttributes = defaultAttributes.Merge(Attributes, false);
 		var document = this.GetDocument();
 		var wrapMode = WrapMode ?? document?.WrapMode ?? Forms.WrapMode.Word;
+		var textAlignment = TextAlignment ?? document?.TextAlignment ?? Forms.TextAlignment.Left;
 		for (int i = 0; i < Count; i++)
 		{
 			if (i > 0)
@@ -175,7 +197,7 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 					// split into multiple chunks if it's too wide
 					var split = FindSplitIndex(
 						elementLength,
-						available.Width,
+						available.Width - 2,
 						idx => element.Measure(paragraphAttributes, available, inlineStart, idx, out baseline).Width);
 
 					if (wrapMode == Forms.WrapMode.Word && element.Text?.Length > 0)
@@ -297,7 +319,7 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 						if (start > 0)
 						{
 							// next line splits or adds a new paragraph
-							var right = ((IBlockElement)insertParagraph).Split(start) ?? Parent.CreateElement();
+							var right = ((IBlockElement)insertParagraph).Split(start) ?? insertParagraph.Create();  //Parent.CreateElement();
 							if (right != null && right is ParagraphElement rightParagraph)
 							{
 								// Parent.Adjust(Parent.IndexOf(this), -right.Length);
@@ -310,9 +332,16 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 						else
 						{
 							// inserting at start, so just add a new paragraph before
-							var newParagraph = (ParagraphElement)Parent.CreateElement();
+							var newParagraph = (ParagraphElement)insertParagraph.Create(); //Parent.CreateElement();
 							newParagraph.Attributes = Attributes?.Clone();
-							Parent.Insert(Parent.IndexOf(insertParagraph), newParagraph);
+							var insertIndex = Parent.IndexOf(insertParagraph);
+							// When continuation insertion lands on an empty paragraph created by a prior split
+							// (e.g. text contains "\n\n"), inserting before reorders the blank line to the end.
+							// Insert after that empty paragraph to preserve source line order.
+							if (insertParagraph.Length == 0)
+								Parent.Insert(insertIndex + 1, newParagraph);
+							else
+								Parent.Insert(insertIndex, newParagraph);
 							insertParagraph = newParagraph;
 							start = 0;
 						}
@@ -475,4 +504,29 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 		}
 	}
 
+	protected override float AlignOverride(SizeF totalSize)
+	{
+		var alignment = TextAlignment ?? this.GetDocument()?.TextAlignment ?? Forms.TextAlignment.Left;
+		float? minOffsetX = null;
+		for (int i = 0; i < _lines?.Count; i++)
+		{
+			var line = _lines[i];
+			if (line == null)
+				continue;
+			float offsetX = 0;
+			if (alignment == Forms.TextAlignment.Center)
+				offsetX = (totalSize.Width - line.Bounds.Width) / 2;
+			else if (alignment == Forms.TextAlignment.Right)
+				offsetX = totalSize.Width - line.Bounds.Width;
+			minOffsetX = minOffsetX != null ? Math.Min(minOffsetX.Value, offsetX) : offsetX;
+
+			line.Bounds = new RectangleF(line.Bounds.Location + new SizeF(offsetX, 0), line.Bounds.Size);
+			for (int j = 0; j < line.Count; j++)
+			{
+				var chunk = line[j];
+				chunk.Bounds = new RectangleF(chunk.Bounds.Location + new SizeF(offsetX, 0), chunk.Bounds.Size);
+			}
+		}
+		return minOffsetX ?? 0;
+	}
 }

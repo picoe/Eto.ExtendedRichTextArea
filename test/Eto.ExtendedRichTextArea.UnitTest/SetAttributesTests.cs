@@ -25,9 +25,38 @@ public class SetAttributesTests : TestBase
 
 		var attributes = new Attributes { Family = new FontFamily(family) };
 		var range = document.GetRange(start, end);
-		range.SetAttributes(attributes);
+		range.Attributes = attributes;
 
 		var testAttributes = document.GetAttributes(testStart, testEnd);
 		Assert.That(testAttributes?.Family?.Name, Is.EqualTo(testFamily));
+	}
+	
+	[Test]
+	public void SettingBoldOnMixedRangeShouldWork()
+	{
+		var document = new Document
+		{
+			new ParagraphElement
+			{
+				new TextElement { Text = "Hello " },
+				new TextElement { Text = "World", Attributes = new Attributes { Bold = true } }
+			}
+		};
+
+		var attributes = document.GetAttributes(0, 11);
+		Assert.That(attributes, Is.Not.Null);
+		Assert.That(attributes.Bold, Is.Null);
+
+		attributes.Bold = true;
+		document.SetAttributes(0, 11, attributes);  //new Attributes { Bold = true });
+
+		attributes = document.GetAttributes(0, 11);
+		Assert.That(attributes, Is.Not.Null);
+		Assert.That(attributes.Bold, Is.True);
+		Assert.That(attributes.Font?.Bold, Is.True);
+		
+		Assert.That(document.Count, Is.EqualTo(1));
+		Assert.That(((TextElement?)document[0][0])?.ActualAttributes?.Font?.FontStyle.HasFlag(FontStyle.Bold), Is.True);
+		Assert.That(((TextElement?)document[0][1])?.ActualAttributes?.Font?.FontStyle.HasFlag(FontStyle.Bold), Is.True);
 	}
 }

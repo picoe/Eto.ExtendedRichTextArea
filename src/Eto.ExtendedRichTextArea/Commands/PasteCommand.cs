@@ -1,29 +1,37 @@
 using Eto.Forms;
 
-namespace Eto.ExtendedRichTextArea.Commands
+namespace Eto.ExtendedRichTextArea.Commands;
+
+class PasteCommand : Command
 {
-	class PasteCommand : Command
+	readonly TextAreaDrawable _textArea;
+	public PasteCommand(TextAreaDrawable textArea)
 	{
-		readonly TextAreaDrawable _textArea;
-		public PasteCommand(TextAreaDrawable textArea)
+		MenuText = Application.Instance.Localize(typeof(ExtendedRichTextArea), "Paste");
+		Shortcut = Application.Instance.CommonModifier | Keys.V;
+		_textArea = textArea;
+	}
+
+	protected override void OnExecuted(EventArgs e)
+	{
+		var clip = new Clipboard();
+		var range = _textArea.Selection ?? _textArea.Document.GetRange(_textArea.Caret.Index, 0);
+
+		foreach (var format in DocumentFormat.AllFormats)
 		{
-			Shortcut = Application.Instance.CommonModifier | Keys.V;
-			_textArea = textArea;
+			if (format.ReadDataObject(range, clip))
+			{
+				_textArea.Caret.SetIndex(range.End, false);
+				_textArea.SetSelection(null, true);
+				return;
+			}
 		}
 
-		protected override void OnExecuted(EventArgs e)
-		{
-			var clip = new Clipboard(); 
-			if (!clip.ContainsText)
-				return;
-			if (_textArea.Selection != null)
-			{
-				_textArea.Selection.Text = clip.Text;
-				_textArea.Caret.SetIndex(_textArea.Selection.End, false);
-				_textArea.SetSelection(null, true);
-			}
-			else
-				_textArea.TextArea.InsertText(clip.Text);
-		}
+		if (!clip.ContainsText)
+			return;
+
+		range.Text = clip.Text;
+		_textArea.Caret.SetIndex(range.End, false);
+		_textArea.SetSelection(null, true);
 	}
 }

@@ -87,6 +87,7 @@ public class InsertTextTests : TestBase
 	[TestCase("Hello\n\nWorld", 6, "\n", "Hello\n\n\nWorld")]
 	[TestCase("Hello\n\nWorld", 7, "\n", "Hello\n\n\nWorld")]
 	[TestCase("Hello\n\nWorld", 6, "asdf", "Hello\nasdf\nWorld")]
+	[TestCase("", 0, "\tline 1\n\n\tline 3", "\tline 1\n\n\tline 3")]
 	[TestCase("", 0, "exercitation\namet eu nostrud qui enim\nexercitation nisi culpa dolore\nut duis proident reprehenderit consectetur\nin esse cillum officia eu irure", "exercitation\namet eu nostrud qui enim\nexercitation nisi culpa dolore\nut duis proident reprehenderit consectetur\nin esse cillum officia eu irure")]
 	[TestCase("\n\n\n", 1, "exercitation\namet\nnisi\nut\nin", "\nexercitation\namet\nnisi\nut\nin\n\n")]
 	[TestCase("Hello\nWorld", 0, "\n", "\nHello\nWorld")]
@@ -114,6 +115,17 @@ public class InsertTextTests : TestBase
 		Assert.That(((TextElement)document[0][0]).Attributes?.Font?.FamilyName, Is.EqualTo("Arial"));
 	}
 
+	[Test]
+	public void InsertTextWithWindowsNewlinesShouldStripCarriageReturns()
+	{
+		var document = new Document();
+		document.InsertText(0, "Hello\r\nWorld\r\nThere");
+
+		Assert.That(document.Text, Is.EqualTo("Hello\nWorld\nThere"));
+		Assert.That(document.Text, Does.Not.Contain("\r"));
+		Assert.That(document.Count, Is.EqualTo(3));
+	}
+
 
 	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 0, "Courier New")]
 	[TestCase("<p style=\"font-family: Courier New\">Hello</p><p style=\"font-family: Courier New\">There</p>", 4, "\n\n", 4, "Courier New")]
@@ -125,7 +137,8 @@ public class InsertTextTests : TestBase
 	public void InsertingParagraphWithFormattingShouldKeepFormatting(string html, int insertIndex, string insertText, int testIndex, string fontFamily)
 	{
 		var document = new Document();
-		new HtmlParser(document).ParseHtml(html);
+		var loaded = DocumentFormat.Html.LoadFromString(document.DocumentRange, html);
+		Assert.That(loaded, Is.True);
 
 		document.InsertText(insertIndex, insertText);
 		var attributes = document.GetAttributes(testIndex, testIndex);

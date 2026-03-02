@@ -8,451 +8,567 @@ using System.Collections;
 using System.Linq;
 using Eto.ExtendedRichTextArea;
 using Eto.ExtendedRichTextArea.Model;
+using System.Linq.Expressions;
+using System.Net.Http.Headers;
 
-namespace Eto.ExtendedRichTextArea.TestApp
+namespace Eto.ExtendedRichTextArea.TestApp;
+
+public partial class MainForm : Form
 {
-	public partial class MainForm : Form
+	public ExtendedRichTextArea RichTextArea { get; }
+
+	readonly TreeGridView _structure = new();
+	readonly TreeGridView _lines = new();
+
+	(RectangleF bounds, Color color)? _highlightedBounds;
+
+	public Bitmap CreateRandomBitmap(int width = 200, int height = 50)
 	{
-		public ExtendedRichTextArea RichTextArea { get; }
+		var random = new Random();
+		var bitmap = new Bitmap(width, height, PixelFormat.Format32bppRgba);
 
-		readonly TreeGridView _structure = new();
-		readonly TreeGridView _lines = new();
-
-		(RectangleF bounds, Color color)? _highlightedBounds;
-
-		public Bitmap CreateRandomBitmap(int width = 200, int height = 50)
+		using (var graphics = new Graphics(bitmap))
 		{
-			var random = new Random();
-			var bitmap = new Bitmap(width, height, PixelFormat.Format32bppRgba);
 
-			using (var graphics = new Graphics(bitmap))
+			for (int i = 0; i < 10; i++)
 			{
+				var brush = new SolidBrush(Color.FromArgb(random.Next(256), random.Next(256), random.Next(256), random.Next(256)));
+				var pen = new Pen(brush, random.Next(1, 5));
 
-				for (int i = 0; i < 10; i++)
+				var middle = new Size(width / 2, height / 2);
+				var point1 = new PointF(random.Next(width), random.Next(height)) - middle;
+				var point2 = new PointF(random.Next(width), random.Next(height)) - middle;
+				var size = new SizeF(random.Next(width), random.Next(height));
+				switch (random.Next(3))
 				{
-					var brush = new SolidBrush(Color.FromArgb(random.Next(256), random.Next(256), random.Next(256), random.Next(256)));
-					var pen = new Pen(brush, random.Next(1, 5));
-
-					var middle = new Size(width / 2, height / 2);
-					var point1 = new PointF(random.Next(width), random.Next(height)) - middle;
-					var point2 = new PointF(random.Next(width), random.Next(height)) - middle;
-					var size = new SizeF(random.Next(width), random.Next(height));
-					switch (random.Next(3))
-					{
-						case 0:
-							graphics.FillRectangle(brush, new RectangleF(point1, size));
-							break;
-						case 1:
-							graphics.FillEllipse(brush, new RectangleF(point1, size));
-							break;
-						case 2:
-							graphics.DrawLine(pen, point1, point2);
-							break;
-					}
+					case 0:
+						graphics.FillRectangle(brush, new RectangleF(point1, size));
+						break;
+					case 1:
+						graphics.FillEllipse(brush, new RectangleF(point1, size));
+						break;
+					case 2:
+						graphics.DrawLine(pen, point1, point2);
+						break;
 				}
 			}
-
-			return bitmap;
-		}
-		
-		Control WrapModeDropDown()
-		{
-			var dropDown = new EnumDropDown<WrapMode>();
-			dropDown.SelectedValueBinding.Bind(RichTextArea, r => r.Document.WrapMode);
-			return dropDown;
 		}
 
-		Control AttributeControls()
+		return bitmap;
+	}
+
+	Control CopyAsButton()
+	{
+		var button = new SegmentedButton();
+		var menuItem = new MenuSegmentedItem { Text = "Copy As" };
+		menuItem.Menu = new ContextMenu
 		{
-			var attributesBinding = Binding.Property((ExtendedRichTextArea r) => r.SelectionAttributes).Convert(
-				r => r,
-				r => r
-			);
-			
-			// Family
-			var familyDropDown = new DropDown();
-			familyDropDown.DropDownClosed += (sender, e) => RichTextArea.Focus();
-			var families = Fonts.AvailableFontFamilies.ToList();
-			/*
-			families.Insert(1, Fonts.Monospace(10).Family);
-			families.Insert(1, Fonts.Serif(10).Family);
-			families.Insert(1, Fonts.Sans(10).Family);
-			families.Insert(1, Fonts.Cursive(10).Family);
-			*/
-			families.Insert(0, null);
-			familyDropDown.DataStore = families;
-			familyDropDown.SelectedValueBinding.Bind(RichTextArea, 
-				attributesBinding.Child<object>(a => a.Family).Convert(
-					r => r,
-					r => r
-				));
-
-			// Typeface
-			var typefaceDropDown = new DropDown();
-			typefaceDropDown.DropDownClosed += (sender, e) => RichTextArea.Focus();
-			var dataStoreBinding = typefaceDropDown.Bind(c => c.DataStore,
-				RichTextArea,
-				attributesBinding.Child(a => a.Family).Convert(
-					f => f?.Typefaces.Cast<object>(), null));
-			var selectedBinding = typefaceDropDown.SelectedValueBinding.Bind(RichTextArea, 
-				attributesBinding.Child<object>(a => a.Typeface).Convert(
-					t => t, 
-					t => t));
-			dataStoreBinding.Changing += (sender, e) => selectedBinding.Mode = DualBindingMode.Manual;
-			dataStoreBinding.Changed += (sender, e) => selectedBinding.Mode = DualBindingMode.TwoWay;
-
-
-			var superscriptCheckBox = new CheckBox { Text = "Superscript" };
-			superscriptCheckBox.CheckedBinding.Bind(RichTextArea,
-				attributesBinding.Child(a => a.Superscript));
-			superscriptCheckBox.CheckedChanged += (sender, e) => RichTextArea.Focus();
-
-			var subscriptCheckBox = new CheckBox { Text = "Subscript" };
-			subscriptCheckBox.CheckedBinding.Bind(RichTextArea,
-				attributesBinding.Child(a => a.Subscript));
-			subscriptCheckBox.CheckedChanged += (sender, e) => RichTextArea.Focus();
-
-			var underlineCheckBox = new CheckBox { Text = "Underline" };
-			underlineCheckBox.CheckedBinding.Bind(RichTextArea,
-				attributesBinding.Child(a => a.Underline));
-			underlineCheckBox.CheckedChanged += (sender, e) => RichTextArea.Focus();
-
-			// Size
-			var sizeDropDown = new ComboBox();
-			sizeDropDown.AutoComplete = true;
-			sizeDropDown.TextInput += (sender, e) =>
-			{
-				if (!e.Text.All(char.IsDigit))
+			Items =
 				{
-					e.Cancel = true;
+					new ButtonMenuItem { Text = "RTF", Command = new Command((s, e) => DocumentFormat.Rtf.WriteDataObject(RichTextArea.Selection, new Clipboard())) },
+					new ButtonMenuItem { Text = "HTML", Command = new Command((s, e) => DocumentFormat.Html.WriteDataObject(RichTextArea.Selection, new Clipboard())) },
+					new ButtonMenuItem{ Text = "Plain Text", Command = new Command((s, e) => DocumentFormat.PlainText.WriteDataObject(RichTextArea.Selection, new Clipboard())) }
 				}
-			};
-			sizeDropDown.DataStore = new List<object> { 8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72 };
-			sizeDropDown.DropDownClosed += (sender, e) => RichTextArea.Focus();
-			sizeDropDown.KeyDown += (sender, e) =>
-			{
-				if (e.KeyData == Keys.Enter)
-				{
-					RichTextArea.Focus();
-					e.Handled = true;
-				}
-			};
-			sizeDropDown.Bind(c => c.Text, RichTextArea,
-				attributesBinding
-				.Child(c => c.Size)
-				.Convert(
-					size => size.ToString(),
-					s => float.TryParse(s, out var v) ? v : null));
-
-			// Color
-			var foregroundSelector = new ColorPicker { AllowAlpha = true };
-			// TODO: This doesn't work on Wpf to set the focus to the richTextArea so you have to click first.
-			foregroundSelector.ValueChanged += (sender, e) => Application.Instance.AsyncInvoke(RichTextArea.Focus);
-			foregroundSelector.ValueBinding.Bind(RichTextArea,
-				attributesBinding.Child(a => a.Foreground)
-				.Convert(r => r is SolidBrush brush ? brush.Color : Colors.Transparent, r => r.A <= 0 ? null : new SolidBrush(r)));
-
-			var backgroundSelector = new ColorPicker { AllowAlpha = true };
-			// TODO: This doesn't work on Wpf to set the focus to the richTextArea so you have to click first.
-			backgroundSelector.ValueChanged += (sender, e) => Application.Instance.AsyncInvoke(RichTextArea.Focus);
-			backgroundSelector.ValueBinding.Bind(RichTextArea,
-				attributesBinding.Child(a => a.Background)
-				.Convert(r => r is SolidBrush brush ? brush.Color : Colors.Transparent, r => r.A <= 0 ? null : new SolidBrush(r)));
-
-			// Layout
-			return new TableLayout {
-				Spacing = new Size(4, 4),
-				Rows = {
-					new TableRow("Family", familyDropDown, "Typeface", typefaceDropDown, "Size", sizeDropDown, underlineCheckBox, superscriptCheckBox, subscriptCheckBox, "Fg", foregroundSelector, "Bg", backgroundSelector),
-				},
-			};
-		}
-		
-		public MainForm()
+		};
+		button.Items.Add(menuItem);
+		return button;
+	}
+	
+	Control PasteAsButton()
+	{
+		var button = new SegmentedButton();
+		var menuItem = new MenuSegmentedItem { Text = "Paste As" };
+		menuItem.Menu = new ContextMenu
 		{
-			Title = "ExtendedRichTextArea Test App";
-			MinimumSize = new Size(200, 200);
+			Items =
+				{
+					new ButtonMenuItem { Text = "RTF", Command = new Command((s, e) => DocumentFormat.Rtf.ReadDataObject(RichTextArea.Selection, new Clipboard())) },
+					new ButtonMenuItem { Text = "HTML", Command = new Command((s, e) => DocumentFormat.Html.ReadDataObject(RichTextArea.Selection, new Clipboard())) },
+
+					new ButtonMenuItem { Text = "Plain Text", Command = new Command((s, e) => DocumentFormat.PlainText.ReadDataObject(RichTextArea.Selection, new Clipboard())) }
+				}
+		};
+		menuItem.Menu.Opening += (s, e) =>
+		{
+			var clipboard = new Clipboard();
+			menuItem.Menu.Items[0].Enabled = DocumentFormat.Rtf.CanReadDataObject(clipboard);
+			menuItem.Menu.Items[1].Enabled = DocumentFormat.Html.CanReadDataObject(clipboard);
+			menuItem.Menu.Items[2].Enabled = DocumentFormat.PlainText.CanReadDataObject(clipboard);
+		};
+		button.Items.Add(menuItem);
+		return button;
+	}
+
+
+	Control WrapModeDropDown()
+	{
+		var dropDown = new EnumDropDown<WrapMode>();
+		dropDown.SelectedValueBinding
+			.Bind(RichTextArea, r => r.Document.WrapMode)
+			.SetFocusOnChange(BindingUpdateMode.Source, RichTextArea);
+		return dropDown;
+	}
+
+	Control ParagraphWrapModeDropDown()
+	{
+		var dropDown = new EnumDropDown<WrapMode?>();
+		dropDown.SelectedValueBinding.Bind(RichTextArea,
+			Binding.Property((ExtendedRichTextArea r) => r.SelectionElements)
+				.Convert(r => r.OfType<ParagraphElement>())
+				.ManyToSingle(r => r.WrapMode, (p, v) => p.WrapMode = v)
+		).OnChange(BindingUpdateMode.Source, () =>
+		{
+			if (!RichTextArea.SelectionElements.OfType<ParagraphElement>().Any())
+				RichTextArea.Insert(new ParagraphElement { WrapMode = dropDown.SelectedValue });
+
+			RichTextArea.Focus();
+		});
+		return dropDown;
+	}
+
+	Control ParagraphAlignmentDropDown()
+	{
+		var dropDown = new EnumDropDown<TextAlignment?>();
+		dropDown.SelectedValueBinding.Bind(RichTextArea,
+			Binding.Property((ExtendedRichTextArea r) => r.SelectionElements)
+				.Convert(r => r.OfType<ParagraphElement>())
+				.ManyToSingle(r => r.TextAlignment, (p, v) => p.TextAlignment = v)
+			)
+			.OnChange(BindingUpdateMode.Source, () =>
+			{
+				if (!RichTextArea.SelectionElements.OfType<ParagraphElement>().Any())
+					RichTextArea.Insert(new ParagraphElement { TextAlignment = dropDown.SelectedValue });
+
+				RichTextArea.Focus();
+			});
+		return dropDown;
+	}
+
+	Control TextAlignmentDropDown()
+	{
+		var dropDown = new EnumDropDown<TextAlignment>();
+		dropDown.SelectedValueBinding
+			.Bind(RichTextArea, r => r.Document.TextAlignment)
+			.SetFocusOnChange(BindingUpdateMode.Source, RichTextArea);
+		return dropDown;
+	}
+
+	Control AttributeControls()
+	{
+		var attributesBinding = Binding.Property((ExtendedRichTextArea r) => r.SelectionAttributes);
+
+		// Family
+		var familyDropDown = new DropDown();
+		familyDropDown.DropDownClosed += (sender, e) => RichTextArea.Focus();
+		var families = Fonts.AvailableFontFamilies.ToList();
+		/*
+		families.Insert(1, Fonts.Monospace(10).Family);
+		families.Insert(1, Fonts.Serif(10).Family);
+		families.Insert(1, Fonts.Sans(10).Family);
+		families.Insert(1, Fonts.Cursive(10).Family);
+		*/
+		families.Insert(0, null);
+		familyDropDown.DataStore = families;
+		familyDropDown.ItemTextBinding = Binding.Delegate((FontFamily f) => f?.LocalizedName, defaultGetValue: "<mixed>");
+		familyDropDown.SelectedValueBinding.Bind(RichTextArea,
+			attributesBinding.Child<object>(a => a.Family));
+
+		// Typeface
+		var typefaceDropDown = new DropDown();
+		typefaceDropDown.DropDownClosed += (sender, e) => RichTextArea.Focus();
+		var dataStoreBinding = typefaceDropDown.Bind(c => c.DataStore,
+			RichTextArea,
+			attributesBinding.Child(a => a.Family).Convert(
+				f => f?.Typefaces.Cast<object>(), null));
+		var selectedBinding = typefaceDropDown.SelectedValueBinding.Bind(RichTextArea,
+			attributesBinding.Child<object>(a => a.Typeface));
+		dataStoreBinding.Changing += (sender, e) => selectedBinding.Mode = DualBindingMode.Manual;
+		dataStoreBinding.Changed += (sender, e) => selectedBinding.Mode = DualBindingMode.TwoWay;
+
+
+		void BindThreeStateCheckBox(CheckBox checkBox, Expression<Func<Attributes, bool?>> selector)
+		{
+			// turn on three-state only if the value is null (invariant)
+			// so when the user clicks, it never gets to null value, just on/off
+			checkBox.Bind(c => c.ThreeState, RichTextArea,
+				attributesBinding.Child(selector).Convert(b => b == null));
+			checkBox.CheckedBinding.Bind(RichTextArea,
+				attributesBinding.Child(selector))
+				.SetFocusOnChange(BindingUpdateMode.Source, RichTextArea);
+		}
+
+		var superscriptCheckBox = new CheckBox { Text = "Superscript" };
+		BindThreeStateCheckBox(superscriptCheckBox, a => a.Superscript);
+
+		var subscriptCheckBox = new CheckBox { Text = "Subscript" };
+		BindThreeStateCheckBox(subscriptCheckBox, a => a.Subscript);
+
+		var underlineCheckBox = new CheckBox { Text = "Underline" };
+		BindThreeStateCheckBox(underlineCheckBox, a => a.Underline);
+
+		var boldCheckBox = new CheckBox { Text = "Bold" };
+		BindThreeStateCheckBox(boldCheckBox, a => a.Bold);
+
+		var italicCheckBox = new CheckBox { Text = "Italic" };
+		BindThreeStateCheckBox(italicCheckBox, a => a.Italic);
+
+
+		// Size
+		var sizeDropDown = new ComboBox();
+		sizeDropDown.AutoComplete = true;
+		sizeDropDown.TextInput += (sender, e) =>
+		{
+			if (!e.Text.All(char.IsDigit))
+			{
+				e.Cancel = true;
+			}
+		};
+		sizeDropDown.DataStore = new List<object> { 8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72 };
+		sizeDropDown.DropDownClosed += (sender, e) => RichTextArea.Focus();
+		sizeDropDown.KeyDown += (sender, e) =>
+		{
+			if (e.KeyData == Keys.Enter)
+			{
+				RichTextArea.Focus();
+				e.Handled = true;
+			}
+		};
+		sizeDropDown.Bind(c => c.Text, RichTextArea,
+			attributesBinding
+			.Child(c => c.Size)
+			.Convert(
+				size => size.ToString(),
+				s => float.TryParse(s, out var v) ? v : null));
+
+		// Color
+		var foregroundSelector = new ColorPicker { AllowAlpha = true };
+		// TODO: This doesn't work on Wpf to set the focus to the richTextArea so you have to click first.
+		foregroundSelector.ValueBinding.Bind(RichTextArea,
+			attributesBinding.Child(a => a.Foreground)
+			.Convert(r => r is SolidBrush brush ? brush.Color : Colors.Transparent, r => r.A <= 0 ? null : new SolidBrush(r)))
+			.SetFocusOnChange(BindingUpdateMode.Source, RichTextArea);
+
+		var backgroundSelector = new ColorPicker { AllowAlpha = true };
+		// TODO: This doesn't work on Wpf to set the focus to the richTextArea so you have to click first.
+		backgroundSelector.ValueBinding.Bind(RichTextArea,
+			attributesBinding.Child(a => a.Background)
+			.Convert(r => r is SolidBrush brush ? brush.Color : Colors.Transparent, r => r.A <= 0 ? null : new SolidBrush(r)))
+			.SetFocusOnChange(BindingUpdateMode.Source, RichTextArea);
+
+		// Layout
+		var layout = new DynamicLayout { DefaultSpacing = new Size(4, 4) };
+		layout.AddSeparateRow("Family", familyDropDown, "Typeface", typefaceDropDown, "Size", sizeDropDown, "Fg", foregroundSelector, "Bg", backgroundSelector);
+		layout.AddSeparateRow(boldCheckBox, italicCheckBox, underlineCheckBox, superscriptCheckBox, subscriptCheckBox);
+
+		return layout;
+	}
+
+	public MainForm()
+	{
+		Title = "ExtendedRichTextArea Test App";
+		MinimumSize = new Size(200, 200);
 
 #if UseDefaultRichTextArea
 			var richTextArea = new RichTextArea { Size = new Size(700, 600) };
 #else
-			RichTextArea = new ExtendedRichTextArea { Size = new Size(700, 600) };
+		RichTextArea = new ExtendedRichTextArea { Size = new Size(700, 600) };
 
-			var drawable = RichTextArea.FindChild<Drawable>();
-			drawable.Paint += drawable_Paint;
+		var drawable = RichTextArea.FindChild<Drawable>();
+		drawable.Paint += drawable_Paint;
 #endif
-			var insertRandomTextButton = new Button { Text = "Insert Random Text" };
-			insertRandomTextButton.Click += (sender, e) =>
-			{
-				RichTextArea.InsertText(LoremGenerator.GenerateLines(20, 20));
-				RichTextArea.Focus();
-			};
+		var insertRandomTextButton = new Button { Text = "Insert Random Text" };
+		insertRandomTextButton.Click += (sender, e) =>
+		{
+			RichTextArea.InsertText(LoremGenerator.GenerateLines(20, 20));
+			RichTextArea.Focus();
+		};
 
-			var insertImageButton = new Button { Text = "Insert Image" };
-			insertImageButton.Click += (sender, e) =>
-			{
-				RichTextArea.Insert(new ImageElement { Image = CreateRandomBitmap(200, 40) });
-				RichTextArea.Focus();
-			};
+		var insertImageButton = new Button { Text = "Insert Image" };
+		insertImageButton.Click += (sender, e) =>
+		{
+			RichTextArea.Insert(new ImageElement { Image = CreateRandomBitmap(200, 40) });
+			RichTextArea.Focus();
+		};
 
-			var insertListButton = new SegmentedButton();
-			
-			var insertListMenu = new MenuSegmentedItem { Text = "Insert List" };
-			
-			void InsertList(ListType type)
-			{
-				var list = new ListElement { Type = type };
-				list.Add(new ListItemElement());
-				RichTextArea.Insert(list);
-				RichTextArea.Focus();
-			}
-			insertListMenu.Menu = new ContextMenu
-			{
-				Items =
+		var insertListButton = new SegmentedButton();
+
+		var insertListMenu = new MenuSegmentedItem { Text = "Insert List" };
+
+		void InsertList(ListType type)
+		{
+			var list = new ListElement { Type = type };
+			list.Add(new ListItemElement());
+			RichTextArea.Insert(list);
+			RichTextArea.Focus();
+		}
+		insertListMenu.Menu = new ContextMenu
+		{
+			Items =
 				{
 					new ButtonMenuItem { Text = "Unordered List", Command = new Command((s, e) => InsertList(ListType.Unordered)) },
 					new ButtonMenuItem { Text = "Ordered List", Command = new Command((s, e) => InsertList(ListType.Ordered)) },
 				}
-			};
-			insertListButton.Items.Add(insertListMenu);
+		};
+		insertListButton.Items.Add(insertListMenu);
 
-			var setSelectedText = new Button { Text = "Set SelectedText" };
-			setSelectedText.Click += (sender, e) =>
+		var setSelectedText = new Button { Text = "Set SelectedText" };
+		setSelectedText.Click += (sender, e) =>
+		{
+			var dlg = new Dialog<bool>();
+			var edit = new TextArea { Text = RichTextArea.SelectionText, Width = 300 };
+			edit.SelectAll();
+			dlg.Content = new TableLayout
 			{
-				var dlg = new Dialog<bool>();
-				var edit = new TextArea { Text = RichTextArea.SelectionText, Width = 300 };
-				edit.SelectAll();
-				dlg.Content = new TableLayout
-				{
-					Spacing = new Size(5, 5),
-					Rows = { new TableRow("SelectedText:", edit) }
-				};
-				dlg.PositiveButtons.Add(dlg.DefaultButton = new Button((s, e) => dlg.Close(true)) { Text = "Ok" });
-				dlg.NegativeButtons.Add(dlg.AbortButton = new Button((s, e) => dlg.Close(false)) { Text = "Cancel" });
-				dlg.Shown += (s, e) => edit.Focus();
-				if (dlg.ShowModal(setSelectedText))
-				{
-					RichTextArea.SelectionText = edit.Text;
-				}
+				Spacing = new Size(5, 5),
+				Rows = { new TableRow("SelectedText:", edit) }
 			};
-			
-			var clearButton = new Button { Text = "Clear" };
-			clearButton.Click += (sender, e) =>
+			dlg.PositiveButtons.Add(dlg.DefaultButton = new Button((s, e) => dlg.Close(true)) { Text = "Ok" });
+			dlg.NegativeButtons.Add(dlg.AbortButton = new Button((s, e) => dlg.Close(false)) { Text = "Cancel" });
+			dlg.Shown += (s, e) => edit.Focus();
+			if (dlg.ShowModal(setSelectedText))
 			{
-				RichTextArea.Document.Clear();
-				RichTextArea.Focus();
-			};
+				RichTextArea.SelectionText = edit.Text;
+			}
+		};
+
+		var clearButton = new Button { Text = "Clear" };
+		clearButton.Click += (sender, e) =>
+		{
+			RichTextArea.Document.Clear();
+			RichTextArea.Focus();
+		};
 
 
-			_structure.Size = new Size(200, 300);
-			_structure.ShowHeader = false;
-			_structure.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0), AutoSize = true });
-			_structure.CellDoubleClick += (sender, e) =>
+		_structure.Size = new Size(200, 300);
+		_structure.ShowHeader = false;
+		_structure.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0), AutoSize = true });
+		_structure.CellDoubleClick += (sender, e) =>
+		{
+			if (e.Item is TreeGridItem item && item.Tag != null)
 			{
-				if (e.Item is TreeGridItem item && item.Tag != null)
-				{
-					ShowProperties(item.Tag);
-				}
-			};
+				ShowProperties(item.Tag);
+			}
+		};
 
 
 
-			_lines.Size = new Size(200, 300);
-			_lines.ShowHeader = false;
-			_lines.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0), AutoSize = true });
-			_lines.CellDoubleClick += (sender, e) =>
+		_lines.Size = new Size(200, 300);
+		_lines.ShowHeader = false;
+		_lines.Columns.Add(new GridColumn { DataCell = new TextBoxCell(0), AutoSize = true });
+		_lines.CellDoubleClick += (sender, e) =>
+		{
+			if (e.Item is TreeGridItem item && item.Tag != null)
 			{
-				if (e.Item is TreeGridItem item && item.Tag != null)
-				{
-					ShowProperties(item.Tag);
-				}
-			};
-			_lines.SelectedItemsChanged += (sender, e) =>
+				ShowProperties(item.Tag);
+			}
+		};
+		_lines.SelectedItemsChanged += (sender, e) =>
+		{
+			if (_highlightedBounds.HasValue)
 			{
-				if (_highlightedBounds.HasValue)
-				{
-					var (bounds, color) = _highlightedBounds.Value;
-					_highlightedBounds = null;
-				}
-				if (_lines.SelectedItem is TreeGridItem item && item.Tag is Line line)
-				{
-					_highlightedBounds = (line.Bounds, Colors.Orange);
-				}
-				else if (_lines.SelectedItem is TreeGridItem chunkItem && chunkItem.Tag is Chunk chunk)
-				{
-					_highlightedBounds = (chunk.Bounds, Colors.Green);
-				}
-				RichTextArea.Invalidate();
-			};
+				var (bounds, color) = _highlightedBounds.Value;
+				_highlightedBounds = null;
+			}
+			if (_lines.SelectedItem is TreeGridItem item && item.Tag is Line line)
+			{
+				_highlightedBounds = (line.Bounds, Colors.Orange);
+			}
+			else if (_lines.SelectedItem is TreeGridItem chunkItem && chunkItem.Tag is Chunk chunk)
+			{
+				_highlightedBounds = (chunk.Bounds, Colors.Green);
+			}
+			RichTextArea.Invalidate();
+		};
 
 #if !UseDefaultRichTextArea
-			var changeTimer = new UITimer { Interval = 1 };
-			changeTimer.Elapsed += (sender, e) =>
-			{
-				changeTimer.Stop();
-				Application.Instance.AsyncInvoke(UpdateStructure);
-				Application.Instance.AsyncInvoke(UpdateLines);
-			};
+		var changeTimer = new UITimer { Interval = 1 };
+		changeTimer.Elapsed += (sender, e) =>
+		{
+			changeTimer.Stop();
+			Application.Instance.AsyncInvoke(UpdateStructure);
+			Application.Instance.AsyncInvoke(UpdateLines);
+		};
 
-			RichTextArea.Document.Changed += (sender, e) =>
-			{
-				changeTimer.Start();
-				_highlightedBounds = null;
-			};
+		RichTextArea.Document.Changed += (sender, e) =>
+		{
+			changeTimer.Start();
+			_highlightedBounds = null;
+		};
 
-			RichTextArea.Document.DefaultFont = new Font("Arial", SystemFonts.Default().Size);
-			// richTextArea.Document.Text = "Hello\nWorld";
-			// richTextArea.Document.Text = LoremGenerator.GenerateLines(200, 20);
+		RichTextArea.Document.DefaultFont = new Font("Arial", SystemFonts.Default().Size);
+		// richTextArea.Document.Text = "Hello\nWorld";
+		// richTextArea.Document.Text = LoremGenerator.GenerateLines(200, 20);
 
-			// var bmp = new Bitmap(200, 25, PixelFormat.Format32bppRgba);
-			// using (var g = new Graphics(bmp))
-			// {
-			// 	g.DrawLine(Colors.Black, 0, 0, 200, 25);
-			// 	g.DrawLine(Colors.Black, 0, 25, 200, 0);
-			// 	g.DrawText(richTextArea.SelectionFont, new SolidBrush(SystemColors.ControlText), new PointF(0, 0), "Hello World");
-			// }
-			// var imageElement = new ImageElement { Image = CreateRandomBitmap(200, 40) };
-			// var para = richTextArea.Document.Skip(2).FirstOrDefault();
+		// var bmp = new Bitmap(200, 25, PixelFormat.Format32bppRgba);
+		// using (var g = new Graphics(bmp))
+		// {
+		// 	g.DrawLine(Colors.Black, 0, 0, 200, 25);
+		// 	g.DrawLine(Colors.Black, 0, 25, 200, 0);
+		// 	g.DrawText(richTextArea.SelectionFont, new SolidBrush(SystemColors.ControlText), new PointF(0, 0), "Hello World");
+		// }
+		// var imageElement = new ImageElement { Image = CreateRandomBitmap(200, 40) };
+		// var para = richTextArea.Document.Skip(2).FirstOrDefault();
 
-			// para.FirstOrDefault()?.InsertAt(0, imageElement);
-			// para.FirstOrDefault()?.InsertAt(0, new Span {  Text = "Image:"});
+		// para.FirstOrDefault()?.InsertAt(0, imageElement);
+		// para.FirstOrDefault()?.InsertAt(0, new Span {  Text = "Image:"});
 
 #endif
 
-			var _status = new Label();
-			var binding = _status.Bind(c => c.Text, RichTextArea, r => $"Document Length: {r.Document.Length}, Selection: {r.Selection.Start}-{r.Selection.End} ({r.Selection.Length}), Caret: {r.CaretIndex}");
-			RichTextArea.SelectionChanged += (s, e) => binding.Update();
+		var _status = new Label();
+		var binding = _status.Bind(c => c.Text, RichTextArea, r => $"Document Length: {r.Document.Length}, Selection: {r.Selection.Start}-{r.Selection.End} ({r.Selection.Length}), Caret: {r.CaretIndex}");
+		RichTextArea.SelectionChanged += (s, e) => binding.Update();
 
-			var mainSplitter = new Splitter { Orientation = Orientation.Horizontal, FixedPanel = SplitterFixedPanel.Panel2 };
-			mainSplitter.Panel1 = RichTextArea;
-			mainSplitter.Panel2 = new Splitter
-			{
-				Orientation = Orientation.Vertical,
-				FixedPanel = SplitterFixedPanel.None,
-				Panel1 = _structure,
-				Panel2 = _lines
-			};
+		var mainSplitter = new Splitter { Orientation = Orientation.Horizontal, FixedPanel = SplitterFixedPanel.Panel2 };
+		mainSplitter.Panel1 = RichTextArea;
+		mainSplitter.Panel2 = new Splitter
+		{
+			Orientation = Orientation.Vertical,
+			FixedPanel = SplitterFixedPanel.None,
+			Panel1 = _structure,
+			Panel2 = _lines
+		};
 
-			// layout
-			var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
-			layout.Styles.Add(null, (Label lbl) => lbl.VerticalAlignment = VerticalAlignment.Center);
+		// layout
+		var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
+		layout.Styles.Add(null, (Label lbl) => lbl.VerticalAlignment = VerticalAlignment.Center);
 
-			layout.AddSeparateRow(insertRandomTextButton, setSelectedText, insertImageButton, insertListButton, clearButton, "Wrap", WrapModeDropDown(), null);
-			layout.AddSeparateRow(AttributeControls(), null);
-			{
-				layout.BeginVertical();
-				layout.Add(mainSplitter, yscale: true);
-				layout.Add(_status);
-				layout.EndVertical();
-			}
-
-			Content = layout;
-			Shown += (sender, e) => RichTextArea.Focus();
-
-			CreateMenu();
-
+		layout.AddSeparateRow(insertRandomTextButton, setSelectedText, insertImageButton, insertListButton, clearButton, CopyAsButton(), PasteAsButton(), null);
+		layout.AddSeparateRow("Document:", "Wrap", WrapModeDropDown(), "Alignment", TextAlignmentDropDown(), null);
+		layout.AddSeparateRow("Paragraph:", "Wrap", ParagraphWrapModeDropDown(), "Alignment", ParagraphAlignmentDropDown(), null);
+		layout.AddSeparateRow(AttributeControls(), null);
+		{
+			layout.BeginVertical();
+			layout.Add(mainSplitter, yscale: true);
+			layout.Add(_status);
+			layout.EndVertical();
 		}
 
-		private void drawable_Paint(object sender, PaintEventArgs e)
-		{
-			var highlight = _highlightedBounds;
-			if (highlight.HasValue)
-			{
-				var (bounds, color) = highlight.Value;
-				e.Graphics.DrawRectangle(color, bounds);
-			}
-		}
+		Content = layout;
+		Shown += (sender, e) => RichTextArea.Focus();
 
-		private void ShowProperties(object item)
-		{
-			var grid = new PropertyGrid { SelectedObject = item, Size = new Size(400, 300) };
-			var dlg = new Dialog<bool>
-			{
-				Title = "Properties",
-				Resizable = true,
-				// MinimumSize = new Size(300, 400),
-				Content = grid
-			};
-			dlg.PositiveButtons.Add(dlg.DefaultButton = new Button((s, ev) => dlg.Close(true)) { Text = "Ok" });
-			dlg.ShowModal(this);
-		}
+		CreateMenu();
 
-		static string NiceName(object obj)
-		{
-			var name = obj.GetType().Name;
-			if (name.EndsWith("Element"))
-				name = name.Substring(0, name.Length - "Element".Length);
-			return name;
-		}
+	}
 
-		private void UpdateStructure()
+	private void drawable_Paint(object sender, PaintEventArgs e)
+	{
+		var highlight = _highlightedBounds;
+		if (highlight.HasValue)
 		{
-			var items = new TreeGridItemCollection();
-			static TreeGridItem CreateNode(IElement element)
+			var (bounds, color) = highlight.Value;
+			e.Graphics.DrawRectangle(color, bounds);
+		}
+	}
+
+	private void ShowProperties(object item)
+	{
+		var grid = new PropertyGrid { SelectedObject = item, Size = new Size(400, 300) };
+		var dlg = new Dialog<bool>
+		{
+			Title = "Properties",
+			Resizable = true,
+			// MinimumSize = new Size(300, 400),
+			Content = grid
+		};
+		dlg.PositiveButtons.Add(dlg.DefaultButton = new Button((s, ev) => dlg.Close(true)) { Text = "Ok" });
+		dlg.ShowModal(this);
+	}
+
+	static string NiceName(object obj)
+	{
+		var name = obj.GetType().Name;
+		if (name.EndsWith("Element"))
+			name = name.Substring(0, name.Length - "Element".Length);
+		return name;
+	}
+
+	private void UpdateStructure()
+	{
+		var items = new TreeGridItemCollection();
+		static TreeGridItem CreateNode(IElement element)
+		{
+			var item = new TreeGridItem { Expanded = true, Tag = element };
+			item.Values = [$"{NiceName(element)}: {element.DocumentStart}:{element.Length} - {element.Text?.Substring(0, Math.Min(element.Text.Length, 100)).Replace('\n', ' ').Replace('\x2028', ' ')}"];
+			if (element is IList list)
 			{
-				var item = new TreeGridItem { Expanded = true, Tag = element };
-				item.Values = [$"{NiceName(element)}: {element.DocumentStart}:{element.Length} - {element.Text?.Substring(0, Math.Min(element.Text.Length, 100)).Replace('\n', ' ').Replace('\x2028', ' ')}"];
-				if (element is IList list)
+				foreach (var child in list.OfType<IElement>())
 				{
-					foreach (var child in list.OfType<IElement>())
-					{
-						var childItem = CreateNode(child);
-						item.Children.Add(childItem);
-					}
+					var childItem = CreateNode(child);
+					item.Children.Add(childItem);
 				}
-				return item;
 			}
-			
-			_structure.DataStore = new TreeGridItem { Children = { CreateNode(RichTextArea.Document) } };
-		}
-		private void UpdateLines()
-		{
-			var linesItems = new TreeGridItemCollection();
-			foreach (var line in RichTextArea.Document.EnumerateLines(0))
-			{
-				var lineItem = new TreeGridItem { Expanded = true };
-				lineItem.Values = new object[] { $"Line: {line.Start}:{line.Length}" };
-				foreach (var chunk in line)
-				{
-					var chunkItem = new TreeGridItem();
-					chunkItem.Values = new object[] { $"Chunk ({NiceName(chunk.Element)}): {chunk.InlineStart}:{chunk.Length} - {chunk.Text.Substring(0, Math.Min(chunk.Text.Length, 100))}" };
-					chunkItem.Tag = chunk;
-					lineItem.Children.Add(chunkItem);
-				}
-				lineItem.Tag = line;
-				linesItems.Add(lineItem);
-			}
-			_lines.DataStore = linesItems;
-			_highlightedBounds = null;
-			Invalidate();
+			return item;
 		}
 
-		private void CreateMenu()
+		_structure.DataStore = new TreeGridItem { Children = { CreateNode(RichTextArea.Document) } };
+	}
+	private void UpdateLines()
+	{
+		var linesItems = new TreeGridItemCollection();
+		foreach (var line in RichTextArea.Document.EnumerateLines(0))
 		{
-			var quitCommand = new Command { MenuText = "Quit", Shortcut = Application.Instance.CommonModifier | Keys.Q };
-			quitCommand.Executed += (sender, e) => Application.Instance.Quit();
-
-			var aboutCommand = new Command { MenuText = "About..." };
-			aboutCommand.Executed += (sender, e) => new AboutDialog().ShowDialog(this);
-
-			// create menu
-			Menu = new MenuBar
+			var lineItem = new TreeGridItem { Expanded = true };
+			lineItem.Values = new object[] { $"Line: {line.Start}:{line.Length}" };
+			foreach (var chunk in line)
 			{
-				Items =
+				var chunkItem = new TreeGridItem();
+				chunkItem.Values = new object[] { $"Chunk ({NiceName(chunk.Element)}): {chunk.InlineStart}:{chunk.Length} - {chunk.Text.Substring(0, Math.Min(chunk.Text.Length, 100))}" };
+				chunkItem.Tag = chunk;
+				lineItem.Children.Add(chunkItem);
+			}
+			lineItem.Tag = line;
+			linesItems.Add(lineItem);
+		}
+		_lines.DataStore = linesItems;
+		_highlightedBounds = null;
+		Invalidate();
+	}
+
+	private void CreateMenu()
+	{
+		var quitCommand = new Command { MenuText = "Quit", Shortcut = Application.Instance.CommonModifier | Keys.Q };
+		quitCommand.Executed += (sender, e) => Application.Instance.Quit();
+
+		var aboutCommand = new Command { MenuText = "About..." };
+		aboutCommand.Executed += (sender, e) => new AboutDialog().ShowDialog(this);
+
+		// create menu
+		Menu = new MenuBar
+		{
+			Items =
 				{
 					// File submenu
 					// new SubMenuItem { Text = "&File", Items = { clickMe } },
 					// new SubMenuItem { Text = "&Edit", Items = { /* commands/items */ } },
 					// new SubMenuItem { Text = "&View", Items = { /* commands/items */ } },
 				},
-				ApplicationItems =
+			ApplicationItems =
 				{
 					// application (OS X) or file menu (others)
 					new ButtonMenuItem { Text = "&Preferences..." },
 				},
-				QuitItem = quitCommand,
-				AboutItem = aboutCommand
-			};
-		}
+			QuitItem = quitCommand,
+			AboutItem = aboutCommand
+		};
+	}
+}
+
+static class BindingExtensions
+{
+	public static T OnChange<T>(this T binding, BindingUpdateMode? updateMode, Action update) 
+		where T : Binding
+	{
+		binding.Changed += (s, e) =>
+		{
+			if (e.UpdateMode == updateMode)
+				update.Invoke();
+		};
+		return binding;
+	}
+
+	public static T SetFocusOnChange<T>(this T binding, BindingUpdateMode? updateMode, Control control)
+		where T : Binding
+	{
+		return binding.OnChange(updateMode, () => control.Focus());
 	}
 }

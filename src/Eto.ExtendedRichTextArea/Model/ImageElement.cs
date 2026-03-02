@@ -113,7 +113,7 @@ public class ImageElement : IInlineElement
 		return Size;
 	}
 
-	public IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines)
+	public IEnumerable<IElement> Enumerate(int start, int end, bool trim, bool includeChildren)
 	{
 		yield return this;
 	}

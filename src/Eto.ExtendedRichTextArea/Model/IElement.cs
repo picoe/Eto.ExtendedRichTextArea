@@ -50,7 +50,7 @@ public interface IElement : ICloneable
 	int RemoveAt(int start, int length);
 	IEnumerable<(string text, int start)> EnumerateWords(int start, bool forward);
 	IEnumerable<IInlineElement> EnumerateInlines(int start, int end, bool trim);
-	IEnumerable<IElement> Enumerate(int start, int end, bool trimInlines);
+	IEnumerable<IElement> Enumerate(int start, int end, bool trim, bool includeChildren);
 	void MeasureIfNeeded();
 	void OnKeyDown(int start, int end, KeyEventArgs args);
 }

@@ -11,5 +11,17 @@ public static class ElementExtensions
 		}
 		return parent as Document;
 	}
+	
+	public static T? GetParentOfType<T>(this IElement element) where T : class, IElement
+	{
+		var parent = element?.Parent;
+		while (parent != null)
+		{
+			if (parent is T t)
+				return t;
+			parent = parent.Parent;
+		}
+		return null;
+	}
 
 }

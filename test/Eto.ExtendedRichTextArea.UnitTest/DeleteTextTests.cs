@@ -7,7 +7,8 @@ public class DeleteTextTests : TestBase
 	public void DeletingTextWithAttributesShouldWork(string html, int deleteIndex, int length, int testIndex, int testLength, string fontFamily)
 	{
 		var document = new Document();
-		new HtmlParser(document).ParseHtml(html);
+		var loaded = DocumentFormat.Html.LoadFromString(document.DocumentRange, html);
+		Assert.That(loaded, Is.True);
 
 		document.RemoveAt(deleteIndex, length);
 		var attributes = document.GetAttributes(testIndex, testIndex + testLength);

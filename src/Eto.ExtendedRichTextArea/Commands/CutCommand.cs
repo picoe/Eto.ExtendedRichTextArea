@@ -1,31 +1,28 @@
 using Eto.Forms;
 
-namespace Eto.ExtendedRichTextArea.Commands
+namespace Eto.ExtendedRichTextArea.Commands;
+
+class CutCommand : CopyCommand
 {
-	class CutCommand : Command
+	public CutCommand(TextAreaDrawable textArea)
+		 : base(textArea)
 	{
-		readonly TextAreaDrawable _textArea;
-		public CutCommand(TextAreaDrawable textArea)
-		{
-			Shortcut = Application.Instance.CommonModifier | Keys.X;
-			_textArea = textArea;
-			_textArea.SelectionChanged += TextArea_SelectionChanged;
-		}
+		MenuText = Application.Instance.Localize(typeof(ExtendedRichTextArea), "Cut");
+		Shortcut = Application.Instance.CommonModifier | Keys.X;
+	}
 
-		private void TextArea_SelectionChanged(object? sender, EventArgs e)
-		{
-			Enabled = _textArea.Selection?.Length > 0;
-		}
+	protected override void OnExecuted(EventArgs e)
+	{
+		if (!_textArea.HasSelection)
+			return;
 
-		protected override void OnExecuted(EventArgs e)
-		{
-			if (_textArea.Selection == null)
-				return;
-			using var clip = new Clipboard(); 
-			clip.Text = _textArea.Selection.Text;
-			_textArea.Document.RemoveAt(_textArea.Selection.Start, _textArea.Selection.Length);
-			_textArea.Caret.SetIndex(_textArea.Selection.Start, false);
-			_textArea.SetSelection(null, true);
-		}
+		// do a copy first
+		base.OnExecuted(e);
+
+		// now remove the text to make it a cut
+		var start = _textArea.Selection.Start;
+		_textArea.Document.RemoveAt(start, _textArea.Selection.Length);
+		_textArea.Caret.SetIndex(start, false);
+		_textArea.SetSelection(null, true);
 	}
 }

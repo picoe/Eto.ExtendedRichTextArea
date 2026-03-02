@@ -9,20 +9,52 @@ namespace Eto.ExtendedRichTextArea.Model;
 
 public class Attributes : INotifyPropertyChanged
 {
-	// TODO: split out Font to its different attributes. 
-	// e.g. Font family, typeface, underline, etc, then create font based on those
 	Font? _font;
 	Font? _baseFont;
 	FontFamily? _family;
 	FontTypeface? _typeface;
 	Brush? _foreground;
 	Brush? _background;
+	float? _size;
 	bool? _underline;
 	bool? _strikethrough;
-	float? _offset;
-	float? _size;
+	bool? _bold;
+	bool? _italic;
+	bool? _superscript;
+	bool? _subscript;
 
-	public bool IsEmpty => _family == null && _typeface == null && _foreground == null && _background == null && _underline == null && _strikethrough == null && _offset == null;
+	[Flags]
+	enum VariesAttributes
+	{
+		None = 0,
+		FontFamily = 1 << 0,
+		Typeface = 1 << 1,
+		Size = 1 << 2,
+		Foreground = 1 << 3,
+		Background = 1 << 4,
+		Underline = 1 << 5,
+		Strikethrough = 1 << 6,
+		Superscript = 1 << 7,
+		Subscript = 1 << 8,
+		Bold = 1 << 9,
+		Italic = 1 << 10
+	}
+
+	VariesAttributes _variesAttributes;
+
+
+	public bool IsEmpty =>
+		_family == null
+		&& _typeface == null
+		&& _foreground == null
+		&& _background == null
+		&& _underline == null
+		&& _strikethrough == null
+		&& _superscript == null
+		&& _subscript == null
+		&& _bold == null
+		&& _italic == null
+		&& _size == null;
 
 	public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -40,17 +72,65 @@ public class Attributes : INotifyPropertyChanged
 		{
 			_font = value;
 			_baseFont = null;
-			_family = value?.Family;
-			_typeface = value?.Typeface;
-			_size = value?.Size;
-			_underline = value?.FontDecoration.HasFlag(FontDecoration.Underline);
-			_strikethrough = value?.FontDecoration.HasFlag(FontDecoration.Strikethrough);
+			_family = _font?.Family;
+			_typeface = _font?.Typeface;
+			_size = _font?.Size;
+			_underline = _font?.Underline;
+			_strikethrough = _font?.Strikethrough;
+			_bold = _font?.Bold;
+			_italic = _font?.Italic;
 			OnPropertyChanged(nameof(Family));
 			OnPropertyChanged(nameof(Typeface));
 			OnPropertyChanged(nameof(Size));
 			OnPropertyChanged(nameof(Underline));
 			OnPropertyChanged(nameof(Strikethrough));
+			OnPropertyChanged(nameof(Bold));
+			OnPropertyChanged(nameof(Italic));
 			OnPropertyChanged();
+		}
+	}
+
+	public bool? Bold
+	{
+		get => _variesAttributes.HasFlag(VariesAttributes.Bold) ? null : _bold ?? Font?.Bold;
+		set
+		{
+			if (value == _bold)
+				return;
+
+			_bold = value;
+			_font = null;
+			_baseFont = null;
+			_typeface = null;
+			_variesAttributes &= ~VariesAttributes.Bold;
+			if (!_variesAttributes.HasFlag(VariesAttributes.Italic))
+				_variesAttributes &= ~VariesAttributes.Typeface;
+
+			OnPropertyChanged();
+			OnPropertyChanged(nameof(Typeface));
+			OnPropertyChanged(nameof(Font));
+		}
+	}
+
+	public bool? Italic
+	{
+		get => _variesAttributes.HasFlag(VariesAttributes.Italic) ? null : _italic ?? Font?.Italic;
+		set
+		{
+			if (value == _italic)
+				return;
+
+			_italic = value;
+			_font = null;
+			_baseFont = null;
+			_typeface = null;
+			_variesAttributes &= ~VariesAttributes.Italic;
+			if (!_variesAttributes.HasFlag(VariesAttributes.Bold))
+				_variesAttributes &= ~VariesAttributes.Typeface;
+			
+			OnPropertyChanged();
+			OnPropertyChanged(nameof(Typeface));
+			OnPropertyChanged(nameof(Font));
 		}
 	}
 
@@ -66,7 +146,7 @@ public class Attributes : INotifyPropertyChanged
 			return baseline.Value;
 		}
 	}
-	
+
 	internal float? LineHeight
 	{
 		get
@@ -77,9 +157,9 @@ public class Attributes : INotifyPropertyChanged
 			return lineHeight.Value * Scale;
 		}
 	}
-	
+
 	static float Scale => Platform.Instance.IsWpf ? 96f / 72f : 1f;
-	
+
 	internal float? LineOffset
 	{
 		get
@@ -98,12 +178,13 @@ public class Attributes : INotifyPropertyChanged
 
 	public float? Size
 	{
-		get => _size;
+		get => _variesAttributes.HasFlag(VariesAttributes.Size) ? null : _size ?? Font?.Size;
 		set
 		{
 			_size = value;
 			_font = null;
 			_baseFont = null;
+			_variesAttributes &= ~VariesAttributes.Size;
 			OnPropertyChanged();
 			OnPropertyChanged(nameof(Font));
 		}
@@ -111,7 +192,7 @@ public class Attributes : INotifyPropertyChanged
 
 	public FontFamily? Family
 	{
-		get => _family ?? _typeface?.Family;
+		get => _variesAttributes.HasFlag(VariesAttributes.FontFamily) ? null : _family ?? _typeface?.Family ?? Font?.Family;
 		set
 		{
 			if (_family == value)
@@ -120,15 +201,18 @@ public class Attributes : INotifyPropertyChanged
 			_font = null;
 			_baseFont = null;
 			_typeface = null;
+			_variesAttributes &= ~VariesAttributes.FontFamily;
 			OnPropertyChanged();
 			OnPropertyChanged(nameof(Typeface));
+			OnPropertyChanged(nameof(Bold));
+			OnPropertyChanged(nameof(Italic));
 			OnPropertyChanged(nameof(Font));
 		}
 	}
 
 	public FontTypeface? Typeface
 	{
-		get => _typeface;
+		get => _variesAttributes.HasFlag(VariesAttributes.Typeface) ? null : _typeface ?? Font?.Typeface;
 		set
 		{
 			if (_typeface == value)
@@ -137,23 +221,28 @@ public class Attributes : INotifyPropertyChanged
 			_font = null;
 			_baseFont = null;
 			_family = null;
+			_bold = null;
+			_italic = null;
+			_variesAttributes &= ~VariesAttributes.Typeface;
+			_variesAttributes &= ~VariesAttributes.FontFamily;
 			OnPropertyChanged();
 			OnPropertyChanged(nameof(Family));
+			OnPropertyChanged(nameof(Bold));
+			OnPropertyChanged(nameof(Italic));
 			OnPropertyChanged(nameof(Font));
 		}
 	}
 
 	private Font? CreateFont(bool baseFont)
 	{
-		if (_family == null && _typeface == null)
-			return Document.GetDefaultFont();
-		var typeface = _typeface ?? _family?.Typefaces.FirstOrDefault();
+		FontTypeface typeface = CreateTypeface();
 
 		var decoration = FontDecoration.None;
 		if (_underline == true)
 			decoration |= FontDecoration.Underline;
 		if (_strikethrough == true)
 			decoration |= FontDecoration.Strikethrough;
+
 		var size = _size ?? 12;
 		if (!baseFont)
 		{
@@ -163,90 +252,124 @@ public class Attributes : INotifyPropertyChanged
 		return new Font(typeface, size, decoration);
 	}
 
+	private FontTypeface CreateTypeface()
+	{
+		var typeface = _typeface ?? _family?.Typefaces.FirstOrDefault() ?? Document.GetDefaultFont().Typeface;
+
+		var family = _typeface?.Family ?? _family;
+		if (_bold != null || _italic != null)
+		{
+			var bold = _bold ?? typeface.Bold;
+			var italic = _italic ?? typeface.Italic;
+			typeface = family?.Typefaces.FirstOrDefault(r => r.Bold == bold && r.Italic == italic);
+
+			// can't find one with both styles, try just bold
+			if (typeface == null)
+				typeface = family?.Typefaces.FirstOrDefault(r => r.Bold == bold);
+				
+			// finally, try just italic
+			if (typeface == null)
+				typeface = family?.Typefaces.FirstOrDefault(r => r.Italic == italic);
+		}
+		return typeface ?? _family?.Typefaces.FirstOrDefault() ?? Document.GetDefaultFont().Typeface;
+	}
+
 	public Brush? Foreground
 	{
-		get => _foreground;
+		get => _variesAttributes.HasFlag(VariesAttributes.Foreground) ? null : _foreground;
 		set
 		{
+			if (value == _foreground)
+				return;
 			_foreground = value;
+			_variesAttributes &= ~VariesAttributes.Foreground;
 			OnPropertyChanged();
 		}
 	}
 
 	public Brush? Background
 	{
-		get => _background;
+		get => _variesAttributes.HasFlag(VariesAttributes.Background) ? null : _background;
 		set
 		{
+			if (value == _background)
+				return;
 			_background = value;
+			_variesAttributes &= ~VariesAttributes.Background;
 			OnPropertyChanged();
 		}
 	}
 
 	public bool? Underline
 	{
-		get => _underline;
+		get => _variesAttributes.HasFlag(VariesAttributes.Underline) ? null : _underline ?? Font?.Underline;
 		set
 		{
+			if (value == _underline)
+				return;
 			_underline = value;
 			_font = null;
 			_baseFont = null;
+			_variesAttributes &= ~VariesAttributes.Underline;
 			OnPropertyChanged();
 			OnPropertyChanged(nameof(Font));
 		}
 	}
 	public bool? Strikethrough
 	{
-		get => _strikethrough;
+		get => _variesAttributes.HasFlag(VariesAttributes.Strikethrough) ? null : _strikethrough ?? Font?.Strikethrough;
 		set
 		{
+			if (value == _strikethrough)
+				return;
 			_strikethrough = value;
 			_font = null;
 			_baseFont = null;
+			_variesAttributes &= ~VariesAttributes.Strikethrough;
 			OnPropertyChanged();
 			OnPropertyChanged(nameof(Font));
-		}
-	}
-	public float? Offset
-	{
-		get => _offset;
-		set
-		{
-			_offset = value;
-			OnPropertyChanged();
 		}
 	}
 
 	public bool? Superscript
 	{
-		get => _offset > 0;
+		get => _variesAttributes.HasFlag(VariesAttributes.Superscript) ? null : _superscript ?? false;
 		set
 		{
+			if (_superscript == value)
+				return;
+
 			_font = null;
 			_baseFont = null;
+			_superscript = value;
+			_variesAttributes &= ~VariesAttributes.Superscript;
 			if (value == true)
-				_offset = 2;
-			else
-				_offset = 0;
-			OnPropertyChanged(nameof(Offset));
-			OnPropertyChanged(nameof(Subscript));
+			{
+				_subscript = null;
+				_variesAttributes &= ~VariesAttributes.Subscript;
+				OnPropertyChanged(nameof(Subscript));
+			}
 			OnPropertyChanged();
 		}
 	}
 
 	public bool? Subscript
 	{
-		get => _offset < 0;
+		get => _variesAttributes.HasFlag(VariesAttributes.Subscript) ? null : _subscript ?? false;
 		set
 		{
+			if (_subscript == value)
+				return;
 			_font = null;
 			_baseFont = null;
+			_subscript = value;
+			_variesAttributes &= ~VariesAttributes.Subscript;
 			if (value == true)
-				_offset = -2;
-			else
-				_offset = 0;
-			OnPropertyChanged(nameof(Offset));
-			OnPropertyChanged(nameof(Superscript));
+			{
+				_superscript = null;
+				_variesAttributes &= ~VariesAttributes.Superscript;
+				OnPropertyChanged(nameof(Superscript));
+			}
 			OnPropertyChanged();
 		}
 	}
@@ -255,6 +378,8 @@ public class Attributes : INotifyPropertyChanged
 	{
 		return new Attributes
 		{
+			_font = _font,
+			_baseFont = _baseFont,
 			_family = _family,
 			_typeface = _typeface,
 			_size = _size,
@@ -262,7 +387,10 @@ public class Attributes : INotifyPropertyChanged
 			_background = _background,
 			_underline = _underline,
 			_strikethrough = _strikethrough,
-			_offset = _offset
+			_subscript = _subscript,
+			_superscript = _superscript,
+			_bold = _bold,
+			_italic = _italic
 		};
 	}
 
@@ -283,11 +411,10 @@ public class Attributes : INotifyPropertyChanged
 			clone.Family = attributes._family;
 		if (attributes._typeface != null)
 			clone.Typeface = attributes._typeface;
-		if (clone._typeface == null && clone.Family != null)
-		{
-			var fontStyle = _typeface?.FontStyle ?? FontStyle.None;
-			clone.Typeface = clone.Family.Typefaces.FirstOrDefault(r => r.FontStyle == fontStyle);
-		}
+		if (attributes._bold != null)
+			clone.Bold = attributes._bold;
+		if (attributes._italic != null)
+			clone.Italic = attributes._italic;
 
 		if (attributes._size != null)
 			clone.Size = attributes._size;
@@ -299,35 +426,80 @@ public class Attributes : INotifyPropertyChanged
 			clone.Underline = attributes._underline;
 		if (attributes._strikethrough != null)
 			clone.Strikethrough = attributes._strikethrough;
-		if (attributes._offset != null)
-			clone.Offset = attributes._offset;
+		if (attributes._subscript != null)
+			clone.Subscript = attributes._subscript;
+		if (attributes._superscript != null)
+			clone.Superscript = attributes._superscript;
+
 		return clone;
 	}
 
 	internal void ClearUnmatched(Attributes? attributes)
 	{
-		if (_family != attributes?.Family)
+		_font = null;
+		_baseFont = null;
+
+		if (Bold != attributes?.Bold)
+		{
+			_bold = null;
+			_typeface = null;
+			_variesAttributes |= VariesAttributes.Bold | VariesAttributes.Typeface;
+		}
+		if (Italic != attributes?.Italic)
+		{
+			_italic = null;
+			_typeface = null;
+			_variesAttributes |= VariesAttributes.Italic | VariesAttributes.Typeface;
+		}
+		if (Family != attributes?.Family)
+		{
 			_family = null;
-		if (_typeface != attributes?._typeface)
+			_variesAttributes |= VariesAttributes.FontFamily;
+		}
+		if (Typeface != attributes?.Typeface)
 		{
 			if (_typeface != null && _typeface.Family == attributes?.Family)
 			{
 				_family = _typeface.Family;
 			}
 			_typeface = null;
+			_variesAttributes |= VariesAttributes.Typeface;
 		}
 		if (_size != attributes?._size)
+		{
 			_size = null;
+			_variesAttributes |= VariesAttributes.Size;
+		}
 		if (_foreground != attributes?._foreground)
+		{
 			_foreground = null;
+			_variesAttributes |= VariesAttributes.Foreground;
+		}
 		if (_background != attributes?._background)
+		{
 			_background = null;
+			_variesAttributes |= VariesAttributes.Background;
+		}
 		if (_underline != attributes?._underline)
+		{
 			_underline = null;
+			_variesAttributes |= VariesAttributes.Underline;
+		}
 		if (_strikethrough != attributes?._strikethrough)
+		{
 			_strikethrough = null;
-		if (_offset != attributes?._offset)
-			_offset = null;
+			_variesAttributes |= VariesAttributes.Strikethrough;
+		}
+		if (_subscript != attributes?._subscript)
+		{
+			_subscript = null;
+			_variesAttributes |= VariesAttributes.Subscript;
+		}
+		if (_superscript != attributes?._superscript)
+		{
+			_superscript = null;
+			_variesAttributes |= VariesAttributes.Superscript;
+		}
 	}
 
 	public override bool Equals(object? obj)
@@ -346,7 +518,10 @@ public class Attributes : INotifyPropertyChanged
 			_background == other._background &&
 			_underline == other._underline &&
 			_strikethrough == other._strikethrough &&
-			_offset == other._offset;
+			_subscript == other._subscript &&
+			_superscript == other._superscript &&
+			_bold == other._bold &&
+			_italic == other._italic;
 	}
 
 	public static bool operator ==(Attributes? attributes1, Attributes? attributes2)
@@ -366,12 +541,17 @@ public class Attributes : INotifyPropertyChanged
 	public override int GetHashCode()
 	{
 		return
-			Font?.GetHashCode() ?? 0 ^
-			Foreground?.GetHashCode() ?? 0 ^
-			Background?.GetHashCode() ?? 0 ^
-			Underline?.GetHashCode() ?? 0 ^
-			Strikethrough?.GetHashCode() ?? 0 ^
-			Offset?.GetHashCode() ?? 0;
+			_family?.GetHashCode() ?? 0 ^
+			_typeface?.GetHashCode() ?? 0 ^
+			_size?.GetHashCode() ?? 0 ^
+			_foreground?.GetHashCode() ?? 0 ^
+			_background?.GetHashCode() ?? 0 ^
+			_underline?.GetHashCode() ?? 0 ^
+			_strikethrough?.GetHashCode() ?? 0 ^
+			_subscript?.GetHashCode() ?? 0 ^
+			_superscript?.GetHashCode() ?? 0 ^
+			_bold?.GetHashCode() ?? 0 ^
+			_italic?.GetHashCode() ?? 0;
 	}
 
 	public void Apply(FormattedText formattedText)

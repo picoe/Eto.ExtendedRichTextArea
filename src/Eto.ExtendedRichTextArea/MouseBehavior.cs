@@ -81,7 +81,7 @@ class MouseBehavior
 
 	private void TextArea_MouseDown(object? sender, MouseEventArgs e)
 	{
-		_isMouseDown = true;
+		_isMouseDown = e.Buttons == MouseButtons.Primary;
 		_lastCaretIndex = _caret.Index;
 		_isSelectingByWord = false;
 		_mouseDownLocation = e.Location;
@@ -89,13 +89,24 @@ class MouseBehavior
 		var index = _textArea.Document.GetIndexAt(_mouseLocation);
 		if (index >= 0)
 		{
+			var setSelection = false;
+			
+			if (e.Buttons == MouseButtons.Alternate 
+				&& _textArea.Selection?.Contains(index) != true)
+				setSelection = true;
+			else if (e.Buttons == MouseButtons.Primary)
+				setSelection = true;
+
 			_caret.SetIndex(index, false);
 			_initialIndex = index;
 
-			var extendSelection = e.Buttons == MouseButtons.Primary && e.Modifiers == Keys.Shift;
-			if (extendSelection)
-				_initialIndex = _lastCaretIndex;
-			_textArea.SetCaretSelection(_lastCaretIndex, extendSelection);
+			if (setSelection)
+			{
+				var extendSelection = e.Modifiers == Keys.Shift;
+				if (extendSelection)
+					_initialIndex = _lastCaretIndex;
+				_textArea.SetCaretSelection(_lastCaretIndex, extendSelection);
+			}
 		}
 	}
 }

@@ -40,12 +40,25 @@ class TextAreaDrawable : Drawable
 			_document.Changing += Document_BeginEditEvent;
 			_selection = null; // Clear stale selection from previous document
 			_caret.SetIndex(0, true);
+			CreateContextMenu();
 			// Always refresh SelectionAttributes from the new document.
 			// SetIndex above may skip the update when the caret is already at 0.
 			_textArea.SelectionAttributes = _document.GetAttributes(0, 0);
 			Invalidate(false);
 			ClearUndoRedoStacks();
 		}
+	}
+
+	private void CreateContextMenu()
+	{
+		var menu = new ContextMenu();
+		menu.Items.Add(new UndoCommand(this));
+		menu.Items.Add(new RedoCommand(this));
+		menu.Items.Add(new SeparatorMenuItem());
+		menu.Items.Add(new CutCommand(this));
+		menu.Items.Add(new CopyCommand(this));
+		menu.Items.Add(new PasteCommand(this));
+		ContextMenu = menu;
 	}
 
 	private void Document_BeginEditEvent(object? sender, EventArgs e)
@@ -97,9 +110,17 @@ class TextAreaDrawable : Drawable
 		CanFocus = true;
 	}
 
-	public DocumentRange? Selection
+	public bool HasSelection => _selection != null && _selection.Length > 0;
+
+	public DocumentRange Selection
 	{
-		get => _selection;
+		get
+		{
+			if (_selection == null)
+				SetSelection(Document.GetRange(_caret.Index, _caret.Index), false);
+			
+			return _selection!;
+		}
 	}
 	
 	DocumentRange? _lastSetSelection;
@@ -260,12 +281,12 @@ class TextAreaDrawable : Drawable
 
 		if (extendSelection)
 		{
-			if (Selection != null)
+			if (_selection != null)
 			{
 				if (useOriginalStart)
-					lastCaretIndex = Selection.OriginalStart;
+					lastCaretIndex = _selection.OriginalStart;
 				else
-					lastCaretIndex = _caret.Index < Selection.Start ? Selection.End : Selection.Start;
+					lastCaretIndex = _caret.Index < _selection.Start ? _selection.End : _selection.Start;
 			}
 			SetSelection(Document.GetRange(lastCaretIndex, _caret.Index), true);
 		}
@@ -273,6 +294,18 @@ class TextAreaDrawable : Drawable
 		{
 			SetSelection(null, true); // Document.GetRange(_caret.Index, _caret.Index);
 		}
+	}
+
+	protected override void OnGotFocus(EventArgs e)
+	{
+		base.OnGotFocus(e);
+		Invalidate();
+	}
+
+	protected override void OnLostFocus(EventArgs e)
+	{
+		base.OnLostFocus(e);
+		Invalidate();
 	}
 
 }

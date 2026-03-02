@@ -17,7 +17,8 @@ public class ListTests : TestBase
 	{
 		var html = "<ul><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>";
 		var document = new Document();
-		new HtmlParser(document).ParseHtml(html);
+		var loaded = DocumentFormat.Html.LoadFromString(document.DocumentRange, html);
+		Assert.That(loaded, Is.True);
 		Assert.That(document.Length, Is.EqualTo(20));
 		Assert.That(document.Text, Is.EqualTo("• Item 1\n• Item 2\n• Item 3"));
 		Assert.That(document.Count, Is.EqualTo(1), "Should be one paragraph");
@@ -43,7 +44,8 @@ public class ListTests : TestBase
 	{
 		var html = "<ol><li>First</li><li>Second</li><li>Third</li></ol>";
 		var document = new Document();
-		new HtmlParser(document).ParseHtml(html);
+		var loaded = DocumentFormat.Html.LoadFromString(document.DocumentRange, html);
+		Assert.That(loaded, Is.True);
 		Assert.That(document.Text, Is.EqualTo("1. First\n2. Second\n3. Third"));
 		Assert.That(document.Length, Is.EqualTo(18));
 		Assert.That(document.Count, Is.EqualTo(1), "Should be one paragraph");
@@ -69,7 +71,8 @@ public class ListTests : TestBase
 	public void TestDeleteWithinList(string html, int location, string expectedText, int expectedLength, int expectedCount)
 	{
 		var document = new Document();
-		new HtmlParser(document).ParseHtml(html);
+		var loaded = DocumentFormat.Html.LoadFromString(document.DocumentRange, html);
+		Assert.That(loaded, Is.True);
 		Assert.That(document.IsValid(), Is.True, "Document should be valid");
 
 		((IElement)document).OnKeyDown(location, location, new KeyEventArgs(Keys.Backspace, KeyEventType.KeyDown));
@@ -95,7 +98,8 @@ public class ListTests : TestBase
 	public void TestEnterWithEmptyEntry(string html, int location, string expectedText, int expectedLength, int expectedCount)
     {
 		var document = new Document();
-		new HtmlParser(document).ParseHtml(html);
+		var loaded = DocumentFormat.Html.LoadFromString(document.DocumentRange, html);
+		Assert.That(loaded, Is.True);
 		Assert.That(document.IsValid(), Is.True, "Document should be valid");
 		document.InsertText(location, "\n");
 
