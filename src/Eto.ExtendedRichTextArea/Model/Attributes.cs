@@ -101,7 +101,19 @@ public class Attributes : INotifyPropertyChanged
 			_bold = value;
 			_font = null;
 			_baseFont = null;
-			_typeface = null;
+			if (_typeface != null)
+			{
+				// only reset if the typeface doesn't match the new value, otherwise we can keep the same typeface
+				if (_typeface.Bold != value)
+				{
+					// if the typeface doesn't match, make sure we preserve the family if we have it
+					if (_family == null)
+						_family = _typeface.Family;
+						
+					_typeface = null;
+				}
+			}
+			
 			_variesAttributes &= ~VariesAttributes.Bold;
 			if (!_variesAttributes.HasFlag(VariesAttributes.Italic))
 				_variesAttributes &= ~VariesAttributes.Typeface;
@@ -123,7 +135,18 @@ public class Attributes : INotifyPropertyChanged
 			_italic = value;
 			_font = null;
 			_baseFont = null;
-			_typeface = null;
+			if (_typeface != null)
+			{
+				// only reset if the typeface doesn't match the new value, otherwise we can keep the same typeface
+				if (_typeface.Italic != value)
+				{
+					// if the typeface doesn't match, make sure we preserve the family if we have it
+					if (_family == null)
+						_family = _typeface.Family;
+						
+					_typeface = null;
+				}
+			}
 			_variesAttributes &= ~VariesAttributes.Italic;
 			if (!_variesAttributes.HasFlag(VariesAttributes.Bold))
 				_variesAttributes &= ~VariesAttributes.Typeface;

@@ -1,9 +1,15 @@
+using Eto.Drawing;
 using Eto.Forms;
 
 namespace Eto.ExtendedRichTextArea.UnitTest;
 
 public class TestBase
 {
+	protected FontFamily DefaultFontFamily => SystemFonts.Default().Family;
+	protected FontFamily ArialFontFamily => new FontFamily("Arial");
+	protected FontFamily TimesNewRomanFontFamily => new FontFamily("Times New Roman");
+	protected FontFamily CourierNewFontFamily => new FontFamily("Courier New");
+	
 	[SetUp]
 	public void Setup()
 	{
