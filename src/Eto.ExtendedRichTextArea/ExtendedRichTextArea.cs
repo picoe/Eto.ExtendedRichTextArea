@@ -179,11 +179,20 @@ public class ExtendedRichTextArea : Scrollable
 		OnSelectionChanged(e);
 	}
 
+	protected override void OnLoadComplete(EventArgs e)
+	{
+		base.OnLoadComplete(e);
+		UpdateAvailableSize();
+	}
+
 	protected override void OnSizeChanged(EventArgs e)
 	{
 		base.OnSizeChanged(e);
-		// When wrapping is enabled, we need to specify how much space we have
-		// It's not working just yet.
+		UpdateAvailableSize();
+	}
+
+	private void UpdateAvailableSize()
+	{
 		if (_drawable != null)
 			_drawable.Document.AvailableSize = ClientSize;
 	}
