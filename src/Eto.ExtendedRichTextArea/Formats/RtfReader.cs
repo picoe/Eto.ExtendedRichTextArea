@@ -94,7 +94,9 @@ internal class RtfReader
 	public Document ReadDocument(string rtf)
 	{
 		var doc = new Document();
+		doc.BeginEdit();
 		ParseRtf(rtf, doc);
+		doc.EndEdit();
 		return doc;
 	}
 

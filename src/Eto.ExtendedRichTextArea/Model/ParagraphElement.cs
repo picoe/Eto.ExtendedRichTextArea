@@ -180,6 +180,8 @@ public class ParagraphElement : ContainerElement<IInlineElement>
 
 				void AddChunk(Chunk chunk)
 				{
+					if (chunk.Length <= 0)
+						return;
 					line.Add(chunk);
 					line.Baseline = Math.Max(line.Baseline, baseline);
 

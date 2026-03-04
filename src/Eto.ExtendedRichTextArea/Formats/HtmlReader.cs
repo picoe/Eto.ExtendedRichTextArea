@@ -54,7 +54,9 @@ internal class HtmlReader
 	public Document ReadDocument(string html)
 	{
 		var document = new Document();
+		document.BeginEdit();
 		ParseHtml(html, document);
+		document.EndEdit();
 		return document;
 	}
 
