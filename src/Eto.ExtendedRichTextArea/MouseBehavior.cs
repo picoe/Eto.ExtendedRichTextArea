@@ -46,7 +46,7 @@ class MouseBehavior
 
 	private void TextArea_MouseUp(object? sender, MouseEventArgs e)
 	{
-		if (_initialIndex == _caret.Index && !_isSelectingByWord)
+		if (e.Buttons == MouseButtons.Primary && _initialIndex == _caret.Index && !_isSelectingByWord)
 		{
 			_textArea.SetSelection(null, true);
 			_textArea.TextArea.SelectionAttributes = _textArea.Document.GetAttributes(_caret.Index, _caret.Index);

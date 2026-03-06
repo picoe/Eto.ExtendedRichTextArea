@@ -16,6 +16,12 @@ public class ExtendedRichTextArea : Scrollable
 		set => _drawable.Document = value;
 	}
 
+	public bool AlwaysShowSelection
+	{
+		get => _drawable.AlwaysShowSelection;
+		set => _drawable.AlwaysShowSelection = value;
+	}
+
 	Attributes? _selectionAttributes;
 	Attributes? _lastSelectionAttributes;
 

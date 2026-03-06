@@ -58,6 +58,17 @@ class TextAreaDrawable : Drawable
 		menu.Items.Add(new CutCommand(this));
 		menu.Items.Add(new CopyCommand(this));
 		menu.Items.Add(new PasteCommand(this));
+		bool? lastAlwaysShowSelection = null;
+		menu.Opening += (sender, e) =>
+		{
+			lastAlwaysShowSelection = AlwaysShowSelection;
+			AlwaysShowSelection = true;
+		};
+		menu.Closed += (sender, e) =>
+		{
+			if (lastAlwaysShowSelection.HasValue)
+				AlwaysShowSelection = lastAlwaysShowSelection.Value;
+		};
 		ContextMenu = menu;
 	}
 
