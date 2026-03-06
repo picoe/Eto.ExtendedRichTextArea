@@ -17,7 +17,7 @@ class CopyCommand : Command
 	{
 		Enabled = _textArea.Selection?.Length > 0;
 	}
-
+	
 	protected override void OnExecuted(EventArgs e)
 	{
 		if (!_textArea.HasSelection)

@@ -13,6 +13,12 @@ class UndoCommand : Command
 		textArea.Document.Changed += Document_Changed;
 	}
 
+	public override bool Enabled
+	{
+		get => base.Enabled && !_textArea.ReadOnly;
+		set => base.Enabled = value;
+	}
+
 	private void Document_Changed(object? sender, EventArgs e)
 	{
 		Enabled = _textArea.CanUndo;

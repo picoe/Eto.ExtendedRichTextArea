@@ -100,6 +100,13 @@ public partial class MainForm : Form
 	}
 
 
+	Control ReadOnlyCheckBox()
+	{
+		var checkBox = new CheckBox { Text = "Read Only" };
+		checkBox.CheckedBinding.Bind(RichTextArea, r => r.ReadOnly);
+		return checkBox;
+	}
+
 	Control WrapModeDropDown()
 	{
 		var dropDown = new EnumDropDown<WrapMode>();
@@ -432,7 +439,7 @@ public partial class MainForm : Form
 		var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
 		layout.Styles.Add(null, (Label lbl) => lbl.VerticalAlignment = VerticalAlignment.Center);
 
-		layout.AddSeparateRow(insertRandomTextButton, setSelectedText, insertImageButton, insertListButton, clearButton, CopyAsButton(), PasteAsButton(), null);
+		layout.AddSeparateRow(insertRandomTextButton, setSelectedText, insertImageButton, insertListButton, clearButton, CopyAsButton(), PasteAsButton(), ReadOnlyCheckBox(), null);
 		layout.AddSeparateRow("Document:", "Wrap", WrapModeDropDown(), "Alignment", TextAlignmentDropDown(), null);
 		layout.AddSeparateRow("Paragraph:", "Wrap", ParagraphWrapModeDropDown(), "Alignment", ParagraphAlignmentDropDown(), null);
 		layout.AddSeparateRow(AttributeControls(), null);

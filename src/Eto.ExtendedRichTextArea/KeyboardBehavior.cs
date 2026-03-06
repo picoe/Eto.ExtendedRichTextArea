@@ -118,6 +118,11 @@ class KeyboardBehavior
 
 	private void TextArea_TextInput(object? sender, TextInputEventArgs e)
 	{
+		if (_textArea.ReadOnly)
+		{
+			e.Cancel = true;
+			return;
+		}
 		if (e.Text.Length > 0)
 		{
 			if (char.IsControl(e.Text[0]))
@@ -237,6 +242,8 @@ class KeyboardBehavior
 	
 	private void TextArea_KeyDown_Manipulation(KeyEventArgs e)
 	{
+		if (_textArea.ReadOnly)
+			return;
 		switch (e.KeyData)
 		{
 			case Keys.Backspace:

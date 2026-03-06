@@ -12,6 +12,12 @@ class PasteCommand : Command
 		_textArea = textArea;
 	}
 
+	public override bool Enabled
+	{
+		get => base.Enabled && !_textArea.ReadOnly;
+		set => base.Enabled = value;
+	}
+
 	protected override void OnExecuted(EventArgs e)
 	{
 		var clip = new Clipboard();

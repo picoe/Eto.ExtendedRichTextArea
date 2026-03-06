@@ -20,6 +20,7 @@ class TextAreaDrawable : Drawable
 	DocumentRange? _selection;
 	readonly ExtendedRichTextArea _textArea;
 	bool _isPerformingUndoRedo;
+	bool _readOnly;
 
 	public Document Document
 	{
@@ -52,12 +53,6 @@ class TextAreaDrawable : Drawable
 	private void CreateContextMenu()
 	{
 		var menu = new ContextMenu();
-		menu.Items.Add(new UndoCommand(this));
-		menu.Items.Add(new RedoCommand(this));
-		menu.Items.Add(new SeparatorMenuItem());
-		menu.Items.Add(new CutCommand(this));
-		menu.Items.Add(new CopyCommand(this));
-		menu.Items.Add(new PasteCommand(this));
 		bool? lastAlwaysShowSelection = null;
 		menu.Opening += (sender, e) =>
 		{
@@ -69,7 +64,34 @@ class TextAreaDrawable : Drawable
 			if (lastAlwaysShowSelection.HasValue)
 				AlwaysShowSelection = lastAlwaysShowSelection.Value;
 		};
+		if (ReadOnly)
+		{
+			menu.Items.Add(new CopyCommand(this));
+		}
+		else
+		{
+			menu.Items.Add(new UndoCommand(this));
+			menu.Items.Add(new RedoCommand(this));
+			menu.Items.Add(new SeparatorMenuItem());
+			menu.Items.Add(new CutCommand(this));
+			menu.Items.Add(new CopyCommand(this));
+			menu.Items.Add(new PasteCommand(this));
+		}
 		ContextMenu = menu;
+	}
+	
+	public bool ReadOnly
+	{
+		get => _readOnly;
+		set
+		{
+			if (_readOnly != value)
+			{
+				_readOnly = value;
+				Invalidate();
+				CreateContextMenu();
+			}
+		}
 	}
 
 	private void Document_BeginEditEvent(object? sender, EventArgs e)
@@ -89,7 +111,7 @@ class TextAreaDrawable : Drawable
 
 	private void Document_OverrideAttributes(object? sender, OverrideAttributesEventArgs e)
 	{
-		if (Selection?.Length > 0 && HasFocus)
+		if (Selection?.Length > 0 && (AlwaysShowSelection || HasFocus))
 			e.NewAttributes.Add(new AttributeRange(Selection.Start, Selection.End, HighlightAttributes));
 	}
 
@@ -238,6 +260,8 @@ class TextAreaDrawable : Drawable
 
 	public bool CanRedo => RedoStack.Count > 0;
 
+	public bool AlwaysShowSelection { get; internal set; }
+
 	public bool Undo()
 	{
 		if (CanUndo)
@@ -310,13 +334,15 @@ class TextAreaDrawable : Drawable
 	protected override void OnGotFocus(EventArgs e)
 	{
 		base.OnGotFocus(e);
-		Invalidate();
+		if (!AlwaysShowSelection)
+			Invalidate();
 	}
 
 	protected override void OnLostFocus(EventArgs e)
 	{
 		base.OnLostFocus(e);
-		Invalidate();
+		if (!AlwaysShowSelection)
+			Invalidate();
 	}
 
 }
