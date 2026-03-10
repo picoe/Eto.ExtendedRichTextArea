@@ -279,6 +279,9 @@ public partial class MainForm : Form
 			var richTextArea = new RichTextArea { Size = new Size(700, 600) };
 #else
 		RichTextArea = new ExtendedRichTextArea { Size = new Size(700, 600) };
+		var doc = new Document { TextAlignment = TextAlignment.Center, DefaultAttributes = new Attributes { Foreground = Brushes.Gray } };
+		doc.Add(new ParagraphElement { Text = "Some Placeholder" });
+		RichTextArea.Placeholder = doc;
 
 		var drawable = RichTextArea.FindChild<Drawable>();
 		drawable.Paint += drawable_Paint;

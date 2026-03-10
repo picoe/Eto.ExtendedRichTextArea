@@ -10,6 +10,7 @@ class TextAreaDrawable : Drawable
 {
 	const int MaxUndoRedoStackSize = 100;
 	Document? _document;
+	Document? _placeholder;
 	readonly CaretBehavior _caret;
 	readonly KeyboardBehavior _keyboard;
 	readonly MouseBehavior _mouse;
@@ -21,6 +22,27 @@ class TextAreaDrawable : Drawable
 	readonly ExtendedRichTextArea _textArea;
 	bool _isPerformingUndoRedo;
 	bool _readOnly;
+	
+	public Document? Placeholder
+	{
+		get => _placeholder;
+		set
+		{
+			if (_placeholder != null)
+				_placeholder.Changed -= Placeholder_Changed;
+			_placeholder = value;
+			if (_placeholder != null)
+				_placeholder.Changed += Placeholder_Changed;
+			if (_document == null || _document.Length == 0)
+				Invalidate(false);
+		}
+	}
+
+	private void Placeholder_Changed(object? sender, EventArgs e)
+	{
+		if (_document == null || _document.Length == 0)
+			Invalidate(false);
+	}
 
 	public Document Document
 	{
@@ -243,8 +265,19 @@ class TextAreaDrawable : Drawable
 		// _selection?.Paint(e.Graphics);
 
 		var screen = ParentWindow?.Screen ?? Screen.PrimaryScreen;
-		Document.ScreenScale = screen.Scale;
-		Document.Paint(e.Graphics, clip);
+		var document = Document;
+
+		if (_placeholder != null && document.Length == 0)
+		{
+			_placeholder.ScreenScale = screen.Scale;
+			_placeholder.Paint(e.Graphics, clip);
+		}
+		else
+		{
+			document.ScreenScale = screen.Scale;
+			document.Paint(e.Graphics, clip);
+		}
+			
 		_caret.Paint(e);
 	}
 
@@ -261,6 +294,13 @@ class TextAreaDrawable : Drawable
 	public bool CanRedo => RedoStack.Count > 0;
 
 	public bool AlwaysShowSelection { get; internal set; }
+	public void SetAvailableSize(Size size)
+	{
+		if (_document != null)
+			_document.AvailableSize = size;
+		if (_placeholder != null)
+			_placeholder.AvailableSize = size;
+	}
 
 	public bool Undo()
 	{
