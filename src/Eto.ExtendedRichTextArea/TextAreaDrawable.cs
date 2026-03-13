@@ -8,7 +8,6 @@ namespace Eto.ExtendedRichTextArea;
 
 class TextAreaDrawable : Drawable
 {
-	const int MaxUndoRedoStackSize = 100;
 	Document? _document;
 	Document? _placeholder;
 	readonly CaretBehavior _caret;
@@ -20,9 +19,11 @@ class TextAreaDrawable : Drawable
 	Scrollable? _parentScrollable;
 	DocumentRange? _selection;
 	readonly ExtendedRichTextArea _textArea;
-	bool _isPerformingUndoRedo;
 	bool _readOnly;
-	
+
+	DocumentState? _documentState;
+	public DocumentState DocumentState => _documentState!;
+
 	public Document? Placeholder
 	{
 		get => _placeholder;
@@ -54,13 +55,11 @@ class TextAreaDrawable : Drawable
 				_document.Changed -= Document_Changed;
 				_document.OverrideAttributes -= Document_OverrideAttributes;
 				_document.DefaultAttributesChanged -= Document_DefaultAttributesChanged;
-				_document.Changing -= Document_BeginEditEvent;
 			}
 			_document = value ?? new Document();
 			_document.Changed += Document_Changed;
 			_document.OverrideAttributes += Document_OverrideAttributes;
 			_document.DefaultAttributesChanged += Document_DefaultAttributesChanged;
-			_document.Changing += Document_BeginEditEvent;
 			_selection = null; // Clear stale selection from previous document
 			_caret.SetIndex(0, true);
 			CreateContextMenu();
@@ -68,8 +67,14 @@ class TextAreaDrawable : Drawable
 			// SetIndex above may skip the update when the caret is already at 0.
 			_textArea.SelectionAttributes = _document.GetAttributes(0, 0);
 			Invalidate(false);
-			ClearUndoRedoStacks();
+			_documentState = CreateDocumentState(_document);
 		}
+	}
+
+	protected override void OnEnabledChanged(EventArgs e)
+	{
+		base.OnEnabledChanged(e);
+		Invalidate();
 	}
 
 	private void CreateContextMenu()
@@ -116,11 +121,6 @@ class TextAreaDrawable : Drawable
 		}
 	}
 
-	private void Document_BeginEditEvent(object? sender, EventArgs e)
-	{
-		SaveState();
-	}
-
 	private void Document_DefaultAttributesChanged(object? sender, EventArgs e)
 	{
 		if (Selection?.Length > 0)
@@ -133,6 +133,8 @@ class TextAreaDrawable : Drawable
 
 	private void Document_OverrideAttributes(object? sender, OverrideAttributesEventArgs e)
 	{
+		if (!Enabled)
+			return;
 		if (Selection?.Length > 0 && (AlwaysShowSelection || HasFocus))
 			e.NewAttributes.Add(new AttributeRange(Selection.Start, Selection.End, HighlightAttributes));
 	}
@@ -155,6 +157,39 @@ class TextAreaDrawable : Drawable
 	internal KeyboardBehavior Keyboard => _keyboard;
 	internal MouseBehavior Mouse => _mouse;
 	internal ExtendedRichTextArea TextArea => _textArea;
+
+	private sealed class ExtraState
+	{
+		public ExtraState(int caretIndex, DocumentRange? selection, Point scrollPosition)
+		{
+			CaretIndex = caretIndex;
+			Selection = selection;
+			ScrollPosition = scrollPosition;
+		}
+		public int CaretIndex { get; }
+		public DocumentRange? Selection { get; }
+		public Point ScrollPosition { get; }
+	}
+
+	DocumentState CreateDocumentState(Document doc)
+	{
+		var state = new DocumentState(doc);
+		state.CaptureExtra = () => new ExtraState(_caret.Index, _selection?.Clone(), _textArea.ScrollPosition);
+		state.RestoreExtra = s =>
+		{
+			if (s is ExtraState extra)
+			{
+				_caret.SetIndex(extra.CaretIndex, false);
+				SetSelection(extra.Selection, true);
+			}
+		};
+		state.RestoreExtraPost = s =>
+		{
+			if (s is ExtraState extra)
+				_textArea.ScrollPosition = extra.ScrollPosition;
+		};
+		return state;
+	}
 
 	public TextAreaDrawable(ExtendedRichTextArea textArea) : base(false)
 	{
@@ -285,13 +320,9 @@ class TextAreaDrawable : Drawable
 
 	public RectangleF CaretBounds => _caret.CaretBounds;
 
-	FixedSizeStack<DocumentState> UndoStack { get; } = new(MaxUndoRedoStackSize);
+	public bool CanUndo => DocumentState.CanUndo;
 
-	FixedSizeStack<DocumentState> RedoStack { get; } = new(MaxUndoRedoStackSize);
-
-	public bool CanUndo => UndoStack.Count > 0;
-
-	public bool CanRedo => RedoStack.Count > 0;
+	public bool CanRedo => DocumentState.CanRedo;
 
 	public bool AlwaysShowSelection { get; internal set; }
 	public void SetAvailableSize(Size size)
@@ -304,49 +335,18 @@ class TextAreaDrawable : Drawable
 
 	public bool Undo()
 	{
-		if (CanUndo)
-		{
-			_isPerformingUndoRedo = true;
-			var state = UndoStack.Pop();
-			state.Restore(this, TextArea);
-			RedoStack.Push(state);
-			_isPerformingUndoRedo = false;
-			Invalidate(false);
-			return true;
-		}
-		return false;
+		if (!DocumentState.Undo())
+			return false;
+		Invalidate(false);
+		return true;
 	}
 
 	public bool Redo()
 	{
-		if (CanRedo)
-		{
-			_isPerformingUndoRedo = true;
-			var state = RedoStack.Pop();
-			state.Restore(this, TextArea);
-			UndoStack.Push(state);
-			_isPerformingUndoRedo = false;
-			Invalidate(false);
-			return true;
-		}
-		return false;
-	}
-
-	void SaveState()
-	{
-		if (_isPerformingUndoRedo)
-			return;
-
-		var state = new DocumentState(this, _textArea);
-		UndoStack.Push(state);
-		RedoStack.Clear();
-	}
-
-	private void ClearUndoRedoStacks()
-	{
-		UndoStack.Clear();
-		RedoStack.Clear();
-		_isPerformingUndoRedo = false;
+		if (!DocumentState.Redo())
+			return false;
+		Invalidate(false);
+		return true;
 	}
 
 	internal void SetCaretSelection(int lastCaretIndex, bool extendSelection, bool useOriginalStart = true)

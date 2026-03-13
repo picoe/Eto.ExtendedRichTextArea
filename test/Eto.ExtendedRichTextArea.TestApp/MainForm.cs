@@ -107,6 +107,13 @@ public partial class MainForm : Form
 		return checkBox;
 	}
 
+	Control EnabledCheckBox()
+	{
+		var checkBox = new CheckBox { Text = "Enabled" };
+		checkBox.CheckedBinding.Bind(RichTextArea, r => r.Enabled);
+		return checkBox;
+	}
+
 	Control WrapModeDropDown()
 	{
 		var dropDown = new EnumDropDown<WrapMode>();
@@ -306,9 +313,7 @@ public partial class MainForm : Form
 
 		void InsertList(ListType type)
 		{
-			var list = new ListElement { Type = type };
-			list.Add(new ListItemElement());
-			RichTextArea.Insert(list);
+			RichTextArea.Selection.ReplaceWithList(type);
 			RichTextArea.Focus();
 		}
 		insertListMenu.Menu = new ContextMenu
@@ -348,6 +353,13 @@ public partial class MainForm : Form
 			RichTextArea.Focus();
 		};
 
+		var newDocumentButton = new Button { Text = "New Document" };
+		newDocumentButton.Click += (sender, e) =>
+		{
+			RichTextArea.Document = new Document { };
+			RichTextArea.Focus();
+		};
+
 
 		_structure.Size = new Size(200, 300);
 		_structure.ShowHeader = false;
@@ -359,7 +371,19 @@ public partial class MainForm : Form
 				ShowProperties(item.Tag);
 			}
 		};
-
+		_structure.SelectedItemsChanged += (sender, e) =>
+		{
+			if (_highlightedBounds.HasValue)
+			{
+				var (bounds, color) = _highlightedBounds.Value;
+				_highlightedBounds = null;
+			}
+			if (_structure.SelectedItem is TreeGridItem item && item.Tag is IBlockElement element)
+			{
+				_highlightedBounds = (element.Bounds, Colors.Orange);
+			}
+			RichTextArea.Invalidate();
+		};
 
 
 		_lines.Size = new Size(200, 300);
@@ -442,7 +466,8 @@ public partial class MainForm : Form
 		var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
 		layout.Styles.Add(null, (Label lbl) => lbl.VerticalAlignment = VerticalAlignment.Center);
 
-		layout.AddSeparateRow(insertRandomTextButton, setSelectedText, insertImageButton, insertListButton, clearButton, CopyAsButton(), PasteAsButton(), ReadOnlyCheckBox(), null);
+		layout.AddSeparateRow(insertRandomTextButton, setSelectedText, insertImageButton, insertListButton, clearButton, newDocumentButton, null);
+		layout.AddSeparateRow(CopyAsButton(), PasteAsButton(), ReadOnlyCheckBox(), EnabledCheckBox(), null);
 		layout.AddSeparateRow("Document:", "Wrap", WrapModeDropDown(), "Alignment", TextAlignmentDropDown(), null);
 		layout.AddSeparateRow("Paragraph:", "Wrap", ParagraphWrapModeDropDown(), "Alignment", ParagraphAlignmentDropDown(), null);
 		layout.AddSeparateRow(AttributeControls(), null);

@@ -30,6 +30,8 @@ class MouseBehavior
 
 	private void TextArea_MouseDoubleClick(object? sender, MouseEventArgs e)
 	{
+		if (!_textArea.Enabled)
+			return;
 		var index = _textArea.Document.GetIndexAt(e.Location);
 		if (index >= 0)
 		{
@@ -46,6 +48,8 @@ class MouseBehavior
 
 	private void TextArea_MouseUp(object? sender, MouseEventArgs e)
 	{
+		if (!_textArea.Enabled)
+			return;
 		if (e.Buttons == MouseButtons.Primary && _initialIndex == _caret.Index && !_isSelectingByWord)
 		{
 			_textArea.SetSelection(null, true);
@@ -58,6 +62,8 @@ class MouseBehavior
 
 	private void TextArea_MouseMove(object? sender, MouseEventArgs e)
 	{
+		if (!_textArea.Enabled)
+			return;
 		_mouseLocation = e.Location;
 		if (_isMouseDown || _isSelectingByWord)
 		{
@@ -81,6 +87,8 @@ class MouseBehavior
 
 	private void TextArea_MouseDown(object? sender, MouseEventArgs e)
 	{
+		if (!_textArea.Enabled)
+			return;
 		_isMouseDown = e.Buttons == MouseButtons.Primary;
 		_lastCaretIndex = _caret.Index;
 		_isSelectingByWord = false;

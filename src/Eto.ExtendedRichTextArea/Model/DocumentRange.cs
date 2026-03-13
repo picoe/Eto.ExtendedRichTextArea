@@ -24,7 +24,7 @@ public class DocumentRange
 	}
 
 	public int OriginalStart { get; }
-	
+
 	public bool Contains(int index) => index >= Start && index < End;
 
 	List<RectangleF>? _bounds;
@@ -132,7 +132,7 @@ public class DocumentRange
 			graphics.FillRectangle(SystemColors.Highlight, bounds);
 		}
 	}
-	
+
 	public event EventHandler<EventArgs>? AttributesChanged;
 
 	Attributes? _attributes;
@@ -243,7 +243,9 @@ public class DocumentRange
 			return this == other;
 		return false;
 	}
-	
+
+	public IEnumerable<IElement> GetElements(bool trim) => Document.Enumerate(Start, End, trim, false);
+
 	public IEnumerable<IElement> GetElements() => Document.Enumerate(Start, End, true, false);
 
 	public override int GetHashCode()
@@ -260,5 +262,155 @@ public class DocumentRange
 			return hash;
 		}
 #endif
+	}
+
+	public void ReplaceWithList(ListType listType)
+	{
+		var doc = Document;
+		doc.BeginEdit();
+		doc.EnsureValid();
+		int? start = null;
+		int docStart = Start;
+		var selectionElements = GetElements(false).OfType<IBlockElement>().ToList();
+		doc.EnsureValid();
+
+		// Toggle off: if every selected block is already a ListElement of the requested type,
+		// convert all covered items back to plain paragraphs instead of re-wrapping them.
+		if (selectionElements.Count > 0 && selectionElements.All(e => e is ListElement le && le.Type == listType))
+		{
+			var lastElement = selectionElements.Last();
+			var lastElementEnd = lastElement.DocumentStart + lastElement.Length;
+			var lastElementLength = lastElement.Length - (lastElementEnd - End);
+			for (int i = 0; i < selectionElements.Count; i++)
+			{
+				var existingList = (ListElement)selectionElements[i];
+				var elementStart = existingList.DocumentStart;
+				start ??= elementStart;
+
+				var listStart = i == 0 ? Start - elementStart : 0;
+				var listEnd = i == selectionElements.Count - 1 ? lastElementLength : existingList.Length;
+				var listItems = existingList.Enumerate(listStart, listEnd, false, false).OfType<ListItemElement>().ToList();
+				doc.EnsureValid();
+
+				for (int i1 = 0; i1 < listItems.Count; i1++)
+				{
+					ListItemElement item = listItems[i1];
+					if (i1 == 0 && existingList.IndexOf(item) > 0)
+					{
+						// split so items before the selection stay in the original list
+						var docIdx = doc.IndexOf(existingList);
+						var right = ((IBlockElement)existingList).Split(item.Start);
+						if (right is IBlockElement rightBlock)
+						{
+							doc.Insert(docIdx + 1, rightBlock);
+							existingList = (ListElement)rightBlock;
+							start = existingList.DocumentStart;
+						}
+					}
+
+					var docInsertIdx = doc.IndexOf(existingList);
+					existingList.Remove(item);
+
+					var para = new ParagraphElement();
+					para.Attributes = item.Attributes?.Clone();
+					para.AddRange(item);
+					doc.Insert(docInsertIdx, para);
+
+					// keep pointing at the (now smaller) list that trails the inserted paragraph
+					if (existingList.Count == 0)
+					{
+						doc.Remove(existingList);
+						existingList = null!;
+						break;
+					}
+				}
+			}
+
+			doc.EndEdit();
+			return;
+		}
+
+		var list = new ListElement { Type = listType };
+		if (selectionElements.Count > 0)
+		{
+			var lastElement = selectionElements.Last();
+			var lastElementEnd = lastElement.DocumentStart + lastElement.Length;
+			var lastElementLength = lastElement.Length - (lastElementEnd - End);
+			for (int i = 0; i < selectionElements.Count; i++)
+			{
+				IBlockElement element = selectionElements[i];
+
+				var elementStart = element.DocumentStart; // only valid when i == 0
+				start ??= elementStart;
+
+				if (element is ParagraphElement para)
+				{
+					doc.Remove(element);
+					list.Add(new ListItemElement(para));
+				}
+				else if (element is ListElement existingList)
+				{
+					var listStart = i == 0 ? Start - elementStart : 0;
+					var listEnd = i == selectionElements.Count - 1 ? lastElementLength : existingList.Length;
+					var listElements = existingList.Enumerate(listStart, listEnd, false, false).OfType<ListItemElement>().ToList();
+					doc.EnsureValid();
+
+					for (int i1 = 0; i1 < listElements.Count; i1++)
+					{
+						ListItemElement item = listElements[i1];
+						if (i1 == 0 && existingList.IndexOf(item) > 0)
+						{
+							// split existing list to keep the items before the selection in the original list
+							var docIdx = doc.IndexOf(existingList);
+							var right = ((IBlockElement)existingList).Split(item.Start);
+							if (right is IBlockElement rightBlock)
+							{
+								doc.Insert(docIdx + 1, rightBlock);
+								existingList = (ListElement)rightBlock;
+								start = existingList.DocumentStart;
+							}
+						}
+						existingList.Remove(item);
+						list.Add(item);
+					}
+					if (existingList.Count == 0)
+						doc.Remove(existingList);
+				}
+				else
+				{
+					doc.Remove(element);
+				}
+			}
+		}
+		if (list.Count == 0)
+			list.Add(new ListItemElement());
+		doc.InsertAt(start ?? Start, list);
+
+		// Merge with adjacent lists of the same type.
+		var listIdx = doc.IndexOf(list);
+
+		// Right neighbour: drain its items into 'list', then remove it from the document.
+		if (listIdx + 1 < doc.Count && doc[listIdx + 1] is ListElement rightNeighbour && list.Type == rightNeighbour.Type)
+		{
+			var itemsToMove = rightNeighbour.ToList();
+			foreach (var item in itemsToMove)
+				rightNeighbour.Remove(item);
+			doc.Remove(rightNeighbour);
+			foreach (var item in itemsToMove)
+				list.Add(item);
+		}
+
+		// Left neighbour: drain 'list' items into it, then remove 'list' from the document.
+		if (listIdx > 0 && doc[listIdx - 1] is ListElement leftNeighbour && list.Type == leftNeighbour.Type)
+		{
+			var itemsToMove = list.ToList();
+			foreach (var item in itemsToMove)
+				list.Remove(item);
+			doc.Remove(list);
+			foreach (var item in itemsToMove)
+				leftNeighbour.Add(item);
+		}
+
+		doc.EndEdit();
 	}
 }

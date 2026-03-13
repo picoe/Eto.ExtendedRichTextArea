@@ -12,6 +12,8 @@ public class ExtendedRichTextArea : Scrollable
 	IEnumerable<IElement>? _selectionElements;
 	Attributes? _selectionAttributes;
 	Attributes? _lastSelectionAttributes;
+	
+	public event EventHandler<EventArgs>? DocumentChanged;
 
 	/// <summary>
 	/// Gets or sets the document to display and edit in the rich text area.
@@ -19,7 +21,11 @@ public class ExtendedRichTextArea : Scrollable
 	public Document Document
 	{
 		get => _drawable.Document;
-		set => _drawable.Document = value;
+		set
+		{
+			_drawable.Document = value;
+			DocumentChanged?.Invoke(this, EventArgs.Empty);
+		}
 	}
 	
 	/// <summary>

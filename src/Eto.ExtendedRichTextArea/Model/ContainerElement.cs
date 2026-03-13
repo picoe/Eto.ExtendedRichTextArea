@@ -273,8 +273,11 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 		{
 			Insert(index + 1, rightElement);
 		}
-		// if we can't split, just insert after the existing element (if not empty)
-		Insert(index + 1, newElement);
+		if (start <= existing.Start && existing.Length > 0)
+			Insert(index, newElement);
+		else
+			// if we can't split, just insert after the existing element (if not empty)
+			Insert(index + 1, newElement);
 		// if (Count == 1 && Attributes == null)
 		// 	Attributes = newElement.Attributes?.Clone();
 
@@ -435,6 +438,7 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 			// Parent?.Adjust(Parent.IndexOf(this), -newRun.Length);
 			return newRun;
 		}*/
+		var oldLength = Length;
 
 		for (int i = 0; i < Count; i++)
 		{
@@ -455,8 +459,8 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 				}
 			}
 		}
-		var offset = start - Length;
-		Parent?.Adjust(Parent.IndexOf(this), offset);
+		// var offset = Length - oldLength;
+		// Parent?.Adjust(Parent.IndexOf(this), offset);
 		EnsureValid();
 		return newRun;
 	}

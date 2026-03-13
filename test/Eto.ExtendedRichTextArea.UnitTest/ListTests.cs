@@ -109,4 +109,354 @@ public class ListTests : TestBase
 		Assert.That(document.Count, Is.EqualTo(expectedCount), $"Should be {expectedCount} top level elements");
 		
     }
+
+	[Test]
+	public void ReplaceSecondListItemWithOrderedListShouldWork()
+	{
+		// Create an unordered (bulleted) list with three items
+		var html = "<ul><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>";
+		var document = new Document();
+		var loaded = DocumentFormat.Html.LoadFromString(document.DocumentRange, html);
+		Assert.That(loaded, Is.True);
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after load");
+		Assert.That(document.Count, Is.EqualTo(1), "Should start with one list block");
+		Assert.That(document.Length, Is.EqualTo(20));
+
+		var originalList = (ListElement)document[0];
+		Assert.That(originalList.Count, Is.EqualTo(3), "List should have three items");
+
+		// Get the range of the second list item using DocumentStart
+		var item2 = originalList[1];
+		var item2Start = item2.DocumentStart;
+		var item2End = item2Start + item2.Length;
+		var range = document.GetRange(item2Start, item2End);
+
+		// Replace the second item with a numeric (ordered) list
+		range.ReplaceWithList(ListType.Ordered);
+
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after replace");
+		Assert.That(document.Count, Is.EqualTo(3), "Document should have three top-level list blocks after replace");
+		Assert.That(document.Length, Is.EqualTo(20), "Total length should remain unchanged");
+
+		// First block: unordered list with "Item 1"
+		Assert.That(document[0], Is.TypeOf<ListElement>(), "First block should be a list");
+		var firstList = (ListElement)document[0];
+		Assert.That(firstList.Type, Is.TypeOf<MultipleListType>(), "First list type should be MultipleListType");
+		Assert.That(((MultipleListType)firstList.Type).Types[0], Is.TypeOf<UnorderedListType>(), "First list should be unordered");
+		Assert.That(firstList.Count, Is.EqualTo(1), "First list should have one item");
+		Assert.That(((TextElement)firstList[0][0]).Text, Is.EqualTo("Item 1"), "First list item text should be 'Item 1'");
+
+		// Second block: ordered (numeric) list with "Item 2"
+		Assert.That(document[1], Is.TypeOf<ListElement>(), "Second block should be a list");
+		var secondList = (ListElement)document[1];
+		Assert.That(secondList.Type, Is.TypeOf<MultipleListType>(), "Second list type should be MultipleListType");
+		Assert.That(((MultipleListType)secondList.Type).Types[0], Is.TypeOf<NumericListType>(), "Second list should be numeric/ordered");
+		Assert.That(secondList.Count, Is.EqualTo(1), "Numeric list should have one item");
+		Assert.That(((TextElement)secondList[0][0]).Text, Is.EqualTo("Item 2"), "Second list item text should be 'Item 2'");
+
+		// Third block: unordered list with "Item 3"
+		Assert.That(document[2], Is.TypeOf<ListElement>(), "Third block should be a list");
+		var thirdList = (ListElement)document[2];
+		Assert.That(thirdList.Type, Is.TypeOf<MultipleListType>(), "Third list type should be MultipleListType");
+		Assert.That(((MultipleListType)thirdList.Type).Types[0], Is.TypeOf<UnorderedListType>(), "Third list should be unordered");
+		Assert.That(thirdList.Count, Is.EqualTo(1), "Third list should have one item");
+		Assert.That(((TextElement)thirdList[0][0]).Text, Is.EqualTo("Item 3"), "Third list item text should be 'Item 3'");
+	}
+
+	[Test]
+	public void ReplaceWithShouldMergeRightAdjacentListOfSameType()
+	{
+		// Bullet list followed by a numeric list.
+		// Converting the tail of the bullet list to numeric should merge with the numeric list.
+		var html = "<ul><li>A</li><li>B</li><li>C</li></ul><ol><li>D</li><li>E</li></ol>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(2), "Should start with two lists");
+
+		// Select "B" and "C" from the bullet list (last two items).
+		var bulletList = (ListElement)document[0];
+		var itemB = bulletList[1];
+		var itemC = bulletList[2];
+		var range = document.GetRange(itemB.DocumentStart, itemC.DocumentStart + itemC.Length);
+
+		range.ReplaceWithList(ListType.Ordered);
+
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after replace");
+		Assert.That(document.Count, Is.EqualTo(2), "Should have two lists after merge");
+
+		// First list: bullet with just "A"
+		var firstList = (ListElement)document[0];
+		Assert.That(((MultipleListType)firstList.Type).Types[0], Is.TypeOf<UnorderedListType>(), "First list should be unordered");
+		Assert.That(firstList.Count, Is.EqualTo(1));
+		Assert.That(((TextElement)firstList[0][0]).Text, Is.EqualTo("A"));
+
+		// Second list: numeric with B, C, D, E (merged)
+		var secondList = (ListElement)document[1];
+		Assert.That(((MultipleListType)secondList.Type).Types[0], Is.TypeOf<NumericListType>(), "Second list should be numeric");
+		Assert.That(secondList.Count, Is.EqualTo(4), "Merged list should have 4 items");
+		Assert.That(((TextElement)secondList[0][0]).Text, Is.EqualTo("B"));
+		Assert.That(((TextElement)secondList[1][0]).Text, Is.EqualTo("C"));
+		Assert.That(((TextElement)secondList[2][0]).Text, Is.EqualTo("D"));
+		Assert.That(((TextElement)secondList[3][0]).Text, Is.EqualTo("E"));
+	}
+
+	[Test]
+	public void ReplaceWithShouldMergeLeftAdjacentListOfSameType()
+	{
+		// Numeric list followed by a bullet list.
+		// Converting the head of the bullet list to numeric should merge with the numeric list.
+		var html = "<ol><li>A</li><li>B</li></ol><ul><li>C</li><li>D</li><li>E</li></ul>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(2), "Should start with two lists");
+
+		// Select "C" and "D" from the bullet list (first two items).
+		var bulletList = (ListElement)document[1];
+		var itemC = bulletList[0];
+		var itemD = bulletList[1];
+		var range = document.GetRange(itemC.DocumentStart, itemD.DocumentStart + itemD.Length);
+
+		range.ReplaceWithList(ListType.Ordered);
+
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after replace");
+		Assert.That(document.Count, Is.EqualTo(2), "Should have two lists after merge");
+
+		// First list: numeric with A, B, C, D (merged)
+		var firstList = (ListElement)document[0];
+		Assert.That(((MultipleListType)firstList.Type).Types[0], Is.TypeOf<NumericListType>(), "First list should be numeric");
+		Assert.That(firstList.Count, Is.EqualTo(4), "Merged list should have 4 items");
+		Assert.That(((TextElement)firstList[0][0]).Text, Is.EqualTo("A"));
+		Assert.That(((TextElement)firstList[1][0]).Text, Is.EqualTo("B"));
+		Assert.That(((TextElement)firstList[2][0]).Text, Is.EqualTo("C"));
+		Assert.That(((TextElement)firstList[3][0]).Text, Is.EqualTo("D"));
+
+		// Second list: bullet with just "E"
+		var secondList = (ListElement)document[1];
+		Assert.That(((MultipleListType)secondList.Type).Types[0], Is.TypeOf<UnorderedListType>(), "Second list should be unordered");
+		Assert.That(secondList.Count, Is.EqualTo(1));
+		Assert.That(((TextElement)secondList[0][0]).Text, Is.EqualTo("E"));
+	}
+
+	[Test]
+	public void ReplaceWithShouldMergeBothAdjacentListsOfSameType()
+	{
+		// Numeric list, then bullet list, then numeric list.
+		// Converting the entire bullet list to numeric should merge all three into one.
+		var html = "<ol><li>A</li><li>B</li></ol><ul><li>C</li><li>D</li></ul><ol><li>E</li><li>F</li></ol>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(3), "Should start with three lists");
+
+		// Select all items in the bullet list.
+		var bulletList = (ListElement)document[1];
+		var range = document.GetRange(bulletList.DocumentStart, bulletList.DocumentStart + bulletList.Length);
+
+		range.ReplaceWithList(ListType.Ordered);
+
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after replace");
+		Assert.That(document.Count, Is.EqualTo(1), "All three lists should merge into one");
+
+		var merged = (ListElement)document[0];
+		Assert.That(((MultipleListType)merged.Type).Types[0], Is.TypeOf<NumericListType>(), "Merged list should be numeric");
+		Assert.That(merged.Count, Is.EqualTo(6), "Merged list should have all 6 items");
+		var expectedTexts = new[] { "A", "B", "C", "D", "E", "F" };
+		for (int i = 0; i < 6; i++)
+			Assert.That(((TextElement)merged[i][0]).Text, Is.EqualTo(expectedTexts[i]), $"Item {i} text should be '{expectedTexts[i]}'");
+	}
+
+	[Test]
+	public void ReplaceWithSpanningBulletNumericBulletShouldProduceCorrectLists()
+	{
+		// bullet(A,B,C) + numeric(D,E) + bullet(F,G,H)
+		// Select B,C from first bullet, all of numeric, and F,G from last bullet → convert to ordered.
+		// Expected result: bullet(A) | ordered(B,C,D,E,F,G) | bullet(H)
+		var html = "<ul><li>A</li><li>B</li><li>C</li></ul><ol><li>D</li><li>E</li></ol><ul><li>F</li><li>G</li><li>H</li></ul>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(3), "Should start with three lists");
+
+		var bullet1 = (ListElement)document[0];
+		var bullet3 = (ListElement)document[2];
+
+		// Range: from "B" (index 1 of bullet1) through "G" (index 1 of bullet3)
+		var itemB = bullet1[1];
+		var itemG = bullet3[1];
+		var range = document.GetRange(itemB.DocumentStart, itemG.DocumentStart + itemG.Length);
+
+		range.ReplaceWithList(ListType.Ordered);
+
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after replace");
+		Assert.That(document.Count, Is.EqualTo(3), "Should have three lists: bullet(A), ordered(B-G), bullet(H)");
+
+		// First block: bullet list with just "A"
+		var firstList = (ListElement)document[0];
+		Assert.That(((MultipleListType)firstList.Type).Types[0], Is.TypeOf<UnorderedListType>(), "First list should be unordered");
+		Assert.That(firstList.Count, Is.EqualTo(1), "First list should have 1 item");
+		Assert.That(((TextElement)firstList[0][0]).Text, Is.EqualTo("A"));
+
+		// Second block: ordered list with B, C, D, E, F, G
+		var secondList = (ListElement)document[1];
+		Assert.That(((MultipleListType)secondList.Type).Types[0], Is.TypeOf<NumericListType>(), "Second list should be numeric/ordered");
+		Assert.That(secondList.Count, Is.EqualTo(6), "Ordered list should have 6 items: B,C,D,E,F,G");
+		var expectedOrdered = new[] { "B", "C", "D", "E", "F", "G" };
+		for (int i = 0; i < 6; i++)
+			Assert.That(((TextElement)secondList[i][0]).Text, Is.EqualTo(expectedOrdered[i]), $"Ordered item {i} should be '{expectedOrdered[i]}'");
+
+		// Third block: bullet list with just "H"
+		var thirdList = (ListElement)document[2];
+		Assert.That(((MultipleListType)thirdList.Type).Types[0], Is.TypeOf<UnorderedListType>(), "Third list should be unordered");
+		Assert.That(thirdList.Count, Is.EqualTo(1), "Third list should have 1 item");
+		Assert.That(((TextElement)thirdList[0][0]).Text, Is.EqualTo("H"));
+	}
+
+	// ── toggle-off tests ─────────────────────────────────────────────────────
+
+	[Test]
+	public void ToggleOffWholeSingleListShouldProduceParagraphs()
+	{
+		// An unordered list with three items; selecting all items and calling
+		// ReplaceWithList with the same type should turn every item into a paragraph.
+		var html = "<ul><li>A</li><li>B</li><li>C</li></ul>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(1));
+
+		var list = (ListElement)document[0];
+		var range = document.GetRange(list.DocumentStart, list.DocumentStart + list.Length);
+		range.ReplaceWithList(ListType.Unordered);
+
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after toggle-off");
+		Assert.That(document.Count, Is.EqualTo(3), "Should have three plain paragraphs");
+		for (int i = 0; i < 3; i++)
+		{
+			Assert.That(document[i], Is.TypeOf<ParagraphElement>(), $"Element {i} should be a ParagraphElement");
+			Assert.That(document[i], Is.Not.TypeOf<ListItemElement>(), $"Element {i} must not be a ListItemElement");
+			Assert.That(((TextElement)document[i][0]).Text, Is.EqualTo(new[] { "A", "B", "C" }[i]));
+		}
+		Assert.That(document.Text, Is.EqualTo("A\nB\nC"));
+	}
+
+	[Test]
+	public void ToggleOffPartialListShouldLeaveRemainingItemsAsListAndConvertSelectedItemsToParagraphs()
+	{
+		// Ordered list A, B, C, D. Select B and C → toggle off ordered.
+		// Expected: ol(A) | para(B) | para(C) | ol(D)
+		var html = "<ol><li>A</li><li>B</li><li>C</li><li>D</li></ol>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+
+		var list = (ListElement)document[0];
+		var itemB = list[1];
+		var itemC = list[2];
+		var range = document.GetRange(itemB.DocumentStart, itemC.DocumentStart + itemC.Length);
+		range.ReplaceWithList(ListType.Ordered);
+
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(4), "Should have ol(A) + para(B) + para(C) + ol(D)");
+
+		Assert.That(document[0], Is.TypeOf<ListElement>(), "First block should be a list");
+		Assert.That(((TextElement)((ListElement)document[0])[0][0]).Text, Is.EqualTo("A"));
+
+		Assert.That(document[1], Is.TypeOf<ParagraphElement>());
+		Assert.That(document[1], Is.Not.TypeOf<ListItemElement>());
+		Assert.That(((TextElement)document[1][0]).Text, Is.EqualTo("B"));
+
+		Assert.That(document[2], Is.TypeOf<ParagraphElement>());
+		Assert.That(document[2], Is.Not.TypeOf<ListItemElement>());
+		Assert.That(((TextElement)document[2][0]).Text, Is.EqualTo("C"));
+
+		Assert.That(document[3], Is.TypeOf<ListElement>(), "Last block should be a list");
+		Assert.That(((TextElement)((ListElement)document[3])[0][0]).Text, Is.EqualTo("D"));
+	}
+
+	[Test]
+	public void ToggleOffSingleItemListShouldProduceOneParagraph()
+	{
+		var html = "<ul><li>Hello</li></ul>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+
+		var list = (ListElement)document[0];
+		var range = document.GetRange(list.DocumentStart, list.DocumentStart + list.Length);
+		range.ReplaceWithList(ListType.Unordered);
+
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(1));
+		Assert.That(document[0], Is.TypeOf<ParagraphElement>());
+		Assert.That(document[0], Is.Not.TypeOf<ListItemElement>());
+		Assert.That(((TextElement)document[0][0]).Text, Is.EqualTo("Hello"));
+	}
+
+	[Test]
+	public void ToggleOffMultipleAdjacentSameTypeListsShouldConvertAllToParagraphs()
+	{
+		// Two ordered lists (would have been merged if created together, but created separately here).
+		// Selecting both and toggling ordered should convert all items to paragraphs.
+		var html = "<ol><li>A</li><li>B</li></ol><ol><li>C</li><li>D</li></ol>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+
+		// Select the full document range (both lists).
+		var range = document.GetRange(0, document.Length);
+		range.ReplaceWithList(ListType.Ordered);
+
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(4), "All four items should become plain paragraphs");
+		var expectedTexts = new[] { "A", "B", "C", "D" };
+		for (int i = 0; i < 4; i++)
+		{
+			Assert.That(document[i], Is.TypeOf<ParagraphElement>());
+			Assert.That(document[i], Is.Not.TypeOf<ListItemElement>());
+			Assert.That(((TextElement)document[i][0]).Text, Is.EqualTo(expectedTexts[i]));
+		}
+	}
+
+	[Test]
+	public void ToggleOffDoesNotTriggerWhenSelectionContainsMixedTypes()
+	{
+		// Selection contains an ordered list AND a paragraph → should convert to ordered, not toggle off.
+		var html = "<p>Intro</p><ol><li>A</li><li>B</li></ol>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(2));
+
+		var range = document.GetRange(0, document.Length);
+		range.ReplaceWithList(ListType.Ordered);
+
+		Assert.That(document.IsValid(), Is.True);
+		// All content should now be in an ordered list, NOT converted to paragraphs.
+		Assert.That(document.Count, Is.EqualTo(1), "Should be one merged ordered list");
+		Assert.That(document[0], Is.TypeOf<ListElement>());
+		Assert.That(((ListElement)document[0]).Count, Is.EqualTo(3), "List should have Intro, A, B");
+	}
+
+	[Test]
+	public void ToggleOffDoesNotTriggerWhenSelectionContainsDifferentListType()
+	{
+		// Selecting an unordered list but calling ReplaceWithList with ordered → convert, don't toggle.
+		var html = "<ul><li>A</li><li>B</li></ul>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+
+		var list = (ListElement)document[0];
+		var range = document.GetRange(list.DocumentStart, list.DocumentStart + list.Length);
+		range.ReplaceWithList(ListType.Ordered); // different type
+
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(1), "Should be one ordered list (converted, not toggled)");
+		Assert.That(document[0], Is.TypeOf<ListElement>());
+		var resultList = (ListElement)document[0];
+		Assert.That(((MultipleListType)resultList.Type).Types[0], Is.TypeOf<NumericListType>(), "Result should be ordered/numeric");
+		Assert.That(resultList.Count, Is.EqualTo(2));
+	}
 }

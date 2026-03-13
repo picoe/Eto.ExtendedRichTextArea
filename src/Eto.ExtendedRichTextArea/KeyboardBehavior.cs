@@ -25,8 +25,8 @@ class KeyboardBehavior
 		AddCommand(new CutCommand(textArea), "cut");
 		AddCommand(new CopyCommand(textArea), "copy");
 		AddCommand(new PasteCommand(textArea), "paste");
-		AddCommand(new UndoCommand(textArea));
-		AddCommand(new RedoCommand(textArea));
+		AddCommand(new UndoCommand(textArea), "undo");
+		AddCommand(new RedoCommand(textArea), "redo");
 		AddCommand(new BoldCommand(textArea));
 		AddCommand(new ItalicCommand(textArea));
 
@@ -202,6 +202,8 @@ class KeyboardBehavior
 
 	private void TextArea_KeyDown(object? sender, KeyEventArgs e)
 	{
+		if (!_textArea.Enabled)
+			return;
 		// Always call OnKeyDown on the document, even when there's no selection.
 		// Use caret position for both start and end when Selection is null.
 		var start = _textArea.Selection?.Start ?? _caret.Index;

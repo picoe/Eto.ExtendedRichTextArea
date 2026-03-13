@@ -7,7 +7,7 @@ namespace Eto.ExtendedRichTextArea.Model;
 public abstract class ListType
 {
 	public float Indent { get; set; } = 20;
-	public static ListType Unordered => new MultipleListType
+	public static ListType Unordered { get; } =new MultipleListType
 	{
 		Types =
 		{
@@ -17,7 +17,7 @@ public abstract class ListType
 		}
 	};
 
-	public static ListType Ordered => new MultipleListType
+	public static ListType Ordered { get; } = new MultipleListType
 	{
 		Types =
 		{
@@ -30,6 +30,11 @@ public abstract class ListType
 	public abstract void Paint(ListItemElement item, Graphics graphics, RectangleF bounds);
 
 	public abstract string GetText(ListItemElement item);
+
+	public override bool Equals(object? obj)
+	{
+		return obj?.GetType().Equals(GetType()) ?? false;
+	}
 }
 
 public class MultipleListType : ListType
@@ -44,6 +49,31 @@ public class MultipleListType : ListType
 	public override void Paint(ListItemElement item, Graphics graphics, RectangleF bounds)
 	{
 		Types[item.Level % Types.Count].Paint(item, graphics, bounds);
+	}
+
+	public override bool Equals(object? obj)
+	{
+		if (obj is MultipleListType other)
+		{
+			if (Types.Count != other.Types.Count)
+				return false;
+			for (int i = 0; i < Types.Count; i++)
+			{
+				if (!Types[i].Equals(other.Types[i]))
+					return false;
+			}
+		}
+		return false;
+	}
+
+	public override int GetHashCode()
+	{
+		int hash = 17;
+		foreach (var type in Types)
+		{
+			hash = hash * 23 + type.GetHashCode();
+		}
+		return hash;
 	}
 }
 
@@ -62,7 +92,7 @@ public abstract class TextListType : ListType
 			textSize.Height
 		);
 		graphics.DrawText(font, SystemColors.ControlText, bulletBounds.Location, text);
-	}
+	}	
 }
 
 public class UnorderedListType : TextListType
@@ -72,6 +102,18 @@ public class UnorderedListType : TextListType
 	public override string GetText(ListItemElement item)
 	{
 		return BulletCharacter;
+	}
+
+	public override bool Equals(object? obj)
+	{
+		if (obj is UnorderedListType other)
+			return base.Equals(obj) && BulletCharacter == other.BulletCharacter;
+		return false;
+	}
+
+	public override int GetHashCode()
+	{
+		return base.GetHashCode() ^ BulletCharacter.GetHashCode();
 	}
 }
 
@@ -90,6 +132,18 @@ public class AlphabeticalListType : TextListType
 		int repeat = index / 26 + 1;
 		var letterString = new string(letter, repeat);
 		return string.Format(Format, letterString);
+	}
+
+	public override bool Equals(object? obj)
+	{
+		if (obj is AlphabeticalListType other)
+			return base.Equals(obj) && Format == other.Format && Uppercase == other.Uppercase;
+		return base.Equals(obj);
+	}
+
+	public override int GetHashCode()
+	{
+		return base.GetHashCode() ^ Format.GetHashCode() ^ Uppercase.GetHashCode();
 	}
 }
 
@@ -127,6 +181,18 @@ public class RomanNumeralListType : TextListType
 			roman = roman.ToLowerInvariant();
 		return string.Format(Format, roman);
 	}
+
+	public override bool Equals(object? obj)
+	{
+		if (obj is RomanNumeralListType other)
+			return base.Equals(obj) && Format == other.Format && Uppercase == other.Uppercase;
+		return false;
+	}
+	
+	public override int GetHashCode()
+	{
+		return base.GetHashCode() ^ Format.GetHashCode() ^ Uppercase.GetHashCode();
+	}
 }
 
 public class NumericListType : ListType
@@ -151,5 +217,17 @@ public class NumericListType : ListType
 			textSize.Height
 		);
 		graphics.DrawText(font, SystemColors.ControlText, numberBounds.Location, numberText);
+	}
+
+	public override bool Equals(object? obj)
+	{
+		if (obj is NumericListType other)
+			return base.Equals(obj) && Format == other.Format;
+		return false;
+	}
+
+	public override int GetHashCode()
+	{
+		return base.GetHashCode() ^ Format.GetHashCode();
 	}
 }

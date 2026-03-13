@@ -95,6 +95,8 @@ class CaretBehavior
 
 	private void TextArea_GotFocus(object? sender, EventArgs e)
 	{
+		if (!_textArea.Enabled)
+			return;
 		_caretTimer ??= new UITimer(OnCaretTimer) { Interval = 0.5 };
 		_caretTimer.Start();
 	}
@@ -121,6 +123,8 @@ class CaretBehavior
 
 	internal void Paint(PaintEventArgs e)
 	{
+		if (!_textArea.Enabled)
+			return;
 		if (_caretVisible && !_caretBounds.IsEmpty)
 		{
 			e.Graphics.FillRectangle(_textArea.Document.DefaultAttributes.Foreground ?? new SolidBrush(SystemColors.ControlText), _caretBounds);

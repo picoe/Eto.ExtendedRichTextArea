@@ -7,8 +7,14 @@ public class ListItemElement : ParagraphElement
 {
 	public ListItemElement()
 	{
-		
 	}
+
+	internal ListItemElement(ContainerElement<IInlineElement> paragraph)
+	{
+		Attributes = paragraph.Attributes;
+		AddRange(paragraph);
+	}
+
 	protected override ContainerElement<IInlineElement> Create() => new ListItemElement
 	{
 		Level = Level,
