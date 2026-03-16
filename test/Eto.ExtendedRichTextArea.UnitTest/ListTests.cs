@@ -11,6 +11,39 @@ namespace Eto.ExtendedRichTextArea.UnitTest;
 [TestFixture]
 public class ListTests : TestBase
 {
+	[Test]
+	public void ToggleLastListItemShouldKeepParagraphBelow()
+	{
+		// List followed by a blank paragraph
+		var html = "<ul><li>Item 1</li><li></li></ul><p>after</p>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(2), "Should start with list and blank paragraph");
+
+		// Toggle the last item in the list off (to paragraph)
+		var list = (ListElement)document[0];
+		var lastItem = list[list.Count - 1];
+		var lastItemStart = lastItem.DocumentStart;
+		var lastItemEnd = lastItemStart + lastItem.Length;
+		var range = document.GetRange(lastItemStart, lastItemEnd);
+		range.ReplaceWithList(ListType.Unordered); // same type → toggle off
+
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after toggle");
+		Assert.That(document.Count, Is.EqualTo(3), "Should have list, paragraph, blank paragraph");
+		Assert.That(document[0], Is.TypeOf<ListElement>(), "First element should be a list");
+		Assert.That(document[1], Is.TypeOf<ParagraphElement>(), "Second element should be a paragraph (was last list item)");
+		Assert.That(document[2], Is.TypeOf<ParagraphElement>(), "Third element should be the blank paragraph");
+		var firstList = (ListElement)document[0];
+		Assert.That(firstList.Count, Is.EqualTo(1), "First list should have one item");
+		Assert.That(((TextElement)firstList[0][0]).Text, Is.EqualTo("Item 1"));
+		var secondPara = (ParagraphElement)document[1];
+		Assert.That(secondPara.Count, Is.EqualTo(0), "Second paragraph should have no inline elements");
+		Assert.That(secondPara.Text, Is.EqualTo(""), "Second paragraph should be empty");
+		var thirdPara = (ParagraphElement)document[2];
+		Assert.That(thirdPara.Count, Is.EqualTo(1), "Blank paragraph should have one inline element");
+		Assert.That(thirdPara.Text, Is.EqualTo("after"), "Blank paragraph should contain 'after'");
+	}
 
 	[Test]
 	public void TestParseUnorderedList()
@@ -548,5 +581,103 @@ public class ListTests : TestBase
 		Assert.That(document[0], Is.TypeOf<ParagraphElement>());
 		Assert.That(document[0], Is.Not.TypeOf<ListItemElement>());
 		Assert.That(document[0].Text, Is.EqualTo("\tFoo"), "Should round-trip back to the original text with leading tab");
+	}
+
+	[Test]
+	public void ToggleOffLastItemsShouldKeepParagraphBelow()
+	{
+		// List followed by a blank paragraph
+		var html = "<ul><li>Item 1</li><li>Item 2</li><li></li></ul><p></p>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(2), "Should start with list and blank paragraph");
+
+		// Toggle the last two items in the list off (to paragraphs)
+		var list = (ListElement)document[0];
+		var item2 = list[1];
+		var item3 = list[2];
+		var range = document.GetRange(item2.DocumentStart, item3.DocumentStart + item3.Length);
+		// Toggle off
+		range.ReplaceWithList(ListType.Unordered);
+
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after toggle");
+		Assert.That(document.Count, Is.EqualTo(4), "Should have list, paragraph, blank paragraph");
+		Assert.That(document[0], Is.TypeOf<ListElement>(), "First element should be a list");
+		Assert.That(document[1], Is.TypeOf<ParagraphElement>(), "Second element should be a paragraph (was list item)");
+		Assert.That(document[2], Is.TypeOf<ParagraphElement>(), "Third element should be a paragraph (was list item)");
+		Assert.That(document[3], Is.TypeOf<ParagraphElement>(), "Fourth element should be the blank paragraph");
+		var firstList = (ListElement)document[0];
+		Assert.That(firstList.Count, Is.EqualTo(1), "First list should have one item");
+		Assert.That(((TextElement)firstList[0][0]).Text, Is.EqualTo("Item 1"));
+		var secondPara = (ParagraphElement)document[1];
+		Assert.That(secondPara.Count, Is.EqualTo(1), "Second paragraph should have one inline element");
+		Assert.That(((TextElement)secondPara[0]).Text, Is.EqualTo("Item 2"));
+		var thirdPara = (ParagraphElement)document[2];
+		Assert.That(thirdPara.Count, Is.EqualTo(0), "Third paragraph should have no inline elements");
+		Assert.That(thirdPara.Text, Is.EqualTo(""), "Third paragraph should be empty");
+		var fourthPara = (ParagraphElement)document[3];
+		Assert.That(fourthPara.Count, Is.EqualTo(0), "Fourth paragraph should have no inline elements");
+		Assert.That(fourthPara.Text, Is.EqualTo(""), "Fourth paragraph should remain empty");
+	}
+
+	[Test]
+	public void ToggleOffWholeListShouldKeepParagraphBelow()
+	{
+		// List followed by a blank paragraph
+		var html = "<ul><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul><p></p>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(2), "Should start with list and blank paragraph");
+
+		// Toggle off the whole list
+		var list = (ListElement)document[0];
+		var range = document.GetRange(list.DocumentStart, list.DocumentStart + list.Length);
+		// Toggle off
+		range.ReplaceWithList(ListType.Unordered);
+
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after toggle");
+		Assert.That(document.Count, Is.EqualTo(4), "Should have three paragraphs and blank paragraph");
+		Assert.That(document[0], Is.TypeOf<ParagraphElement>(), "First element should be a paragraph");
+		Assert.That(document[1], Is.TypeOf<ParagraphElement>(), "Second element should be a paragraph");
+		Assert.That(document[2], Is.TypeOf<ParagraphElement>(), "Third element should be a paragraph");
+		Assert.That(document[3], Is.TypeOf<ParagraphElement>(), "Fourth element should be the blank paragraph");
+		Assert.That(((TextElement)document[0][0]).Text, Is.EqualTo("Item 1"));
+		Assert.That(((TextElement)document[1][0]).Text, Is.EqualTo("Item 2"));
+		Assert.That(((TextElement)document[2][0]).Text, Is.EqualTo("Item 3"));
+		var blankPara = (ParagraphElement)document[3];
+		Assert.That(blankPara.Count, Is.EqualTo(0), "Blank paragraph should have no inline elements");
+		Assert.That(blankPara.Text, Is.EqualTo(""), "Blank paragraph should remain empty");
+	}
+
+	[Test]
+	public void ChangeListTypeShouldKeepParagraphBelow()
+	{
+		// List followed by a blank paragraph
+		var html = "<ul><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul><p></p>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(2), "Should start with list and blank paragraph");
+
+		// Change the list type to ordered
+		var list = (ListElement)document[0];
+		var range = document.GetRange(list.DocumentStart, list.DocumentStart + list.Length);
+		// Change type
+		range.ReplaceWithList(ListType.Ordered);
+
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after change");
+		Assert.That(document.Count, Is.EqualTo(2), "Should have list and blank paragraph");
+		Assert.That(document[0], Is.TypeOf<ListElement>(), "First element should be a list");
+		Assert.That(document[1], Is.TypeOf<ParagraphElement>(), "Second element should be the blank paragraph");
+		var orderedList = (ListElement)document[0];
+		Assert.That(orderedList.Count, Is.EqualTo(3), "List should have three items");
+		Assert.That(((TextElement)orderedList[0][0]).Text, Is.EqualTo("Item 1"));
+		Assert.That(((TextElement)orderedList[1][0]).Text, Is.EqualTo("Item 2"));
+		Assert.That(((TextElement)orderedList[2][0]).Text, Is.EqualTo("Item 3"));
+		var blankPara = (ParagraphElement)document[1];
+		Assert.That(blankPara.Count, Is.EqualTo(0), "Blank paragraph should have no inline elements");
+		Assert.That(blankPara.Text, Is.EqualTo(""), "Blank paragraph should remain empty");
 	}
 }

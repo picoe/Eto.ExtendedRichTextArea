@@ -208,9 +208,7 @@ public class DocumentRange
 			{
 				var block = inserted[i];
 				Document.InsertAt(insertAt, block);
-				insertAt += block.Length;
-				if (i < inserted.Count - 1)
-					insertAt += ((IBlockElement)Document).SeparatorLength;
+				insertAt += block.Length + ((IBlockElement)Document).SeparatorLength;
 			}
 
 			var insertedLength = Document.Length - (originalDocumentLength - Length);
@@ -219,6 +217,7 @@ public class DocumentRange
 		}
 		finally
 		{
+			Document.EnsureValid();
 			Document.EndEdit();
 		}
 	}
@@ -268,11 +267,9 @@ public class DocumentRange
 	{
 		var doc = Document;
 		doc.BeginEdit();
-		doc.EnsureValid();
-		int? start = null;
+		int? insertIndex = null;
 		int docStart = Start;
 		var selectionElements = GetElements(false).OfType<IBlockElement>().ToList();
-		doc.EnsureValid();
 
 		// Toggle off: if every selected block is already a ListElement of the requested type,
 		// convert all covered items back to plain paragraphs instead of re-wrapping them.
@@ -284,13 +281,11 @@ public class DocumentRange
 			for (int i = 0; i < selectionElements.Count; i++)
 			{
 				var existingList = (ListElement)selectionElements[i];
-				var elementStart = existingList.DocumentStart;
-				start ??= elementStart;
 
-				var listStart = i == 0 ? Start - elementStart : 0;
+				var listStart = i == 0 ? Start - existingList.DocumentStart : 0;
 				var listEnd = i == selectionElements.Count - 1 ? lastElementLength : existingList.Length;
+				var replacingEndOfList = listEnd == existingList.Length;
 				var listItems = existingList.Enumerate(listStart, listEnd, false, false).OfType<ListItemElement>().ToList();
-				doc.EnsureValid();
 
 				for (int i1 = 0; i1 < listItems.Count; i1++)
 				{
@@ -304,7 +299,6 @@ public class DocumentRange
 						{
 							doc.Insert(docIdx + 1, rightBlock);
 							existingList = (ListElement)rightBlock;
-							start = existingList.DocumentStart;
 						}
 					}
 
@@ -330,6 +324,7 @@ public class DocumentRange
 					}
 				}
 			}
+			doc.EnsureValid();
 
 			doc.EndEdit();
 			return;
@@ -345,11 +340,10 @@ public class DocumentRange
 			{
 				IBlockElement element = selectionElements[i];
 
-				var elementStart = element.DocumentStart; // only valid when i == 0
-				start ??= elementStart;
-
 				if (element is ParagraphElement para)
 				{
+					if (i == 0)
+						insertIndex ??= doc.IndexOf(element);
 					doc.Remove(element);
 
 					// Convert leading tabs to the list item indent level
@@ -378,10 +372,9 @@ public class DocumentRange
 				}
 				else if (element is ListElement existingList)
 				{
-					var listStart = i == 0 ? Start - elementStart : 0;
+					var listStart = i == 0 ? Start - element.DocumentStart : 0;
 					var listEnd = i == selectionElements.Count - 1 ? lastElementLength : existingList.Length;
 					var listElements = existingList.Enumerate(listStart, listEnd, false, false).OfType<ListItemElement>().ToList();
-					doc.EnsureValid();
 
 					for (int i1 = 0; i1 < listElements.Count; i1++)
 					{
@@ -395,24 +388,33 @@ public class DocumentRange
 							{
 								doc.Insert(docIdx + 1, rightBlock);
 								existingList = (ListElement)rightBlock;
-								start = existingList.DocumentStart;
 							}
 						}
 						existingList.Remove(item);
 						list.Add(item);
 					}
 					if (existingList.Count == 0)
+					{
+						if (i == 0)
+							insertIndex ??= doc.IndexOf(existingList);
 						doc.Remove(existingList);
+					}
 				}
 				else
 				{
+					if (i == 0)
+						insertIndex ??= doc.IndexOf(element);
 					doc.Remove(element);
 				}
 			}
 		}
 		if (list.Count == 0)
 			list.Add(new ListItemElement());
-		doc.InsertAt(start ?? Start, list);
+			
+		if (insertIndex != null)
+			doc.Insert(insertIndex.Value, list);
+		else
+			doc.InsertAt(Start, list);
 
 		// Merge with adjacent lists of the same type.
 		var listIdx = doc.IndexOf(list);

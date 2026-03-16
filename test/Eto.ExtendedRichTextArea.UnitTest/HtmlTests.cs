@@ -248,19 +248,18 @@ public class HtmlTests : TestBase
 	}
 
 	[Test]
-	public void HtmlDataObjectRoundtripShouldPreserveTabsAndBlankParagraphsWhenPastingAtCaret()
+	public void HtmlRoundtripShouldPreserveTabsAndBlankParagraphsWhenPastingAtCaret()
 	{
 		var source = new Document();
 		source.InsertText(0, "\tline 1\n\n\tline 3");
 
-		var dataObject = new DataObject();
-		DocumentFormat.Html.WriteDataObject(source.DocumentRange, dataObject);
+		var html = DocumentFormat.Html.SaveToString(source.DocumentRange);
 
 		var destination = new Document();
 		destination.InsertText(0, "prefix ");
 		var pasteRange = destination.GetRange(destination.Length, destination.Length);
 
-		var loaded = DocumentFormat.Html.ReadDataObject(pasteRange, dataObject);
+		var loaded = DocumentFormat.Html.LoadFromString(pasteRange, html);
 
 		Assert.That(loaded, Is.True);
 		Assert.That(destination.Text, Is.EqualTo("prefix \tline 1\n\n\tline 3"));

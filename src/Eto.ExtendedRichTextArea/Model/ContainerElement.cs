@@ -397,7 +397,7 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 
 	protected virtual IElement? Split(int start)
 	{
-		if (start >= Length)
+		if (start > Length)
 			return null;
 
 		ContainerElement<T> CreateNew()
@@ -469,7 +469,7 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 
 	public abstract int GetIndexAt(PointF point);
 
-	public IEnumerable<IElement> Enumerate(int start, int end, bool trim, bool includeChildren)
+	public IEnumerable<IElement> Enumerate(int start, int end, bool trim, bool recurse)
 	{
 		for (int i = 0; i < Count; i++)
 		{
@@ -503,11 +503,11 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 			}
 			yield return element;
 			
-			if (includeChildren)
+			if (recurse)
 			{
 				var elementStart = Math.Max(start - element.Start, 0);
 				var elementEnd = Math.Min(end - element.Start, element.Length);
-				foreach (var child in element.Enumerate(elementStart, elementEnd, trim, includeChildren))
+				foreach (var child in element.Enumerate(elementStart, elementEnd, trim, recurse))
 				{
 					yield return child;
 				}
