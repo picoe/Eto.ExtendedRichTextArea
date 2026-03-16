@@ -459,4 +459,94 @@ public class ListTests : TestBase
 		Assert.That(((MultipleListType)resultList.Type).Types[0], Is.TypeOf<NumericListType>(), "Result should be ordered/numeric");
 		Assert.That(resultList.Count, Is.EqualTo(2));
 	}
+
+	// ── tab ↔ indent-level round-trip tests ─────────────────────────────────
+
+	[Test]
+	public void ParagraphWithLeadingTabsShouldBecomeIndentedListItem()
+	{
+		// A paragraph starting with two tabs should become a level-2 list item with no leading tabs.
+		var document = new Document();
+		document.InsertText(0, "\t\tHello");
+		Assert.That(document.Count, Is.EqualTo(1));
+		Assert.That(document[0], Is.TypeOf<ParagraphElement>());
+
+		var range = document.GetRange(0, document.Length);
+		range.ReplaceWithList(ListType.Unordered);
+
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(1));
+		Assert.That(document[0], Is.TypeOf<ListElement>());
+		var list = (ListElement)document[0];
+		Assert.That(list.Count, Is.EqualTo(1));
+		var item = list[0];
+		Assert.That(item.Level, Is.EqualTo(2), "Level should be 2 from the two leading tabs");
+		Assert.That(((TextElement)item[0]).Text, Is.EqualTo("Hello"), "Leading tabs should have been removed from the text");
+	}
+
+	[Test]
+	public void ParagraphWithNoLeadingTabsShouldBecomeLevel0ListItem()
+	{
+		var document = new Document();
+		document.InsertText(0, "Hello");
+
+		var range = document.GetRange(0, document.Length);
+		range.ReplaceWithList(ListType.Unordered);
+
+		Assert.That(document.IsValid(), Is.True);
+		var list = (ListElement)document[0];
+		Assert.That(list[0].Level, Is.EqualTo(0));
+		Assert.That(((TextElement)list[0][0]).Text, Is.EqualTo("Hello"));
+	}
+
+	[Test]
+	public void IndentedListItemShouldBecomeTabPrefixedParagraphOnToggleOff()
+	{
+		// Build a level-2 item by converting a paragraph with two leading tabs.
+		var document = new Document();
+		document.InsertText(0, "\t\tWorld");
+
+		var range = document.GetRange(0, document.Length);
+		range.ReplaceWithList(ListType.Unordered);
+
+		Assert.That(document.IsValid(), Is.True);
+		var list = (ListElement)document[0];
+		Assert.That(list[0].Level, Is.EqualTo(2), "Should be a level-2 item after conversion");
+
+		// Toggle off
+		range = document.GetRange(list.DocumentStart, list.DocumentStart + list.Length);
+		range.ReplaceWithList(ListType.Unordered);
+
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(1));
+		Assert.That(document[0], Is.TypeOf<ParagraphElement>());
+		Assert.That(document[0], Is.Not.TypeOf<ListItemElement>());
+		Assert.That(document[0].Text, Is.EqualTo("\t\tWorld"), "Two leading tabs should have been prepended");
+	}
+
+	[Test]
+	public void TabToParagraphAndBackShouldRoundTrip()
+	{
+		// Paragraph with one leading tab → list item (level 1) → toggle off → back to paragraph with one tab.
+		var document = new Document();
+		document.InsertText(0, "\tFoo");
+
+		var range = document.GetRange(0, document.Length);
+		range.ReplaceWithList(ListType.Unordered);
+
+		Assert.That(document.IsValid(), Is.True);
+		var list = (ListElement)document[0];
+		Assert.That(list[0].Level, Is.EqualTo(1));
+		Assert.That(((TextElement)list[0][0]).Text, Is.EqualTo("Foo"));
+
+		// Toggle off
+		range = document.GetRange(list.DocumentStart, list.DocumentStart + list.Length);
+		range.ReplaceWithList(ListType.Unordered);
+
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(1));
+		Assert.That(document[0], Is.TypeOf<ParagraphElement>());
+		Assert.That(document[0], Is.Not.TypeOf<ListItemElement>());
+		Assert.That(document[0].Text, Is.EqualTo("\tFoo"), "Should round-trip back to the original text with leading tab");
+	}
 }

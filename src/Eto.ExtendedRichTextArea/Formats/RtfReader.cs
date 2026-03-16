@@ -34,6 +34,7 @@ internal class RtfReader
 		public int? FontIndex { get; set; }
 		public int? ForegroundColorIndex { get; set; }
 		public int? BackgroundColorIndex { get; set; }
+		public int? LeftIndentTwips { get; set; }
 
 		public StyleState Clone()
 		{
@@ -48,7 +49,8 @@ internal class RtfReader
 				FontSize = FontSize,
 				FontIndex = FontIndex,
 				ForegroundColorIndex = ForegroundColorIndex,
-				BackgroundColorIndex = BackgroundColorIndex
+				BackgroundColorIndex = BackgroundColorIndex,
+				LeftIndentTwips = LeftIndentTwips
 			};
 		}
 	}
@@ -277,6 +279,8 @@ internal class RtfReader
 			case GroupKind.ListItem:
 				var listItem = new ListItemElement();
 				listItem.AddRange(child.Inlines);
+				if (child.Style.LeftIndentTwips.HasValue && child.Style.LeftIndentTwips.Value >= 360)
+					listItem.Level = child.Style.LeftIndentTwips.Value / 360;
 				parent.Blocks.Add(listItem);
 				return;
 			case GroupKind.List:
@@ -918,6 +922,10 @@ internal class RtfReader
 			case "line":
 				if (!context.IgnoreDestination)
 					context.Text.Append(SpecialCharacters.SoftBreakCharacter);
+				return;
+			case "li":
+				if (value.HasValue)
+					context.Style.LeftIndentTwips = value.Value;
 				return;
 			case "tab":
 				if (!context.IgnoreDestination)

@@ -101,13 +101,13 @@ internal class HtmlReader
 					if (tagName == "ul" || tagName == "ol")
 					{
 						EnsureParagraphClosed(ref paragraph, topBlocks);
+						var newListType = tagName == "ol" ? ListType.Ordered : ListType.Unordered;
 						if (list == null)
 						{
-							list = new ListElement();
+							list = new ListElement { Type = newListType };
 							topBlocks.Add(list);
 						}
-						listTypeStack.Push(tagName == "ol" ? ListType.Ordered : ListType.Unordered);
-						list!.Type = listTypeStack.Peek();
+						listTypeStack.Push(newListType);
 						currentListLevel = listTypeStack.Count - 1;
 					}
 					else if (tagName == "li")

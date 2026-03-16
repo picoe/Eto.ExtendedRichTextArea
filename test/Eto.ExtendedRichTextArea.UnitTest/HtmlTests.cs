@@ -380,4 +380,95 @@ public class HtmlTests : TestBase
 		Assert.That(document.Count, Is.EqualTo(4));
 		Assert.That(document.Text, Is.EqualTo("        try\n        {\n            var x = 1;\n        }"));
 	}
+
+	// ── list indentation tests ──────────────────────────────────────────────
+
+	[Test]
+	public void HtmlWriterShouldWriteNestedListTagsForIndentedItems()
+	{
+		// Build a list with items at levels 0, 1, 2, 1, 0
+		var document = new Document();
+		DocumentFormat.Html.LoadFromString(document.DocumentRange, "<ul><li>A</li></ul>");
+		var list = (ListElement)document[0];
+		list[0].Level = 0;
+		list.Add(new ListItemElement { Level = 1 });
+		list[1].Add(new TextElement { Text = "B" });
+		list.Add(new ListItemElement { Level = 2 });
+		list[2].Add(new TextElement { Text = "C" });
+		list.Add(new ListItemElement { Level = 1 });
+		list[3].Add(new TextElement { Text = "D" });
+		list.Add(new ListItemElement { Level = 0 });
+		list[4].Add(new TextElement { Text = "E" });
+
+		var html = DocumentFormat.Html.SaveToString(document.DocumentRange);
+
+		// The written HTML should contain nested <ul> tags, not margin-left style
+		Assert.That(html, Does.Not.Contain("margin-left"));
+		Assert.That(html, Does.Contain("<ul>"), "Outer list tag expected");
+		// Nested <ul><li> pairs appear inside the outer list
+		var ulCount = System.Text.RegularExpressions.Regex.Matches(html, "<ul>").Count;
+		Assert.That(ulCount, Is.GreaterThanOrEqualTo(3), "Should have at least 3 nested <ul> openers");
+	}
+
+	[Test]
+	public void HtmlReaderShouldReadNestedListsAsLeveledItems()
+	{
+		var html = "<ul><li>A</li><ul><li>B</li><ul><li>C</li></ul><li>D</li></ul><li>E</li></ul>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+		Assert.That(document.IsValid(), Is.True);
+		Assert.That(document.Count, Is.EqualTo(1));
+
+		var list = (ListElement)document[0];
+		Assert.That(list.Count, Is.EqualTo(5));
+		Assert.That(list[0].Level, Is.EqualTo(0));
+		Assert.That(list[1].Level, Is.EqualTo(1));
+		Assert.That(list[2].Level, Is.EqualTo(2));
+		Assert.That(list[3].Level, Is.EqualTo(1));
+		Assert.That(list[4].Level, Is.EqualTo(0));
+		Assert.That(((TextElement)list[0][0]).Text, Is.EqualTo("A"));
+		Assert.That(((TextElement)list[2][0]).Text, Is.EqualTo("C"));
+		Assert.That(((TextElement)list[4][0]).Text, Is.EqualTo("E"));
+	}
+
+	[Test]
+	public void HtmlReaderShouldPreserveOuterListTypeWhenReadingNestedLists()
+	{
+		// Outer <ol> with nested <ol> — the outer type should be Ordered
+		var html = "<ol><li>A</li><ol><li>B</li></ol></ol>";
+		var document = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(document.DocumentRange, html), Is.True);
+
+		var list = (ListElement)document[0];
+		Assert.That(((MultipleListType)list.Type).Types[0], Is.TypeOf<NumericListType>(),
+			"Outer type should remain Ordered (numeric) after nested list is parsed");
+		Assert.That(list[0].Level, Is.EqualTo(0));
+		Assert.That(list[1].Level, Is.EqualTo(1));
+	}
+
+	[Test]
+	public void HtmlRoundtripShouldPreserveListIndentLevels()
+	{
+		// Build a document with an indented list via the round-trip path
+		var sourceHtml = "<ul><li>A</li><ul><li>B</li><ul><li>C</li></ul></ul><li>D</li></ul>";
+		var source = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(source.DocumentRange, sourceHtml), Is.True);
+
+		var serialized = DocumentFormat.Html.SaveToString(source.DocumentRange);
+
+		var destination = new Document();
+		Assert.That(DocumentFormat.Html.LoadFromString(destination.DocumentRange, serialized), Is.True);
+		Assert.That(destination.IsValid(), Is.True);
+
+		var list = (ListElement)destination[0];
+		Assert.That(list.Count, Is.EqualTo(4));
+		Assert.That(list[0].Level, Is.EqualTo(0));
+		Assert.That(list[1].Level, Is.EqualTo(1));
+		Assert.That(list[2].Level, Is.EqualTo(2));
+		Assert.That(list[3].Level, Is.EqualTo(0));
+		Assert.That(((TextElement)list[0][0]).Text, Is.EqualTo("A"));
+		Assert.That(((TextElement)list[1][0]).Text, Is.EqualTo("B"));
+		Assert.That(((TextElement)list[2][0]).Text, Is.EqualTo("C"));
+		Assert.That(((TextElement)list[3][0]).Text, Is.EqualTo("D"));
+	}
 }

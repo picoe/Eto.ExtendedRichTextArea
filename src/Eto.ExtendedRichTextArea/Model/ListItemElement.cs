@@ -137,7 +137,9 @@ public class ListItemElement : ParagraphElement
 	{
 		if (Parent is ListElement list)
 		{
-			return $"{list.Type.GetText(this)} {base.GetText()}";
+			// add tabs for indentation, and the bullet text for the list item
+			var tabs = new string('\t', Level);
+			return $"{tabs}{list.Type.GetText(this)} {base.GetText()}";
 		}
 		return base.GetText();
 	}

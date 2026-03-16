@@ -314,6 +314,11 @@ public class DocumentRange
 					var para = new ParagraphElement();
 					para.Attributes = item.Attributes?.Clone();
 					para.AddRange(item);
+
+					// Convert the list item indent level back to leading tabs
+					if (item.Level > 0)
+						para.Insert(0, new TextElement { Text = new string('\t', item.Level) });
+
 					doc.Insert(docInsertIdx, para);
 
 					// keep pointing at the (now smaller) list that trails the inserted paragraph
@@ -346,7 +351,30 @@ public class DocumentRange
 				if (element is ParagraphElement para)
 				{
 					doc.Remove(element);
-					list.Add(new ListItemElement(para));
+
+					// Convert leading tabs to the list item indent level
+					int level = 0;
+					while (para.Count > 0 && para[0] is TextElement firstText)
+					{
+						int t = 0;
+						while (t < firstText.Text.Length && firstText.Text[t] == '\t')
+							t++;
+						if (t == 0)
+							break;
+						level += t;
+						var remaining = firstText.Text.Substring(t);
+						if (remaining.Length == 0)
+							para.Remove(firstText);
+						else
+						{
+							firstText.Text = remaining;
+							break;
+						}
+					}
+
+					var listItem = new ListItemElement(para);
+					listItem.Level = level;
+					list.Add(listItem);
 				}
 				else if (element is ListElement existingList)
 				{

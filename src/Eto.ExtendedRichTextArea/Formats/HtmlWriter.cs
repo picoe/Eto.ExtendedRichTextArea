@@ -71,24 +71,42 @@ internal class HtmlWriter
 	void WriteList(ListElement list)
 	{
 		var tag = IsOrderedList(list) ? "ol" : "ul";
+		var currentLevel = 0;
 		_writer.Write('<');
 		_writer.Write(tag);
 		_writer.WriteLine(">");
 
 		foreach (var item in list)
 		{
-			_writer.Write("<li");
-			if (item.Level > 0)
+			// Open nested list tags when level increases
+			while (item.Level > currentLevel)
 			{
-				var margin = item.Level * 24;
-				_writer.Write(" style=\"margin-left:");
-				_writer.Write(margin.ToString(CultureInfo.InvariantCulture));
-				_writer.Write("px\"");
+				_writer.Write('<');
+				_writer.Write(tag);
+				_writer.WriteLine(">");
+				currentLevel++;
 			}
-			_writer.Write('>');
+			// Close nested list tags when level decreases
+			while (item.Level < currentLevel)
+			{
+				_writer.Write("</");
+				_writer.Write(tag);
+				_writer.WriteLine(">");
+				currentLevel--;
+			}
+			_writer.Write("<li>");
 			foreach (var inline in item)
 				WriteInline(inline);
 			_writer.WriteLine("</li>");
+		}
+
+		// Close any remaining open nested tags
+		while (currentLevel > 0)
+		{
+			_writer.Write("</");
+			_writer.Write(tag);
+			_writer.WriteLine(">");
+			currentLevel--;
 		}
 
 		_writer.Write("</");

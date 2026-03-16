@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 
 using Eto.Drawing;
+using Eto.ExtendedRichTextArea.Model;
 
 namespace Eto.ExtendedRichTextArea.UnitTest;
 
@@ -327,5 +328,66 @@ public class RtfTests : TestBase
 		Assert.That(redBoldItalicRun.ActualAttributes.Font.Italic, Is.True);
 		Assert.That(redBoldItalicRun.ActualAttributes.Foreground, Is.TypeOf<SolidBrush>());
 		Assert.That(((SolidBrush)redBoldItalicRun.ActualAttributes.Foreground!).Color, Is.EqualTo(Color.Parse("#EE0000")));
+	}
+
+	// ── list indentation tests ──────────────────────────────────────────────
+
+	[Test]
+	public void RtfWriterShouldWriteLiControlWordForIndentedListItems()
+	{
+		var document = new Document();
+		DocumentFormat.Html.LoadFromString(document.DocumentRange, "<ul><li>A</li><ul><li>B</li></ul></ul>");
+
+		var rtf = DocumentFormat.Rtf.SaveToString(document.DocumentRange);
+
+		// Level-1 item should produce \li360
+		Assert.That(rtf, Does.Contain(@"\li360"), "RTF should contain \\li360 for level-1 item");
+	}
+
+	[Test]
+	public void RtfReaderShouldSetLevelFromLiControlWord()
+	{
+		// Manually craft RTF with a listitem at \li360 (level 1)
+		var rtf = "{\\rtf1\\ansi\\ansicpg1252\\deff0"
+			+ "{\\fonttbl{\\f0 Arial;}}"
+			+ "{\\listtext"
+			+ "{\\listitem{\\pard{\\plain\\f0\\fs20 A}}}"
+			+ "{\\listitem\\li360{\\pard{\\plain\\f0\\fs20 B}}}"
+			+ "}";
+
+		var document = new Document();
+		Assert.That(DocumentFormat.Rtf.LoadFromString(document.DocumentRange, rtf), Is.True);
+		Assert.That(document.Count, Is.EqualTo(1));
+
+		var list = (ListElement)document[0];
+		Assert.That(list.Count, Is.EqualTo(2));
+		Assert.That(list[0].Level, Is.EqualTo(0), "First item should be level 0");
+		Assert.That(list[1].Level, Is.EqualTo(1), "Item with \\li360 should be level 1");
+		Assert.That(((TextElement)list[0][0]).Text, Is.EqualTo("A"));
+		Assert.That(((TextElement)list[1][0]).Text, Is.EqualTo("B"));
+	}
+
+	[Test]
+	public void RtfRoundtripShouldPreserveListIndentLevels()
+	{
+		// Build via HTML then roundtrip through RTF
+		var source = new Document();
+		DocumentFormat.Html.LoadFromString(source.DocumentRange, "<ul><li>A</li><ul><li>B</li><ul><li>C</li></ul></ul><li>D</li></ul>");
+
+		var rtf = DocumentFormat.Rtf.SaveToString(source.DocumentRange);
+		var destination = new Document();
+		Assert.That(DocumentFormat.Rtf.LoadFromString(destination.DocumentRange, rtf), Is.True);
+		Assert.That(destination.IsValid(), Is.True);
+
+		var list = (ListElement)destination[0];
+		Assert.That(list.Count, Is.EqualTo(4));
+		Assert.That(list[0].Level, Is.EqualTo(0));
+		Assert.That(list[1].Level, Is.EqualTo(1));
+		Assert.That(list[2].Level, Is.EqualTo(2));
+		Assert.That(list[3].Level, Is.EqualTo(0));
+		Assert.That(((TextElement)list[0][0]).Text, Is.EqualTo("A"));
+		Assert.That(((TextElement)list[1][0]).Text, Is.EqualTo("B"));
+		Assert.That(((TextElement)list[2][0]).Text, Is.EqualTo("C"));
+		Assert.That(((TextElement)list[3][0]).Text, Is.EqualTo("D"));
 	}
 }
