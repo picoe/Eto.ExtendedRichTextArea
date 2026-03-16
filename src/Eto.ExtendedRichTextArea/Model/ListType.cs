@@ -35,6 +35,11 @@ public abstract class ListType
 	{
 		return obj?.GetType().Equals(GetType()) ?? false;
 	}
+
+	public override int GetHashCode()
+	{
+		return GetType().GetHashCode();
+	}
 }
 
 public class MultipleListType : ListType
