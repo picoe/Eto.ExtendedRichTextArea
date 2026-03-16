@@ -138,6 +138,8 @@ class TextAreaDrawable : Drawable
 		if (Selection?.Length > 0 && (AlwaysShowSelection || HasFocus))
 			e.NewAttributes.Add(new AttributeRange(Selection.Start, Selection.End, HighlightAttributes));
 	}
+	
+	public event EventHandler<EventArgs>? DocumentChanged;
 
 	private void Document_Changed(object? sender, EventArgs e)
 	{
@@ -151,6 +153,8 @@ class TextAreaDrawable : Drawable
 		// Shouldn't be needed after https://github.com/picoe/Eto/pull/2709
 		if (Platform.IsWpf)
 			_parentScrollable?.UpdateScrollSizes();
+		
+		DocumentChanged?.Invoke(this, EventArgs.Empty);
 	}
 
 	internal CaretBehavior Caret => _caret;

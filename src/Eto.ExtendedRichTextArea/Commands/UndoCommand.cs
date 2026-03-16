@@ -10,7 +10,7 @@ class UndoCommand : Command
 		_textArea = textArea;
 		MenuText = Application.Instance.Localize(typeof(ExtendedRichTextArea), "Undo");
 		Shortcut = Application.Instance.CommonModifier | Keys.Z;
-		textArea.Document.Changed += Document_Changed;
+		textArea.DocumentChanged += Document_Changed;
 	}
 
 	public override bool Enabled

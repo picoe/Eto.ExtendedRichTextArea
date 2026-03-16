@@ -13,7 +13,7 @@ class RedoCommand : Command
 			Shortcut = Application.Instance.CommonModifier | Keys.Shift | Keys.Z;
 		else
 			Shortcut = Application.Instance.CommonModifier | Keys.Y;
-		textArea.Document.Changed += Document_Changed;
+		textArea.DocumentChanged += Document_Changed;
 	}
 
 	public override bool Enabled
