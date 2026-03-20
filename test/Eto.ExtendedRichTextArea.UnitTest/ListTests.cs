@@ -144,6 +144,34 @@ public class ListTests : TestBase
     }
 
 	[Test]
+	public void BackspaceOnEmptyLastListItemShouldNotLeaveTrailingList()
+	{
+		var html = "<ul><li>Item 1</li><li></li></ul>";
+		var document = new Document();
+		var loaded = DocumentFormat.Html.LoadFromString(document.DocumentRange, html);
+		Assert.That(loaded, Is.True);
+		Assert.That(document.IsValid(), Is.True, "Document should be valid");
+		Assert.That(document.Count, Is.EqualTo(1), "Should start with one list block");
+
+		((IElement)document).OnKeyDown(7, 7, new KeyEventArgs(Keys.Backspace, KeyEventType.KeyDown));
+
+		Assert.That(document.IsValid(), Is.True, "Document should be valid after backspace");
+		Assert.That(document.Count, Is.EqualTo(2), "Should have one list and one empty paragraph");
+		Assert.That(document[0], Is.TypeOf<ListElement>(), "First block should remain a list");
+		Assert.That(document[1], Is.TypeOf<ParagraphElement>(), "Second block should be the converted empty paragraph");
+		Assert.That(document.Text, Is.EqualTo("• Item 1\n"));
+		Assert.That(document.Length, Is.EqualTo(7));
+
+		var list = (ListElement)document[0];
+		Assert.That(list.Count, Is.EqualTo(1), "List should contain only the first item");
+		Assert.That(((TextElement)list[0][0]).Text, Is.EqualTo("Item 1"));
+
+		var paragraph = (ParagraphElement)document[1];
+		Assert.That(paragraph.Count, Is.EqualTo(0), "Converted paragraph should remain empty");
+		Assert.That(paragraph.Text, Is.EqualTo(string.Empty));
+	}
+
+	[Test]
 	public void ReplaceSecondListItemWithOrderedListShouldWork()
 	{
 		// Create an unordered (bulleted) list with three items

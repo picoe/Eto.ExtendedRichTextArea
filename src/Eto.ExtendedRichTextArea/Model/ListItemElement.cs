@@ -76,23 +76,29 @@ public class ListItemElement : ParagraphElement
 			if (doc != null && Parent is ListElement list)
 			{
 				doc.BeginEdit();
-				var listIndex = list.Parent?.IndexOf(list) ?? -1;
-				if (listIndex >= 0)
+				var parent = list.Parent;
+				var listIndex = parent?.IndexOf(list) ?? -1;
+				var itemIndex = list.IndexOf(this);
+				if (listIndex >= 0 && itemIndex >= 0)
 				{
-					if (Start > 0)
+					var listToRemoveFrom = list;
+					if (itemIndex > 0)
 					{
-						var right = Parent.Split(End);// + Parent.SeparatorLength);
+						var right = Parent.Split(Start) as ListElement;
 						if (right != null)
 						{
-							list.Parent?.Insert(listIndex + 1, right);
+							parent?.Insert(listIndex + 1, right);
+							listToRemoveFrom = right;
+							listIndex++;
 						}
-						listIndex++;
 					}
-					list.Remove(this);
+					listToRemoveFrom.Remove(this);
+					if (listToRemoveFrom.Count == 0)
+						parent?.Remove(listToRemoveFrom);
 
 					var para = new ParagraphElement();
 					para.AddRange(this);
-					list.Parent?.Insert(listIndex, para);
+					parent?.Insert(listIndex, para);
 					args.Handled = true;
 				}
 
