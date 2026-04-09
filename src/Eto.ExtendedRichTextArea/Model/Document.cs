@@ -429,7 +429,7 @@ public class Document : BlockContainerElement<IBlockElement>
 		newAttributes = args.NewAttributes;
 	}
 
-	internal float GetNextTabStop(float x) => TabStops?.GetNextTabStop(x) ?? FixedTabStops.DefaultTabStop - (int)x % FixedTabStops.DefaultTabStop;
+	internal float GetNextTabStop(float x) => TabStops?.GetNextTabStop(x) ?? (x + FixedTabStops.DefaultTabStop - x % FixedTabStops.DefaultTabStop);
 
 	protected override ContainerElement<IBlockElement> Clone()
 	{

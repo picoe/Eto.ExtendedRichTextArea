@@ -25,7 +25,8 @@ public class FixedTabStops : TabStopsType
 
 	public override float GetNextTabStop(float x)
 	{
-		return x + Interval - (int)x % Interval;
+		float overflow = x % Interval;
+		return x + Interval - overflow;
 	}
 }
 
@@ -52,7 +53,7 @@ public class CustomTabStops : TabStopsType
 			if (tab > x)
 				return tab;
 		}
-		return x + DefaultInterval - (int)x % DefaultInterval;
+		return x + DefaultInterval - x % DefaultInterval;
 	}
 }
 
