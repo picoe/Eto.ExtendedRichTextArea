@@ -39,6 +39,18 @@ class KeyboardBehavior
 			_textArea.MapPlatformCommand(macPlatformCommand, command);
 	}
 
+	int GetPreviousCaretIndex()
+	{
+		var text = Document.Text;
+		return TextBoundary.GetPreviousScalarStart(text, _caret.Index);
+	}
+
+	int GetNextCaretIndex()
+	{
+		var text = Document.Text;
+		return TextBoundary.GetNextScalarEnd(text, _caret.Index);
+	}
+
 
 	private void TextArea_KeyDown_Navigation(object? sender, KeyEventArgs e)
 	{
@@ -79,7 +91,7 @@ class KeyboardBehavior
 						_textArea.SetSelection(null, true);
 					}
 					else
-						_caret.SetIndex(Math.Max(0, _caret.Index - 1), true);
+						_caret.SetIndex(GetPreviousCaretIndex(), true);
 					e.Handled = true;
 					break;
 				case Keys.Right:
@@ -89,7 +101,7 @@ class KeyboardBehavior
 						_textArea.SetSelection(null, true);
 					}
 					else
-						_caret.SetIndex(Math.Min(_textArea.Document.Length, _caret.Index + 1), true);
+						_caret.SetIndex(GetNextCaretIndex(), true);
 					e.Handled = true;
 					break;
 				case Keys.Up:
@@ -259,8 +271,9 @@ class KeyboardBehavior
 				else if (_caret.Index > 0)
 				{
 					var index = _caret.Index;
-					_textArea.Document.RemoveAt(index - 1, 1);
-					_caret.SetIndex(index - 1, false);
+					var start = GetPreviousCaretIndex();
+					_textArea.Document.RemoveAt(start, index - start);
+					_caret.SetIndex(start, false);
 					_textArea.SetSelection(null, true);
 				}
 				e.Handled = true;
@@ -275,7 +288,8 @@ class KeyboardBehavior
 				}
 				else if (_caret.Index < _textArea.Document.Length)
 				{
-					_textArea.Document.RemoveAt(_caret.Index, 1);
+					var end = GetNextCaretIndex();
+					_textArea.Document.RemoveAt(_caret.Index, end - _caret.Index);
 					_textArea.SetSelection(null, true);
 				}
 				e.Handled = true;

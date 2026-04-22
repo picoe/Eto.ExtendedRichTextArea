@@ -95,13 +95,7 @@ public class ExtendedRichTextArea : Scrollable
 			return;
 		_lastSelectionAttributes = _selectionAttributes.Clone();
 
-		UpdateSelectionAttributes();
-	}
-
-	private void UpdateSelectionAttributes()
-	{
-		if (_selectionAttributes != null)
-			_drawable.Selection.Attributes = _selectionAttributes;
+		_drawable.UpdateSelectionAttributes(_selectionAttributes);
 	}
 
 	/// <summary>

@@ -10,6 +10,7 @@ public class DocumentState
 {
 	readonly Document _document;
 	bool _isPerformingUndoRedo;
+	int _suspendTrackingCount;
 	readonly FixedSizeStack<DocumentSnapshot> _undoStack;
 	readonly FixedSizeStack<DocumentSnapshot> _redoStack;
 
@@ -34,8 +35,9 @@ public class DocumentState
 	/// </summary>
 	public Action<object?>? RestoreExtraPost { get; set; }
 
-	public bool CanUndo => _undoStack.Count > 0;
-	public bool CanRedo => _redoStack.Count > 0;
+	public bool CanUndo => !IsTrackingSuspended && _undoStack.Count > 0;
+	public bool CanRedo => !IsTrackingSuspended && _redoStack.Count > 0;
+	public bool IsTrackingSuspended => _suspendTrackingCount > 0;
 
 	public DocumentState(Document document, int maxUndoRedoStackSize = 100)
 	{
@@ -53,24 +55,36 @@ public class DocumentState
 	/// </summary>
 	public void SaveState()
 	{
-		if (_isPerformingUndoRedo)
+		if (_isPerformingUndoRedo || IsTrackingSuspended)
 			return;
 		_undoStack.Push(Capture());
 		_redoStack.Clear();
 	}
 
-	DocumentSnapshot Capture() =>
+	/// <summary>
+	/// Suspends undo/redo availability and automatic state capture until the returned scope is disposed.
+	/// </summary>
+	public IDisposable SuspendTracking()
+	{
+		_suspendTrackingCount++;
+		return new TrackingSuspension(this);
+	}
+
+	internal DocumentSnapshot Capture() =>
 		new DocumentSnapshot(
 			_document.Select(e => (IBlockElement)e.Clone()).ToList(),
 			_document.Attributes?.Clone(),
 			CaptureExtra?.Invoke());
 
-	void RestoreSnapshot(DocumentSnapshot snapshot)
+	internal void RestoreSnapshot(DocumentSnapshot snapshot, bool cloneElements = false)
 	{
 		_document.BeginEdit();
 		_document.Attributes = snapshot.DocumentAttributes;
 		_document.Clear();
-		_document.AddRange(snapshot.Elements);
+		if (cloneElements)
+			_document.AddRange(snapshot.Elements.Select(e => (IBlockElement)e.Clone()));
+		else
+			_document.AddRange(snapshot.Elements);
 		RestoreExtra?.Invoke(snapshot.ExtraState);
 		_document.EndEdit();
 		RestoreExtraPost?.Invoke(snapshot.ExtraState);
@@ -118,7 +132,25 @@ public class DocumentState
 		_isPerformingUndoRedo = false;
 	}
 
-	readonly struct DocumentSnapshot
+	sealed class TrackingSuspension : IDisposable
+	{
+		DocumentState? _state;
+
+		public TrackingSuspension(DocumentState state)
+		{
+			_state = state;
+		}
+
+		public void Dispose()
+		{
+			if (_state == null)
+				return;
+			_state._suspendTrackingCount = Math.Max(0, _state._suspendTrackingCount - 1);
+			_state = null;
+		}
+	}
+
+	internal readonly struct DocumentSnapshot
 	{
 		internal DocumentSnapshot(List<IBlockElement> elements, Attributes? documentAttributes, object? extraState)
 		{

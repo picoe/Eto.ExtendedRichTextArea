@@ -246,6 +246,52 @@ public class UndoRedoTests : TestBase
 		Assert.That(state.Undo(), Is.False);
 	}
 
+	[Test]
+	public void SuspendedTrackingShouldSkipCapturesAndDisableUndoRedo()
+	{
+		var document = new Document();
+		var state = CreateState(document);
+
+		document.InsertText(0, "Hello");
+		Assert.That(state.CanUndo, Is.True);
+
+		using (state.SuspendTracking())
+		{
+			Assert.That(state.IsTrackingSuspended, Is.True);
+			Assert.That(state.CanUndo, Is.False);
+			Assert.That(state.CanRedo, Is.False);
+
+			document.InsertText(document.Length, " World");
+			Assert.That(state.Undo(), Is.False);
+			Assert.That(state.Redo(), Is.False);
+		}
+
+		Assert.That(state.IsTrackingSuspended, Is.False);
+		Assert.That(document.Text, Is.EqualTo("Hello World"));
+		Assert.That(state.CanUndo, Is.True);
+
+		state.Undo();
+		Assert.That(document.Text, Is.EqualTo(""));
+	}
+
+	[Test]
+	public void SuspendedTrackingShouldBeNestable()
+	{
+		var document = new Document();
+		var state = CreateState(document);
+
+		using (state.SuspendTracking())
+		using (state.SuspendTracking())
+		{
+			document.InsertText(0, "Hello");
+			Assert.That(state.IsTrackingSuspended, Is.True);
+		}
+
+		Assert.That(state.IsTrackingSuspended, Is.False);
+		Assert.That(state.CanUndo, Is.False);
+		Assert.That(document.Text, Is.EqualTo("Hello"));
+	}
+
 	// ── multiline ────────────────────────────────────────────────────────────
 
 	[Test]

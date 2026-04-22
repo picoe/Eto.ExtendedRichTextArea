@@ -6,7 +6,7 @@ using Eto.ExtendedRichTextArea.Commands;
 
 namespace Eto.ExtendedRichTextArea;
 
-class TextAreaDrawable : Drawable
+partial class TextAreaDrawable : Drawable
 {
 	Document? _document;
 	Document? _placeholder;
@@ -22,7 +22,7 @@ class TextAreaDrawable : Drawable
 	bool _readOnly;
 
 	DocumentState? _documentState;
-	public DocumentState DocumentState => _documentState!;
+	public DocumentState? DocumentState => _documentState;
 
 	public Document? Placeholder
 	{
@@ -175,6 +175,20 @@ class TextAreaDrawable : Drawable
 		public Point ScrollPosition { get; }
 	}
 
+	private sealed class CompositionState
+	{
+		public CompositionState(List<IBlockElement> elements, Attributes? documentAttributes, ExtraState extraState)
+		{
+			Elements = elements;
+			DocumentAttributes = documentAttributes;
+			ExtraState = extraState;
+		}
+
+		public List<IBlockElement> Elements { get; }
+		public Attributes? DocumentAttributes { get; }
+		public ExtraState ExtraState { get; }
+	}
+
 	DocumentState CreateDocumentState(Document doc)
 	{
 		var state = new DocumentState(doc);
@@ -324,9 +338,9 @@ class TextAreaDrawable : Drawable
 
 	public RectangleF CaretBounds => _caret.CaretBounds;
 
-	public bool CanUndo => DocumentState.CanUndo;
+	public bool CanUndo => DocumentState?.CanUndo ?? false;
 
-	public bool CanRedo => DocumentState.CanRedo;
+	public bool CanRedo => DocumentState?.CanRedo ?? false;
 
 	public bool AlwaysShowSelection { get; internal set; }
 	public void SetAvailableSize(Size size)
@@ -339,7 +353,9 @@ class TextAreaDrawable : Drawable
 
 	public bool Undo()
 	{
-		if (!DocumentState.Undo())
+		if (_isComposingText)
+			CancelTextComposition();
+		if (DocumentState == null || !DocumentState.Undo())
 			return false;
 		Invalidate(false);
 		return true;
@@ -347,7 +363,9 @@ class TextAreaDrawable : Drawable
 
 	public bool Redo()
 	{
-		if (!DocumentState.Redo())
+		if (_isComposingText)
+			CancelTextComposition();
+		if (DocumentState == null || !DocumentState.Redo())
 			return false;
 		Invalidate(false);
 		return true;
@@ -388,5 +406,4 @@ class TextAreaDrawable : Drawable
 		if (!AlwaysShowSelection)
 			Invalidate();
 	}
-
 }
