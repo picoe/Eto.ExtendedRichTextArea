@@ -86,8 +86,9 @@ public abstract class TextListType : ListType
 {
 	public override void Paint(ListItemElement list, Graphics graphics, RectangleF bounds)
 	{
-		// Draw bullet points for unordered lists
-		var font = list.ActualAttributes.Font ?? Document.GetDefaultFont();
+		// Bullets are structural list decorations, so use BaseFont to avoid
+		// inheriting Superscript/Subscript size scaling from the item's runs.
+		var font = list.ActualAttributes.BaseFont ?? Document.GetDefaultFont();
 		var text = GetText(list);
 		var textSize = graphics.MeasureString(font, text);
 		var bulletBounds = new RectangleF(
@@ -211,8 +212,9 @@ public class NumericListType : ListType
 
 	public override void Paint(ListItemElement list, Graphics graphics, RectangleF bounds)
 	{
-		// Draw numbers for ordered lists
-		var font = list.ActualAttributes.Font ?? Document.GetDefaultFont();
+		// Numbers are structural list decorations, so use BaseFont to avoid
+		// inheriting Superscript/Subscript size scaling from the item's runs.
+		var font = list.ActualAttributes.BaseFont ?? Document.GetDefaultFont();
 		var numberText = GetText(list);
 		var textSize = graphics.MeasureString(font, numberText);
 		var numberBounds = new RectangleF(
