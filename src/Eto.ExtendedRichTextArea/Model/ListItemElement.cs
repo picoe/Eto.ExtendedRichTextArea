@@ -26,16 +26,39 @@ public class ListItemElement : ParagraphElement
 
 	public int Index { get; internal set; }
 
-	float Indent => (Parent as ListElement)?.Type.Indent * (Level + 1) ?? 0;
+	// The list indent scales with the item's font size so the bullet/number slot
+	// grows with the text. The editor zoom enlarges text by scaling the
+	// runs' font sizes; with a fixed indent the (now wider) bullet/number overflows
+	// its slot -- TextListType/NumericListType center it in the slot, so a slot
+	// narrower than the text yields a negative offset (drawn too far left) and the
+	// glyphs spill into the item text (overlap). Type.Indent is the nominal indent
+	// at the default font size; clamped so it never shrinks below the nominal.
+	float IndentScale
+	{
+		get
+		{
+			var defaultSize = Document.GetDefaultFont().Size;
+			if (defaultSize <= 0)
+				return 1f;
+			var size = ActualAttributes?.BaseFont?.Size ?? defaultSize;
+			var scale = size / defaultSize;
+			return scale < 1f ? 1f : scale;
+		}
+	}
+
+	float IndentUnit => ((Parent as ListElement)?.Type.Indent ?? 0) * IndentScale;
+
+	float Indent => IndentUnit * (Level + 1);
 
 	public override void Paint(Graphics graphics, RectangleF clipBounds)
 	{
 		if (Parent is ListElement list)
 		{
+			var indentUnit = IndentUnit;
 			var bulletBounds = new RectangleF(
-				Bounds.X + list.Type.Indent * Level,
+				Bounds.X + indentUnit * Level,
 				Bounds.Y,
-				list.Type.Indent,
+				indentUnit,
 				Bounds.Height
 			);
 			list.Type.Paint(this, graphics, bulletBounds);
