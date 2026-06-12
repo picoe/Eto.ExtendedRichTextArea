@@ -8,6 +8,7 @@ public class TextElement : IInlineElement
 {
 	FormattedText? _formattedText;
 	SizeF? _measureSize;
+	string? _measuredTypefaceKey;
 	string? _text;
 	Attributes? _attributes;
 
@@ -351,14 +352,53 @@ public class TextElement : IInlineElement
 		}
 	}
 
+	// If the document supplies a display-font substitution and this run's resolved font
+	// should be swapped (e.g. an unrenderable single-stroke font shown with a stand-in),
+	// return a CLONE of the resolved attributes carrying the substitute typeface, so that
+	// width, baseline, line height and painting ALL derive from the stand-in font. The
+	// element's own attributes are never touched, so the real font is preserved for
+	// save / round-trip. Returns the input unchanged when no substitution applies.
+	Attributes SubstituteDisplayAttributes(Attributes resolved)
+	{
+		var substitute = this.GetDocument()?.DisplayFontSubstitution;
+		if (substitute == null)
+			return resolved;
+		var realFont = resolved.Font;
+		if (realFont == null)
+			return resolved;
+		var displayFont = substitute(realFont);
+		if (displayFont == null || ReferenceEquals(displayFont, realFont))
+			return resolved;
+		// Clone first: Merge(...) may return the element's own attributes or the shared
+		// default attributes, neither of which may be mutated (that would change the
+		// saved font and affect other runs). Setting Typeface keeps size and decoration.
+		var clone = resolved.Clone();
+		clone.Typeface = displayFont.Typeface;
+		return clone;
+	}
+
 	public SizeF Measure(Attributes defaultAttributes, SizeF availableSize, int start, int length, out float baseline)
 	{
 		_documentStart = null;
 		_formattedText ??= new FormattedText { Text = Text };
 		_resolvedAttributes = defaultAttributes.Merge(Attributes, false);
+		_resolvedAttributes = SubstituteDisplayAttributes(_resolvedAttributes);
 		_resolvedAttributes.Apply(_formattedText);
 		baseline = _resolvedAttributes.Baseline ?? 0;
 		var lineHeight = _resolvedAttributes.LineHeight ?? 0;
+
+		// Drop a stale cached size when the resolved typeface changed since it was last
+		// measured (e.g. a display-font substitution became active only after the first
+		// measure during document build) - otherwise a substituted run keeps the original
+		// font's (narrower) width and the following run overlaps it.
+		var resolvedTypefaceKey = _resolvedAttributes.Typeface == null
+			? null
+			: _resolvedAttributes.Typeface.Family?.Name + "|" + _resolvedAttributes.Typeface.Name;
+		if (_measuredTypefaceKey != resolvedTypefaceKey)
+		{
+			_measureSize = null;
+			_measuredTypefaceKey = resolvedTypefaceKey;
+		}
 		
 
 		if (start > 0 || length < Text.Length)

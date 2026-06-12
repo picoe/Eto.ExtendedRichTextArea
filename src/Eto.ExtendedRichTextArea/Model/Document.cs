@@ -422,6 +422,17 @@ public class Document : BlockContainerElement<IBlockElement>
 
 	public event EventHandler<OverrideAttributesEventArgs>? OverrideAttributes;
 
+	/// <summary>
+	/// Optional hook to substitute the font used to MEASURE and PAINT a run, without
+	/// changing the run's stored attributes (its identity). Given the font a run would
+	/// otherwise be drawn with, return a replacement font to display instead, or the
+	/// same font (or null) to leave it unchanged. Because the substitution feeds both
+	/// layout and painting, the caret and selection stay aligned with the glyphs.
+	/// The host sets this to render fonts the platform can't draw (e.g. single-stroke /
+	/// engraving fonts) with a legible stand-in while the document keeps the real font.
+	/// </summary>
+	public Func<Font, Font>? DisplayFontSubstitution { get; set; }
+
 	internal void TriggerOverrideAttributes(Line line, Chunk chunk, Attributes attributes, out List<AttributeRange>? newAttributes)
 	{
 		var args = new OverrideAttributesEventArgs(line, chunk, attributes);

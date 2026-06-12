@@ -24,7 +24,44 @@ public class ExtendedRichTextArea : Scrollable
 		set
 		{
 			_drawable.Document = value;
+			if (value != null)
+			{
+				value.DisplayFontSubstitution = _displayFontSubstitution;
+				// The document is built and measured BEFORE it is assigned here, so a
+				// display-font substitution (which only takes effect during Measure) was
+				// not yet in effect for that initial layout. Re-measure now that the hook
+				// is attached so substituted runs lay out (and therefore paint) with the
+				// stand-in font. An unshown host gets this for free from its first
+				// show/size pass; an already-sized host (e.g. the properties panel) would
+				// otherwise never re-measure and would paint the stale (un-substituted) layout.
+				if (_displayFontSubstitution != null)
+					value.MeasureIfNeeded();
+			}
 			DocumentChanged?.Invoke(this, EventArgs.Empty);
+		}
+	}
+
+	Func<Font, Font>? _displayFontSubstitution;
+
+	/// <summary>
+	/// Optional hook to substitute the font used to display (measure and paint) a run,
+	/// without changing the run's stored font. Set once on the control; it is forwarded
+	/// to the current document and to every document subsequently assigned, so it
+	/// survives the document being rebuilt. See <see cref="Document.DisplayFontSubstitution"/>.
+	/// </summary>
+	public Func<Font, Font>? DisplayFontSubstitution
+	{
+		get => _displayFontSubstitution;
+		set
+		{
+			_displayFontSubstitution = value;
+			if (_drawable.Document != null)
+			{
+				_drawable.Document.DisplayFontSubstitution = value;
+				// Setting the hook after a document already exists also needs a re-measure
+				// so the change takes effect (substitution is applied during Measure).
+				_drawable.Document.MeasureIfNeeded();
+			}
 		}
 	}
 	
