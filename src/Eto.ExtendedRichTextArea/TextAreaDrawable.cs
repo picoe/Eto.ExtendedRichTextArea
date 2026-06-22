@@ -1,8 +1,11 @@
 using Eto.Forms;
 using Eto.Drawing;
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Eto.ExtendedRichTextArea.Model;
 using Eto.ExtendedRichTextArea.Commands;
+using Eto.ExtendedRichTextArea.SpellCheck;
 
 namespace Eto.ExtendedRichTextArea;
 
@@ -23,6 +26,24 @@ partial class TextAreaDrawable : Drawable
 
 	DocumentState? _documentState;
 	public DocumentState? DocumentState => _documentState;
+
+	// Overlays painted after the text and before the caret (e.g. spell-check squiggles). The
+	// collection repaints the control whenever it changes, so callers just add/remove entries.
+	sealed class AdornmentCollection : Collection<ITextAdornment>
+	{
+		readonly TextAreaDrawable _owner;
+		public AdornmentCollection(TextAreaDrawable owner) => _owner = owner;
+		protected override void InsertItem(int index, ITextAdornment item) { base.InsertItem(index, item); _owner.Invalidate(false); }
+		protected override void SetItem(int index, ITextAdornment item) { base.SetItem(index, item); _owner.Invalidate(false); }
+		protected override void RemoveItem(int index) { base.RemoveItem(index); _owner.Invalidate(false); }
+		protected override void ClearItems() { base.ClearItems(); _owner.Invalidate(false); }
+	}
+
+	/// <summary>
+	/// Overlays painted on top of the text (after it, before the caret) — e.g. spell-check squiggles.
+	/// Adding or removing an entry repaints the control automatically.
+	/// </summary>
+	public Collection<ITextAdornment> Adornments { get; }
 
 	public Document? Placeholder
 	{
@@ -85,6 +106,7 @@ partial class TextAreaDrawable : Drawable
 		{
 			lastAlwaysShowSelection = AlwaysShowSelection;
 			AlwaysShowSelection = true;
+			UpdateSpellSuggestions(menu);
 		};
 		menu.Closed += (sender, e) =>
 		{
@@ -107,7 +129,37 @@ partial class TextAreaDrawable : Drawable
 		}
 		ContextMenu = menu;
 	}
-	
+
+	List<MenuItem>? _injectedSpellItems;
+
+	// Inject spelling/grammar suggestions for the word at the caret (right-click moves the caret to
+	// the clicked position) at the top of the context menu, removing any from a previous open.
+	void UpdateSpellSuggestions(ContextMenu menu)
+	{
+		if (_injectedSpellItems != null)
+		{
+			foreach (var item in _injectedSpellItems)
+				menu.Items.Remove(item);
+			_injectedSpellItems = null;
+		}
+
+		if (ReadOnly)
+			return;
+		var controller = _textArea.SpellCheckController;
+		if (controller == null)
+			return;
+
+		var suggestions = controller.CreateSuggestionMenuItems(_caret.Index);
+		if (suggestions.Count == 0)
+			return;
+
+		var injected = new List<MenuItem>(suggestions);
+		injected.Add(new SeparatorMenuItem());
+		for (int i = 0; i < injected.Count; i++)
+			menu.Items.Insert(i, injected[i]);
+		_injectedSpellItems = injected;
+	}
+
 	public bool ReadOnly
 	{
 		get => _readOnly;
@@ -216,6 +268,7 @@ partial class TextAreaDrawable : Drawable
 		_caret = new CaretBehavior(this);
 		_keyboard = new KeyboardBehavior(this, _caret);
 		_mouse = new MouseBehavior(this, _caret);
+		Adornments = new AdornmentCollection(this);
 		CanFocus = true;
 	}
 
@@ -330,8 +383,11 @@ partial class TextAreaDrawable : Drawable
 		{
 			document.ScreenScale = screen.Scale;
 			document.Paint(e.Graphics, clip);
+
+			for (int i = 0; i < Adornments.Count; i++)
+				Adornments[i].Paint(document, e.Graphics, clip);
 		}
-			
+
 		_caret.Paint(e);
 	}
 

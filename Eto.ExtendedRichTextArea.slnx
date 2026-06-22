@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Eto.ExtendedRichTextArea.Mac/Eto.ExtendedRichTextArea.macOS.csproj" />
+    <Project Path="src/Eto.ExtendedRichTextArea.Mac/Eto.ExtendedRichTextArea.Mac64.csproj" />
+    <Project Path="src/Eto.ExtendedRichTextArea.Wpf/Eto.ExtendedRichTextArea.Wpf.csproj" />
+  </Folder>
+  <Project Path="src/Eto.ExtendedRichTextArea/Eto.ExtendedRichTextArea.csproj" />
+  <Project Path="test/Eto.ExtendedRichTextArea.TestApp.Gtk/Eto.ExtendedRichTextArea.TestApp.Gtk.csproj" />
+  <Project Path="test/Eto.ExtendedRichTextArea.TestApp.Mac/Eto.ExtendedRichTextArea.TestApp.Mac64.csproj" />
+  <Project Path="test/Eto.ExtendedRichTextArea.TestApp.Wpf/Eto.ExtendedRichTextArea.TestApp.Wpf.csproj" />
+  <Project Path="test/Eto.ExtendedRichTextArea.TestApp/Eto.ExtendedRichTextArea.TestApp.csproj" />
+  <Project Path="test/Eto.ExtendedRichTextArea.UnitTest/Eto.ExtendedRichTextArea.UnitTest.csproj" />
+</Solution>

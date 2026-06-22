@@ -1,0 +1,28 @@
+<Solution>
+  <Folder Name="/Eto/">
+    <Project Path="../Eto/lib/monomac/src/core.csproj" />
+    <Project Path="../Eto/lib/monomac/src/generator.csproj" />
+    <Project Path="../Eto/lib/monomac/src/MonoMac.csproj" />
+    <Project Path="../Eto/src/Eto.Gtk/Eto.Gtk.csproj" />
+    <Project Path="../Eto/src/Eto.Mac/Eto.Mac64.csproj" />
+    <Project Path="../Eto/src/Eto.Mac/Eto.macOS.csproj" />
+    <Project Path="../Eto/src/Eto.Wpf/Eto.Wpf.csproj" />
+    <Project Path="../Eto/src/Eto/Eto.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Eto.ExtendedRichTextArea.Mac/Eto.ExtendedRichTextArea.macOS.csproj" />
+    <Project Path="src/Eto.ExtendedRichTextArea.Mac/Eto.ExtendedRichTextArea.Mac64.csproj" />
+    <Project Path="src/Eto.ExtendedRichTextArea.Wpf/Eto.ExtendedRichTextArea.Wpf.csproj" />
+  </Folder>
+  <Project Path="src/Eto.ExtendedRichTextArea/Eto.ExtendedRichTextArea.csproj" />
+  <Project Path="test/Eto.ExtendedRichTextArea.TestApp.Gtk/Eto.ExtendedRichTextArea.TestApp.Gtk.csproj" />
+  <Project Path="test/Eto.ExtendedRichTextArea.TestApp.Mac/Eto.ExtendedRichTextArea.TestApp.Mac64.csproj" />
+  <Project Path="test/Eto.ExtendedRichTextArea.TestApp.Mac/Eto.ExtendedRichTextArea.TestApp.macOS.csproj" />
+  <Project Path="test/Eto.ExtendedRichTextArea.TestApp.Wpf/Eto.ExtendedRichTextArea.TestApp.Wpf.csproj" />
+  <Project Path="test/Eto.ExtendedRichTextArea.TestApp/Eto.ExtendedRichTextArea.TestApp.csproj" />
+  <Project Path="test/Eto.ExtendedRichTextArea.UnitTest/Eto.ExtendedRichTextArea.UnitTest.csproj" />
+</Solution>

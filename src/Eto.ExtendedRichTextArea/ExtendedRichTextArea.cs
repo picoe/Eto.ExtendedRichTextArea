@@ -1,7 +1,9 @@
 using Eto.Forms;
 using Eto.Drawing;
 using System;
+using System.Collections.ObjectModel;
 using Eto.ExtendedRichTextArea.Model;
+using Eto.ExtendedRichTextArea.SpellCheck;
 using System.ComponentModel;
 
 namespace Eto.ExtendedRichTextArea;
@@ -12,7 +14,9 @@ public class ExtendedRichTextArea : Scrollable
 	IEnumerable<IElement>? _selectionElements;
 	Attributes? _selectionAttributes;
 	Attributes? _lastSelectionAttributes;
-	
+	SpellCheckController? _spellCheckController;
+	SpellCheckOptions _spellCheckOptions = new SpellCheckOptions();
+
 	public event EventHandler<EventArgs>? DocumentChanged;
 
 	/// <summary>
@@ -65,6 +69,54 @@ public class ExtendedRichTextArea : Scrollable
 		}
 	}
 	
+	/// <summary>
+	/// Gets or sets the spell/grammar checking engine. Assigning a checker enables red squiggly
+	/// underlines under flagged text; setting it to null disables checking. The engine is pluggable
+	/// (see <see cref="ITextChecker"/>) so the host can supply Hunspell, a platform-native checker, etc.
+	/// </summary>
+	public ITextChecker? SpellChecker
+	{
+		get => _spellCheckController?.Checker;
+		set
+		{
+			if (value == null && _spellCheckController == null)
+				return;
+			_spellCheckController ??= new SpellCheckController(this);
+			_spellCheckController.Checker = value;
+		}
+	}
+
+	/// <summary>
+	/// Gets or sets the rendering and context-menu options for spell/grammar checking (squiggle pens
+	/// and shape, debounce interval, menu labels). Defaults to a fresh <see cref="SpellCheckOptions"/>,
+	/// so it can be configured by mutating it or by assigning a pre-built instance — in any order
+	/// relative to <see cref="SpellChecker"/>. Never null.
+	/// </summary>
+	public SpellCheckOptions SpellCheckOptions
+	{
+		get => _spellCheckOptions;
+		set
+		{
+			_spellCheckOptions = value ?? throw new ArgumentNullException(nameof(value));
+			// New pens/shape should take effect immediately if checking is already active.
+			if (_spellCheckController != null)
+				InvalidateContent();
+		}
+	}
+
+	// The controller is an internal implementation detail; the drawable uses it to inject
+	// spell-suggestion items into the context menu.
+	internal SpellCheckController? SpellCheckController => _spellCheckController;
+
+	/// <summary>
+	/// Gets the overlays painted on top of the text (after it, before the caret) — e.g. spell-check
+	/// squiggles. Add or remove an <see cref="ITextAdornment"/> to register a custom overlay; the
+	/// control repaints automatically when the collection changes.
+	/// </summary>
+	public Collection<ITextAdornment> Adornments => _drawable.Adornments;
+
+	internal void InvalidateContent() => _drawable.Invalidate(false);
+
 	/// <summary>
 	/// Gets or sets the placeholder document to show when the main document is empty.
 	/// This can be used to show a hint to the user of what to enter in the document.

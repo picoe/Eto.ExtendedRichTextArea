@@ -2,7 +2,10 @@
   
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0-macos</TargetFramework>
+    <TargetFramework>net10.0-macos</TargetFramework>
+    <!-- Match Info.plist's LSMinimumSystemVersion; otherwise the macos workload defaults to its
+         own (newer) version and bundle packaging fails with a plist/version mismatch. -->
+    <SupportedOSPlatformVersion>10.15</SupportedOSPlatformVersion>
 
     <RuntimeIdentifiers>osx-x64;osx-arm64</RuntimeIdentifiers>
     <IsPackable>false</IsPackable>
@@ -10,8 +13,9 @@
 	
   <ItemGroup>
     <ProjectReference Include="..\Eto.ExtendedRichTextArea.TestApp\Eto.ExtendedRichTextArea.TestApp.csproj" />
+    <ProjectReference Include="..\..\src\Eto.ExtendedRichTextArea.Mac\Eto.ExtendedRichTextArea.macOS.csproj" />
   </ItemGroup>
-	
+
   <ItemGroup Condition="$(UseLocalEto) != 'True'">
     <PackageReference Include="Eto.Platform.macOS" />
   </ItemGroup>

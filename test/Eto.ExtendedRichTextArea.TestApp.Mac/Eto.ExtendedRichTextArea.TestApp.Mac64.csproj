@@ -15,6 +15,7 @@
 	
   <ItemGroup>
     <ProjectReference Include="..\Eto.ExtendedRichTextArea.TestApp\Eto.ExtendedRichTextArea.TestApp.csproj" />
+    <ProjectReference Include="..\..\src\Eto.ExtendedRichTextArea.Mac\Eto.ExtendedRichTextArea.Mac64.csproj" />
   </ItemGroup>
 	
   <ItemGroup Condition="$(UseLocalEto) != 'True'">
@@ -23,6 +24,7 @@
 
 	<ItemGroup Condition="$(UseLocalEto) == 'True'">
 		<ProjectReference Include="$(LocalEtoPath)src\Eto.Mac\Eto.Mac64.csproj" />
+		<!-- <ProjectReference Include="$(LocalEtoPath)lib\monomac\src\MonoMac.csproj" /> -->
 	</ItemGroup>
   <Import Project="$(LocalEtoPath)\src\Eto.Mac\build\Mac.targets" Condition="$(UseLocalEto) == 'True'" />
 	

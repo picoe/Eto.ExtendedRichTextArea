@@ -1,0 +1,37 @@
+<Project>
+
+  <Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
+  
+  <Import Project="$(LocalEtoPath)\src\Eto.Mac\build\Mac.props" Condition="$(UseLocalEto) == 'True'" />
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+    <TreatWarningsAsErrors Condition="$(Configuration) == 'Release'">true</TreatWarningsAsErrors>
+    <Description>macOS spell/grammar checker for Eto.ExtendedRichTextArea, backed by NSSpellChecker.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Eto.ExtendedRichTextArea\Eto.ExtendedRichTextArea.csproj" />
+  </ItemGroup>
+
+  <!-- Shared internal helper, linked (not duplicated) so the all-caps/word rules stay in one source file. -->
+  <ItemGroup>
+    <Compile Include="..\Eto.ExtendedRichTextArea\SpellCheck\SpellCheckText.cs" Link="SpellCheckText.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(UseLocalEto) != 'True'">
+    <PackageReference Include="Eto.Platform.Mac64" />
+  </ItemGroup>
+
+	<ItemGroup Condition="$(UseLocalEto) == 'True'">
+		<ProjectReference Include="$(LocalEtoPath)src\Eto.Mac\Eto.Mac64.csproj" />
+	</ItemGroup>
+  
+  <Import Project="$(LocalEtoPath)\src\Eto.Mac\build\Mac.targets" Condition="$(UseLocalEto) == 'True'" />
+	
+  <Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />
+  
+</Project>

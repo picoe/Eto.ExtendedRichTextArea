@@ -8,6 +8,9 @@
   
   <ItemGroup>
     <ProjectReference Include="..\Eto.ExtendedRichTextArea.TestApp\Eto.ExtendedRichTextArea.TestApp.csproj" />
+    <!-- Platform spell-check companion: referenced only so it is deployed; Eto discovers and loads
+         it automatically. Application code uses the neutral SpellChecker widget, never this assembly. -->
+    <ProjectReference Include="..\..\src\Eto.ExtendedRichTextArea.Wpf\Eto.ExtendedRichTextArea.Wpf.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="$(UseLocalEto) != 'True'">

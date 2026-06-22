@@ -8,6 +8,7 @@ using System.Collections;
 using System.Linq;
 using Eto.ExtendedRichTextArea;
 using Eto.ExtendedRichTextArea.Model;
+using Eto.ExtendedRichTextArea.SpellCheck;
 using System.Linq.Expressions;
 using System.Net.Http.Headers;
 
@@ -19,6 +20,28 @@ public partial class MainForm : Form
 
 	readonly TreeGridView _structure = new();
 	readonly TreeGridView _lines = new();
+
+	// The canonical test sentence (mixes misspellings, a repeated word, and agreement/tense errors).
+	const string SpellTestSentence = "I beleive he have went to the the store, and then i seen him their.";
+
+	// All-caps line: misspelled words (SENTANCE, MISTAEKS) plus a real acronym (NASA) to confirm the
+	// "Check ALL CAPS" toggle only flags genuine misspellings, not acronyms.
+	const string SpellTestAllCapsSentence = "THIS SENTANCE HAS MISTAEKS BUT NASA IS SPELLED FINE.";
+
+	// Extra paragraphs with assorted spelling and/or grammar issues, sampled at random by the button.
+	static readonly string[] SpellTestParagraphs =
+	{
+		"Their going to recieve they're new furniture tomorow.",
+		"She dont have no time for mistakes like these ones.",
+		"We was hoping youll bring the the reciepts to the meetng.",
+		"Me and him goes to the libary every wendsday afternoon.",
+		"Its definately the most embarassing thing thats ever happend.",
+		"He could of finished it if he tryed alot more harder.",
+		"The dog runned across the feild while chaseing it's tail.",
+		"Your the the best freind that anyone could of ever wanted.",
+		"Theres to many cooks in this kichen agian tonite.",
+		"I should of went their but i was to tired last nite.",
+	};
 
 	(RectangleF bounds, Color color)? _highlightedBounds;
 
@@ -111,6 +134,50 @@ public partial class MainForm : Form
 	{
 		var checkBox = new CheckBox { Text = "Enabled" };
 		checkBox.CheckedBinding.Bind(RichTextArea, r => r.Enabled);
+		return checkBox;
+	}
+
+	CheckBox _allCapsCheckBox;
+
+	Control SpellCheckCheckBox()
+	{
+		var checkBox = new CheckBox { Text = "Spell Check" };
+		// The platform spell-check handler is resolved through Eto; disable the option when no
+		// companion assembly is available for the current platform.
+		if (!SpellChecker.IsSupported)
+		{
+			checkBox.Enabled = false;
+			checkBox.ToolTip = "No spell-check handler is available for this platform.";
+			return checkBox;
+		}
+		checkBox.CheckedChanged += (sender, e) =>
+		{
+			RichTextArea.SpellChecker = checkBox.Checked == true
+				? new SpellChecker { CheckUppercaseWords = _allCapsCheckBox?.Checked == true }
+				: null;
+			RichTextArea.Focus();
+		};
+		return checkBox;
+	}
+
+	Control AllCapsCheckBox()
+	{
+		var checkBox = new CheckBox { Text = "Check ALL CAPS" };
+		checkBox.ToolTip = "Also spell-check words written entirely in capitals (off by default; acronyms like NASA stay valid).";
+		_allCapsCheckBox = checkBox;
+		if (!SpellChecker.IsSupported)
+		{
+			checkBox.Enabled = false;
+			return checkBox;
+		}
+		checkBox.CheckedChanged += (sender, e) =>
+		{
+			// Apply to the live checker if one is assigned; otherwise it is picked up when spell-check is enabled.
+			var checker = RichTextArea.SpellChecker;
+			if (checker != null)
+				checker.CheckUppercaseWords = checkBox.Checked == true;
+			RichTextArea.Focus();
+		};
 		return checkBox;
 	}
 
@@ -300,6 +367,17 @@ public partial class MainForm : Form
 			RichTextArea.Focus();
 		};
 
+		var spellTestButton = new Button { Text = "Spelling Test" };
+		spellTestButton.Click += (sender, e) =>
+		{
+			var random = new Random();
+			// Always start with the canonical sentence, then append a random sample of error paragraphs.
+			var count = random.Next(2, SpellTestParagraphs.Length + 1);
+			var extras = SpellTestParagraphs.OrderBy(_ => random.Next()).Take(count);
+			RichTextArea.Document.Text = string.Join("\n", new[] { SpellTestSentence, SpellTestAllCapsSentence }.Concat(extras));
+			RichTextArea.Focus();
+		};
+
 		var insertImageButton = new Button { Text = "Insert Image" };
 		insertImageButton.Click += (sender, e) =>
 		{
@@ -466,8 +544,8 @@ public partial class MainForm : Form
 		var layout = new DynamicLayout { Padding = new Padding(10), DefaultSpacing = new Size(4, 4) };
 		layout.Styles.Add(null, (Label lbl) => lbl.VerticalAlignment = VerticalAlignment.Center);
 
-		layout.AddSeparateRow(insertRandomTextButton, setSelectedText, insertImageButton, insertListButton, clearButton, newDocumentButton, null);
-		layout.AddSeparateRow(CopyAsButton(), PasteAsButton(), ReadOnlyCheckBox(), EnabledCheckBox(), null);
+		layout.AddSeparateRow(insertRandomTextButton, spellTestButton, setSelectedText, insertImageButton, insertListButton, clearButton, newDocumentButton, null);
+		layout.AddSeparateRow(CopyAsButton(), PasteAsButton(), ReadOnlyCheckBox(), EnabledCheckBox(), SpellCheckCheckBox(), AllCapsCheckBox(), null);
 		layout.AddSeparateRow("Document:", "Wrap", WrapModeDropDown(), "Alignment", TextAlignmentDropDown(), null);
 		layout.AddSeparateRow("Paragraph:", "Wrap", ParagraphWrapModeDropDown(), "Alignment", ParagraphAlignmentDropDown(), null);
 		layout.AddSeparateRow(AttributeControls(), null);
