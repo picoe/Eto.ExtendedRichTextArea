@@ -4,7 +4,14 @@ namespace Eto.ExtendedRichTextArea.Commands;
 
 class PasteCommand : Command
 {
-	readonly TextAreaDrawable _textArea;
+	protected readonly TextAreaDrawable _textArea;
+
+	/// <summary>
+	/// When true, only the plain text on the clipboard is pasted, discarding any
+	/// formatted (HTML/RTF) representation.
+	/// </summary>
+	protected virtual bool PlainTextOnly => false;
+
 	public PasteCommand(TextAreaDrawable textArea)
 	{
 		MenuText = Application.Instance.Localize(typeof(ExtendedRichTextArea), "Paste");
@@ -23,13 +30,16 @@ class PasteCommand : Command
 		var clip = new Clipboard();
 		var range = _textArea.Selection ?? _textArea.Document.GetRange(_textArea.Caret.Index, 0);
 
-		foreach (var format in DocumentFormat.AllFormats)
+		if (!PlainTextOnly)
 		{
-			if (format.ReadDataObject(range, clip))
+			foreach (var format in DocumentFormat.AllFormats)
 			{
-				_textArea.Caret.SetIndex(range.End, false);
-				_textArea.SetSelection(null, true);
-				return;
+				if (format.ReadDataObject(range, clip))
+				{
+					_textArea.Caret.SetIndex(range.End, false);
+					_textArea.SetSelection(null, true);
+					return;
+				}
 			}
 		}
 

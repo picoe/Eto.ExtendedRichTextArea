@@ -103,6 +103,7 @@ partial class TextAreaDrawable : Drawable
 			menu.Items.Add(new CutCommand(this));
 			menu.Items.Add(new CopyCommand(this));
 			menu.Items.Add(new PasteCommand(this));
+			menu.Items.Add(new PasteWithoutFormattingCommand(this));
 		}
 		ContextMenu = menu;
 	}
