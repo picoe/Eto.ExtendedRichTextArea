@@ -28,10 +28,10 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore Eto.ExtendedRichTextArea.sln -p:UseLocalEto=False
+        run: dotnet restore Eto.ExtendedRichTextArea.slnx -p:UseLocalEto=False
 
       - name: Build
-        run: dotnet build Eto.ExtendedRichTextArea.sln --configuration Release --no-restore -p:UseLocalEto=False
+        run: dotnet build Eto.ExtendedRichTextArea.slnx --configuration Release --no-restore -p:UseLocalEto=False
 
       - name: Test
         run: dotnet test test/Eto.ExtendedRichTextArea.UnitTest/Eto.ExtendedRichTextArea.UnitTest.csproj --configuration Release --no-build -p:UseLocalEto=False
