@@ -16,7 +16,7 @@ jobs:
       matrix:
         os:
           - windows-latest
-          - macos-latest
+          - macos-26
 
     steps:
       - name: Checkout
@@ -26,6 +26,16 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      - name: Install macOS workload
+        if: runner.os == 'macOS'
+        run: dotnet workload restore Eto.ExtendedRichTextArea.slnx
+
+      - name: Setup Xcode
+        if: runner.os == 'macOS'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Restore
         run: dotnet restore Eto.ExtendedRichTextArea.slnx -p:UseLocalEto=False
