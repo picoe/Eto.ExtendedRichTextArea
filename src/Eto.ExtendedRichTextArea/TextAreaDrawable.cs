@@ -126,8 +126,20 @@ partial class TextAreaDrawable : Drawable
 			menu.Items.Add(new CopyCommand(this));
 			menu.Items.Add(new PasteCommand(this));
 			menu.Items.Add(new PasteWithoutFormattingCommand(this));
+			menu.Items.Add(new SeparatorMenuItem());
+			menu.Items.Add(CreateTransformationsMenu());
 		}
 		ContextMenu = menu;
+	}
+
+	// The case-change submenu a native macOS text view offers; the previous editor got it for free.
+	ButtonMenuItem CreateTransformationsMenu()
+	{
+		var item = new ButtonMenuItem { Text = Application.Instance.Localize(typeof(ExtendedRichTextArea), "Transformations") };
+		item.Items.Add(new ChangeCaseCommand(this, CaseTransform.Upper));
+		item.Items.Add(new ChangeCaseCommand(this, CaseTransform.Lower));
+		item.Items.Add(new ChangeCaseCommand(this, CaseTransform.Capitalize));
+		return item;
 	}
 
 	List<MenuItem>? _injectedSpellItems;
@@ -400,8 +412,11 @@ partial class TextAreaDrawable : Drawable
 	public bool CanRedo => DocumentState?.CanRedo ?? false;
 
 	public bool AlwaysShowSelection { get; internal set; }
+
 	public void SetAvailableSize(Size size)
 	{
+		if (size.Width <= 0 || size.Height <= 0)
+			return;
 		if (_document != null)
 			_document.AvailableSize = size;
 		if (_placeholder != null)
