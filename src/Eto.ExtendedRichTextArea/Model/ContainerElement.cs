@@ -234,7 +234,8 @@ public abstract class ContainerElement<T> : Collection<T>, IBlockElement
 				var element = this[i];
 				if (start <= element.Start)
 					continue;
-				if (start >= element.End && separatorLength > 0)
+				// separators only sit between elements, there is none after the last one
+				if (i < Count - 1 && start >= element.End && separatorLength > 0)
 				{
 					start -= separatorLength;
 					yield return (string.Empty, start);

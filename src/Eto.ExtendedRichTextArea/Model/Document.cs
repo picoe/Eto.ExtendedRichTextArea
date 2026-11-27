@@ -310,7 +310,8 @@ public class Document : BlockContainerElement<IBlockElement>
 		var words = EnumerateWords(start, false);
 		foreach (var word in words)
 		{
-			if (start > word.start + word.text.Length)
+			// the first word starting before the caret, including the word the caret is in or just after
+			if (start > word.start)
 				return word.start + Start;
 		}
 		return Start;

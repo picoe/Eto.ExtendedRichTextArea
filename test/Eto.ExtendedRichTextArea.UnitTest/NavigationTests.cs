@@ -31,6 +31,20 @@ public class NavigationTests : TestBase
 	[TestCase("Hello there fun\nWorld", 5, DocumentNavigationMode.NextWord, 6)]
 	[TestCase("Hello there fun\nWorld", 12, DocumentNavigationMode.NextWord, 15)]
 
+	[TestCase("Hello there fun", 15, DocumentNavigationMode.PreviousWord, 12)]
+	[TestCase("Hello there fun", 13, DocumentNavigationMode.PreviousWord, 12)]
+	[TestCase("Hello there fun", 12, DocumentNavigationMode.PreviousWord, 6)]
+	[TestCase("Hello there fun", 11, DocumentNavigationMode.PreviousWord, 6)]
+	[TestCase("Hello there fun", 6, DocumentNavigationMode.PreviousWord, 0)]
+	[TestCase("Hello there fun", 5, DocumentNavigationMode.PreviousWord, 0)]
+	[TestCase("Hello there fun", 0, DocumentNavigationMode.PreviousWord, 0)]
+	[TestCase("<> a few words", 14, DocumentNavigationMode.PreviousWord, 9)]
+	[TestCase("<> a few words", 9, DocumentNavigationMode.PreviousWord, 5)]
+	[TestCase("<> a few words", 5, DocumentNavigationMode.PreviousWord, 3)]
+	[TestCase("<> a few words", 3, DocumentNavigationMode.PreviousWord, 0)]
+	[TestCase("Hello\na b", 9, DocumentNavigationMode.PreviousWord, 8)]
+	[TestCase("Hello\na b", 8, DocumentNavigationMode.PreviousWord, 6)]
+
 	[TestCase("hello\x2028soft\x2028breaks", 0, DocumentNavigationMode.NextLine, 6)]
 	[TestCase("hello\x2028soft\x2028breaks", 2, DocumentNavigationMode.NextLine, 8)]
 

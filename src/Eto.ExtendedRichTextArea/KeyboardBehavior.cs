@@ -166,6 +166,14 @@ class KeyboardBehavior
 				_caret.Navigate(DocumentNavigationMode.EndOfLine);
 				e.Handled = true;
 				break;
+			case Keys.Control | Keys.Right:
+				_caret.Navigate(DocumentNavigationMode.NextWord);
+				e.Handled = true;
+				break;
+			case Keys.Control | Keys.Left:
+				_caret.Navigate(DocumentNavigationMode.PreviousWord);
+				e.Handled = true;
+				break;
 		}
 	}
 
@@ -226,6 +234,27 @@ class KeyboardBehavior
 		}
 	}
 	
+	// Deletes the selection if there is one, otherwise from the caret to the previous or next word boundary.
+	void DeleteWord(DocumentNavigationMode mode)
+	{
+		int start, end;
+		if (_textArea.Selection?.Length > 0)
+		{
+			start = _textArea.Selection.Start;
+			end = _textArea.Selection.End;
+		}
+		else
+		{
+			var target = Document.Navigate(_caret.Index, mode);
+			start = Math.Min(_caret.Index, target);
+			end = Math.Max(_caret.Index, target);
+		}
+		if (end > start)
+			Document.RemoveAt(start, end - start);
+		_caret.SetIndex(start, false);
+		_textArea.SetSelection(null, true);
+	}
+
 	private void TextArea_KeyDown_Manipulation(KeyEventArgs e)
 	{
 		if (_textArea.ReadOnly)
@@ -264,6 +293,17 @@ class KeyboardBehavior
 					_textArea.Document.RemoveAt(_caret.Index, end - _caret.Index);
 					_textArea.SetSelection(null, true);
 				}
+				e.Handled = true;
+				break;
+			// delete by word: Option on macOS, Ctrl elsewhere (Cmd+Backspace on macOS means delete to line start)
+			case Keys.Alt | Keys.Backspace when _textArea.Platform.IsMac:
+			case Keys.Control | Keys.Backspace when !_textArea.Platform.IsMac:
+				DeleteWord(DocumentNavigationMode.PreviousWord);
+				e.Handled = true;
+				break;
+			case Keys.Alt | Keys.Delete when _textArea.Platform.IsMac:
+			case Keys.Control | Keys.Delete when !_textArea.Platform.IsMac:
+				DeleteWord(DocumentNavigationMode.NextWord);
 				e.Handled = true;
 				break;
 			case Keys.Enter:
