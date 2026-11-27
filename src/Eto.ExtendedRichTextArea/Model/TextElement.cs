@@ -198,7 +198,7 @@ public class TextElement : IInlineElement
 				if (last == -1)
 					last = i;
 			}
-			if (last != -1 && last > 0)
+			if (last != -1)
 				yield return (text.Substring(0, last + 1), 0);
 		}
 	}
